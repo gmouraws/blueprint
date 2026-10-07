@@ -60,4 +60,6 @@ The security policy restricts embedding, objects, and base URLs. It does not cla
 
 ## Release hygiene
 
+Post-build verification uses the Next.js prerender manifest to require all public routes and metadata routes to remain static, reject unpublished route output, and forbid runtime fallback paths. It discovers rendered artifacts recursively under the server build output, matching pages by canonical URL and metadata responses by content rather than guessing filenames. Indexing, exact sitemap URLs, robots, the published-only registry, and source isolation in output file traces remain mandatory. CI also builds with a provider-neutral test adapter to exercise Next.js's alternate output layout. A missing artifact or unsupported manifest fails verification rather than silently skipping a check.
+
 Build output, the generated registry, browser screenshots/reports, next-env.d.ts, .vercel/, and environment files are ignored. `npm run typecheck` runs `next typegen` before TypeScript, so generated declarations are available from a clean checkout. Next.js automatic agent-rule generation is disabled to preserve the repository-owned AGENTS.md. The committed social.png is an intentional sharing asset derived from social.svg, not a test screenshot.

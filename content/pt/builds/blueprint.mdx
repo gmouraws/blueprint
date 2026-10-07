@@ -8,7 +8,7 @@ summary: "Um laboratório de engenharia bilíngue baseado em trabalho original e
 publication: PUBLISHED
 status: BUILDING
 translationOf: BUILD-001
-sourceRevision: cf7f850df49bdb8b4d83af75ce6335091d3fbd8e75d084dd8dc66de6a1bcdf90
+sourceRevision: 96ae553de363e02c86b78832d88ced3a3d7257d5c04cd85f53793bd1b66d8d54
 ---
 
 ## A pergunta
@@ -33,3 +33,11 @@ Um único registro validado de conteúdo conecta rotas de artigos, listagens, tr
 O Blueprint está em implementação. O deploy de produção e o lançamento público continuam pendentes. Esta nota não afirma resultados de performance, experimentos concluídos ou resultados de deploy.
 
 Veja [o propósito do laboratório](/pt/about) e [a nota sobre organização de repositórios](/pt/notes/designing-repositories-for-ai-agents).
+
+## Engineering Log
+
+### Primeiro deploy de produção — resolução pendente
+
+O primeiro deploy de produção na Vercel falhou depois que o Next.js concluiu a geração das rotas estáticas. A falha ocorreu na verificação personalizada de output após o build do Blueprint: ela esperava `.next/server/app/index.html`, um caminho interno fixo de output do Next.js que não estava presente no ambiente de build da Vercel.
+
+A lição de engenharia é que verificações personalizadas não devem depender de caminhos de output do framework que não sejam documentados ou que variem conforme o ambiente. A resolução continua pendente até que o fix seja implantado com sucesso.

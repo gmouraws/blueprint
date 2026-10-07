@@ -27,6 +27,7 @@ jobs:
         run: npm run build
         env:
           VERCEL_ENV: production
+          NEXT_ADAPTER_PATH: ${{ github.workspace }}/tests/fixtures/verification-adapter.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: failure()
         with:
