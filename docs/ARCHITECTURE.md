@@ -95,6 +95,12 @@ Before production readiness:
 - avoid unnecessary tracking;
 - collect no personal data in v1 unless separately approved.
 
+### Approved implementation amendment
+
+Vercel Web Analytics is approved as the minimal initial analytics integration. Metrics remain private; no advertising analytics, Google Analytics, custom events, or public visitor counter are permitted. See ADR-006 for boundaries and provider-policy review. The application adds no forms or account data collection.
+
+Implementation details and operating commands are documented in `docs/IMPLEMENTATION.md`. ADRs 005–007 record newly accepted content, routing, analytics, presentation, and quality decisions.
+
 ## Future architecture
 
 Search, analytics expansion, feeds, interactive experiments, APIs, databases, and AI/RAG may be introduced only when a concrete product requirement justifies them.

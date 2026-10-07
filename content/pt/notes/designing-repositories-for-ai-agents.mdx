@@ -1,0 +1,38 @@
+---
+id: NOTE-002
+kind: notes
+locale: pt-BR
+slug: designing-repositories-for-ai-agents
+title: "Organizando repositórios de software para AI coding agents"
+summary: "Contexto explícito, autonomia delimitada e mudanças verificáveis em um repositório simples."
+publication: PUBLISHED
+translationOf: NOTE-002
+sourceRevision: ad056e796fefcb9861750dd7375c16e2e5b85938d95078d23698e27db1d2bff7
+---
+
+## Explicitar a fonte de verdade
+
+O Blueprint trata seu próprio repositório como contexto autoritativo. AGENTS.md define a missão e os limites de atuação; os documentos de produto e arquitetura definem o sistema pretendido. ADRs preservam decisões relevantes.
+
+## Delimitar a tarefa
+
+Uma tarefa útil descreve o comportamento desejado, os limites e as evidências necessárias para sua conclusão. No Blueprint, isso inclui rotas bilíngues, conteúdo estático, acessibilidade e confidencialidade.
+
+## Manter a verificação por perto
+
+As verificações de qualidade devem ser reproduzíveis a partir de um checkout limpo. Um conjunto pequeno de comandos torna a revisão concreta:
+
+```sh
+npm ci
+npm run check
+npm run build
+npm run test:e2e
+```
+
+Testes verificam comportamento; a revisão humana avalia afirmações editoriais e a origem do material. Uma não substitui a outra.
+
+## Preservar decisões
+
+Registrar escolhas relevantes de arquitetura e seus trade-offs. Manter as orientações para agentes concisas o suficiente para serem lidas e atualizá-las quando uma decisão aprovada mudar. Não adicionar mecanismos apenas porque um agente consegue gerá-los.
+
+Estas são práticas de organização de repositório adotadas para o Blueprint, não afirmações medidas sobre produtividade de agentes.

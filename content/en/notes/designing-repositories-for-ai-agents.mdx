@@ -1,0 +1,36 @@
+---
+id: NOTE-002
+kind: notes
+locale: en
+slug: designing-repositories-for-ai-agents
+title: "Designing Software Repositories for AI Coding Agents"
+summary: "Explicit context, bounded autonomy, and verifiable changes in a small repository."
+publication: PUBLISHED
+---
+
+## Make the source of truth explicit
+
+Blueprint treats its own repository as the authoritative context. AGENTS.md defines the mission and operating boundaries; product and architecture documents define the intended system. ADRs preserve consequential decisions.
+
+## Bound the task
+
+A useful task states the desired behavior, the constraints, and the evidence required for completion. For Blueprint, that includes bilingual routes, static content, accessibility, and confidentiality.
+
+## Keep verification close
+
+Quality checks should be reproducible from a fresh checkout. A small set of commands makes review concrete:
+
+```sh
+npm ci
+npm run check
+npm run build
+npm run test:e2e
+```
+
+Tests verify behavior; human review evaluates editorial claims and provenance. Neither replaces the other.
+
+## Preserve decisions
+
+Record meaningful architectural choices with their trade-offs. Keep agent guidance concise enough to read, and update it when an approved decision changes. Do not add machinery merely because an agent can generate it.
+
+These are repository design practices adopted for Blueprint, not measured claims about agent productivity.
