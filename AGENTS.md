@@ -16,6 +16,17 @@ Never infer personal or professional facts from unrelated repositories, workspac
 
 Public documentation and public open-source material may be consulted when needed.
 
+## Repository Identity and Isolation
+
+- The only GitHub repository authorized for Blueprint is `gmouraws/blueprint`.
+- The canonical remote is `https://github.com/gmouraws/blueprint.git`.
+- Blueprint agents must never push, create branches, open pull requests, create issues, or perform any other write operation against Curadel, employer, client, professional, or unrelated repositories or GitHub organizations.
+- Repositories or organizations associated with `gemoura-curadel` are not part of Blueprint and must never be used for Blueprint work.
+- Do not infer repository ownership or destination from globally configured Git credentials, GitHub accounts, previously used repositories, neighboring workspaces, or other projects.
+- Before any remote write operation, verify that the target repository is exactly `gmouraws/blueprint`.
+- If the configured remote does not resolve to `gmouraws/blueprint`, stop and report the mismatch instead of attempting to fix, push, or continue against another repository.
+- Reading or inspecting unrelated/private repositories for Blueprint context is also prohibited by the professional-content isolation rules below.
+
 ## Confidentiality and professional-content isolation
 
 Never publish, reconstruct, infer, or reference:
