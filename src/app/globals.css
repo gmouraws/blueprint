@@ -36,7 +36,11 @@ h1, h2, h3 { line-height: 1.15; letter-spacing: -.035em; font-weight: 600; overf
 .featured h2 a { text-decoration: none; }
 .featured p:not(.eyebrow) { color: var(--color-muted); max-width: 440px; }
 .entry-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; color: #b6c9e3; }
-.status { font-size: .75rem; border: 1px solid #3e5675; padding: 2px 9px; color: #c4d5ed; }
+.status { display: inline-flex; align-items: center; gap: .5rem; font-size: .75rem; border: 1px solid #3e5675; padding: 2px 9px; color: #c4d5ed; }
+.status-dot { width: .4rem; height: .4rem; flex: none; border-radius: 50%; background: var(--color-muted); }
+.status[data-build-status="LIVE"] .status-dot { background: #7bc995; }
+.status[data-build-status="BUILDING"] .status-dot { background: #e4b866; }
+.status[data-build-status="PLANNED"] .status-dot { background: #8ab8ff; }
 .text-link { display: inline-block; color: #9dc3ff; font-size: .875rem; margin-top: 12px; }
 .blueprint-drawing { border-left: 1px solid var(--line); background-image: linear-gradient(#2f81f70c 1px, transparent 1px), linear-gradient(90deg,#2f81f70c 1px,transparent 1px); background-size: 24px 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 22px; }
 .diagram-label { color: #a3b2c6; font: .65rem monospace; letter-spacing: .1em; }

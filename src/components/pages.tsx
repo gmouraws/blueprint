@@ -7,7 +7,9 @@ import { entryUrl, getEntry, listing, type Entry } from '@/lib/content';
 import { words, pathFor, type Locale, type Section } from '@/lib/i18n';
 
 function Status({ entry, locale }: { entry: Entry; locale: Locale }) {
-  return entry.status ? <span className="status"><span aria-hidden="true">◦</span> {words[locale].statuses[entry.status]}</span> : null;
+  if (!entry.status) return null;
+  const isBuild = entry.kind === 'builds';
+  return <span className="status" data-build-status={isBuild ? entry.status : undefined}><span aria-hidden="true" className={isBuild ? 'status-dot' : undefined}>{isBuild ? null : '◦'}</span>{words[locale].statuses[entry.status]}</span>;
 }
 function Rows({ entries, locale }: { entries: Entry[]; locale: Locale }) {
   const w = words[locale];

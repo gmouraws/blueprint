@@ -62,6 +62,8 @@ The interface may use lab vocabulary such as:
 
 Stable identifiers such as `BUILD-001` are part of the visual identity.
 
+Build lifecycle statuses use a small static dot beside a visible localized label: green for LIVE, amber for BUILDING, blue for PLANNED, and muted for ARCHIVED. Color supplements the text; dots are hidden from assistive technology. BUILD-001 remains BUILDING until production at blueprint.app.br is successfully verified.
+
 ## Layout
 
 The home page should prioritize:
