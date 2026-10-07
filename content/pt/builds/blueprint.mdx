@@ -34,10 +34,10 @@ O Blueprint está em implementação. O deploy de produção e o lançamento pú
 
 Veja [o propósito do laboratório](/pt/about) e [a nota sobre organização de repositórios](/pt/notes/designing-repositories-for-ai-agents).
 
-## Engineering Log
+## Log de engenharia
 
 ### Primeiro deploy de produção — resolução pendente
 
 O primeiro deploy de produção na Vercel falhou depois que o Next.js concluiu a geração das rotas estáticas. A falha ocorreu na verificação personalizada de output após o build do Blueprint: ela esperava `.next/server/app/index.html`, um caminho interno fixo de output do Next.js que não estava presente no ambiente de build da Vercel.
 
-A lição de engenharia é que verificações personalizadas não devem depender de caminhos de output do framework que não sejam documentados ou que variem conforme o ambiente. A resolução continua pendente até que o fix seja implantado com sucesso.
+A lição de engenharia é que verificações personalizadas não devem depender de caminhos de output do framework que não sejam documentados ou que variem conforme o ambiente. A resolução continua pendente até que a correção seja implantada com sucesso.
