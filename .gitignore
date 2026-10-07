@@ -68,7 +68,6 @@ web_modules/
 # dotenv environment variable files
 .env
 .env.*
-!.env.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -77,6 +76,8 @@ web_modules/
 # Next.js build output
 .next
 out
+next-env.d.ts
+.vercel/
 
 # Nuxt.js build / generate output
 .nuxt
@@ -144,6 +145,10 @@ vite.config.ts.timestamp-*
 
 # Astro generated types
 .astro/
+
+playwright-report/
+test-results/
+.generated/
 
 # Turbo Repo
 .turbo

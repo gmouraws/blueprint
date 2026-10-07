@@ -1,0 +1,33 @@
+---
+id: BUILD-001
+kind: builds
+locale: en
+slug: blueprint
+title: "Blueprint"
+summary: "A bilingual engineering lab built around original work and documented decisions."
+publication: PUBLISHED
+status: BUILDING
+---
+
+## The question
+
+How can a personal lab make engineering decisions visible without becoming a résumé? Blueprint organizes its public work into Builds, Experiments, and Notes.
+
+## Architecture
+
+The approved v1 uses Next.js, TypeScript, Tailwind CSS, and repository-owned MDX. Public content is generated at build time. English is the source language; reviewed pt-BR translations live under `/pt`.
+
+A single validated content registry connects article routes, listings, translations, and SEO metadata. No database, authentication, or CMS is required for v1.
+
+## Decisions and trade-offs
+
+- Static generation favors simple deployment and reviewable content. Content updates require a new build.
+- Repository-owned MDX keeps changes visible in pull requests. Authors must review MDX as build input.
+- Translation happens during authoring, preserving technical names and code. English publication does not depend on translation availability.
+- Vercel Web Analytics is the approved minimal analytics solution. Metrics stay private.
+
+## Current boundary
+
+Blueprint is in implementation. Production deployment and the public launch remain pending. This entry does not claim measured performance, completed experiments, or deployment results.
+
+See [the lab's purpose](/about) and [the repository design note](/notes/designing-repositories-for-ai-agents).

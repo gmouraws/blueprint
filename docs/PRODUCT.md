@@ -63,6 +63,7 @@ Blueprint itself is `BUILD-001`.
 The first public release should contain:
 
 - **BUILD-001 — Blueprint**
+- **BUILD-002 — ClinDevLab** — approved early exploration, PLANNED; no implemented application or final scope.
 - **EXP-001 — Building with an AI Coding Agent**
 - **NOTE-001 — Why an Engineering Lab Instead of a Portfolio**
 - **NOTE-002 — Designing Software Repositories for AI Coding Agents**
