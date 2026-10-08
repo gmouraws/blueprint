@@ -38,4 +38,4 @@ See [the lab's purpose](/about) and [the repository design note](/notes/designin
 
 The first Vercel production deployment failed after Next.js completed static route generation. The failure occurred in Blueprint's custom post-build output verification: it expected `.next/server/app/index.html`, a fixed internal Next.js output path that was not present in the Vercel build environment.
 
-The engineering lesson is that custom verification should not depend on undocumented or environment-specific framework output paths. Resolution remains pending until the fix is successfully deployed.
+The engineering lesson is that custom verification should not depend on undocumented or environment-specific framework output paths. Resolution remains pending until the corrected production deployment and the custom domain blueprint.app.br over HTTPS are successfully verified.

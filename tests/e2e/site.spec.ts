@@ -22,6 +22,26 @@ test('article language switch preserves equivalent page', async ({page}) => {
   await page.goto('/builds/blueprint'); await page.getByRole('link', {name: 'Change language: Português'}).click();
   await expect(page).toHaveURL(/\/pt\/builds\/blueprint$/);
 });
+
+test('Planes brand and favicon load in both languages and at small sizes', async ({page, request}) => {
+  for (const route of ['/', '/pt']) {
+    await page.goto(route);
+    await expect(page.locator('.brand')).toHaveAccessibleName(/Blueprint/);
+    await expect(page.locator('.brand-mark')).toHaveAttribute('alt', '');
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/icon.svg');
+    expect(await page.locator('.brand-mark').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+    await page.goto(`${route === '/' ? '' : route}/builds/blueprint`);
+    await expect(page.locator('.article-heading .status')).toHaveText(route === '/' ? 'Building' : 'Em construção');
+    await expect(page.locator('.prose')).toContainText(route === '/' ? 'Resolution remains pending' : 'A resolução continua pendente');
+    await expect(page.locator('.prose')).toContainText('HTTPS');
+  }
+  const icon = await request.get('/icon.svg');
+  expect(icon.headers()['content-type']).toContain('image/svg+xml');
+  const origin = new URL(page.url()).origin;
+  await page.setContent(`<body style="background:#07111f;color:#e8eef7;font-family:monospace;padding:32px"><h1>Blueprint Planes / icon scale review</h1>${[16,24,32,42,128].map(size => `<div style="display:inline-block;margin:24px"><p>${size}px</p><img src="${origin}/icon.svg" width="${size}" height="${size}" alt="Blueprint Planes at ${size}px"></div>`).join('')}</body>`);
+  await page.locator('img').evaluateAll(async images => { await Promise.all(images.map(img => (img as HTMLImageElement).decode())); });
+  await page.screenshot({path:'test-results/review-icons.png'});
+});
 for (const locale of ['en', 'pt-BR'] as const) {
   test(`planned ClinDevLab build and lifecycle indicators in ${locale}`, async ({page}) => {
     const prefix = locale === 'en' ? '' : '/pt';

@@ -58,6 +58,10 @@ Blueprint v1 has human visual review and release approval. The following checks 
 
 The security policy restricts embedding, objects, and base URLs. It does not claim a complete script CSP; nonce-based rendering would add complexity to a static site. No remote content, account system, or form is implemented.
 
+## Final launch editorial update
+
+BUILD-001 remains BUILDING, and the first deployment incident remains pending. After a human verifies the corrected production deployment and blueprint.app.br over HTTPS, make a small follow-up content change in both BUILD-001 files: set status to LIVE, update Current boundary, and record the verified resolution in Engineering Log. Include only observed verification facts; do not invent a timestamp or metrics. Review pt-BR, regenerate sourceRevision, and run the quality gates. Lifecycle rendering already supports LIVE across the home feature, listings, and article; no implementation or deployment configuration change is needed.
+
 ## Release hygiene
 
 Post-build verification uses the Next.js prerender manifest to require all public routes and metadata routes to remain static, reject unpublished route output, and forbid runtime fallback paths. It discovers rendered artifacts recursively under the server build output, matching pages by canonical URL and metadata responses by content rather than guessing filenames. Indexing, exact sitemap URLs, robots, the published-only registry, and source isolation in output file traces remain mandatory. CI also builds with a provider-neutral test adapter to exercise Next.js's alternate output layout. A missing artifact or unsupported manifest fails verification rather than silently skipping a check.
