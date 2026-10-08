@@ -6,6 +6,14 @@ import { z } from 'zod';
 import { sections, pathFor, type Locale, type Section } from './i18n';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s => !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s);
+const evidence = z.object({
+  label: z.string().trim().min(1).max(120),
+  basis: z.enum(['public', 'self-documented']),
+  url: z.url().refine(value => {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password;
+  }, 'Evidence links must use HTTPS without credentials').optional(),
+}).strict().refine(item => item.basis !== 'public' || !!item.url, 'Public evidence requires a URL');
 const schema = z.object({
   id: z.string().regex(/^(BUILD|EXP|NOTE)-\d{3}$/),
   kind: z.enum(sections), locale: z.enum(['en', 'pt-BR']),
@@ -15,6 +23,7 @@ const schema = z.object({
   status: z.enum(['PLANNED', 'BUILDING', 'LIVE', 'ARCHIVED', 'RUNNING', 'COMPLETED', 'FAILED']).optional(),
   publishedAt: date.optional(), updatedAt: date.optional(),
   tags: z.array(z.string().min(1)).default([]),
+  evidence: z.array(evidence).min(1).max(8).optional(),
   translationOf: z.string().optional(), sourceRevision: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 }).strict();
 export type Entry = z.infer<typeof schema> & { body: string; revision: string; stale: boolean };
@@ -30,6 +39,7 @@ export function validateEntries(files: { source: string; locale: Locale; kind: S
     if (!data.id.startsWith(prefix)) throw new Error(`ID kind mismatch: ${data.id}`);
     const statuses = data.kind === 'builds' ? ['PLANNED', 'BUILDING', 'LIVE', 'ARCHIVED'] : ['PLANNED', 'RUNNING', 'COMPLETED', 'FAILED', 'ARCHIVED'];
     if (data.kind === 'notes' ? data.status !== undefined : !data.status || !statuses.includes(data.status)) throw new Error(`Invalid lifecycle: ${data.id}`);
+    if (data.evidence && data.kind !== 'builds') throw new Error(`Evidence belongs to Builds: ${data.id}`);
     if (data.updatedAt && data.publishedAt && data.updatedAt < data.publishedAt) throw new Error(`Invalid date order: ${data.id}`);
     if (data.locale === 'en' && (data.translationOf || data.sourceRevision)) throw new Error(`English cannot be a translation: ${data.id}`);
     return { ...data, body: match[2], revision: revisionOf(file.source), stale: false };
@@ -46,6 +56,8 @@ export function validateEntries(files: { source: string; locale: Locale; kind: S
     const source = entries.find(s => s.locale === 'en' && s.id === e.translationOf);
     if (!source || source.id !== e.id || source.slug !== e.slug || source.kind !== e.kind || source.status !== e.status || !e.sourceRevision) throw new Error(`Invalid translation: ${e.id}`);
     if (e.publication === 'PUBLISHED' && source.publication !== 'PUBLISHED') throw new Error(`Translation source is draft: ${e.id}`);
+    const evidenceTargets = (entry: Entry) => entry.evidence?.map(({basis, url}) => ({basis, url}));
+    if (JSON.stringify(evidenceTargets(e)) !== JSON.stringify(evidenceTargets(source))) throw new Error(`Translation evidence mismatch: ${e.id}`);
     e.stale = source.revision !== e.sourceRevision;
   }
   return entries;

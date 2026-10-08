@@ -16,6 +16,10 @@ Use DRAFT/PUBLISHED publication values. Build states are PLANNED/BUILDING/LIVE/A
 
 Translations reference the same stable ID and a SHA-256 fingerprint of the entire English file, normalizing CRLF to LF. A stale translation fails content validation until a human reviews it and updates the fingerprint or removes it from publication. Missing translations do not block English publication.
 
+### Launch refinement amendment
+
+Builds may carry a small optional evidence list in the existing validated frontmatter: label, public/self-documented basis, and HTTPS URL when available. Public entries require a link; translations preserve basis and destinations. Render these as static supporting material, with no verification service or certification claims. This keeps provenance review in the same content workflow rather than introducing a publishing platform.
+
 ## Consequences
 
 Metadata, listings, routes, and SEO share the same published registry. Slugs are identical across languages. Missing Portuguese articles link to English from Portuguese listings; the article switcher links to the target-language section with an explanatory message. Localized pages self-canonicalize; English remains the editorial source.
