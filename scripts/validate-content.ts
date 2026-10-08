@@ -8,7 +8,7 @@ const files = (['en', 'pt-BR'] as const).flatMap(locale => sections.flatMap(kind
 }));
 const entries = validateEntries(files);
 const published = entries.filter(e => e.publication === 'PUBLISHED');
-const paths = new Set(['/', '/builds', '/experiments', '/notes', '/about', '/pt', '/pt/builds', '/pt/experiments', '/pt/notes', '/pt/about', ...published.map(entryUrl)]);
+const paths = new Set(['/', '/builds', '/experiments', '/notes', '/about', '/privacy', '/pt', '/pt/builds', '/pt/experiments', '/pt/notes', '/pt/about', '/pt/privacy', ...published.map(entryUrl)]);
 for (const e of entries) {
   if (e.stale && e.publication === 'PUBLISHED') throw new Error(`Translation requires review: ${e.id}`);
   if (e.publication !== 'PUBLISHED') continue;

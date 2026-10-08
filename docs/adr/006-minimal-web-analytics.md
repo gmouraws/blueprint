@@ -12,7 +12,7 @@ Use `@vercel/analytics/next` only when VERCEL_ENV is production. Keep metrics pr
 
 ## Consequences
 
-Local and preview builds have no analytics component. Production requires enabling Web Analytics in the eventual Vercel project; this implementation does not configure that project. About explains the integration in both languages.
+Local and preview builds have no analytics component. Production requires enabling Web Analytics in the eventual Vercel project; this implementation does not configure that project. The integration is disclosed in both languages. [ADR-008](008-technical-editorial-presentation.md) moves that disclosure from About to dedicated Privacy pages without changing analytics behavior.
 
 Vercel describes its implementation as cookie-free and documents the data it processes. This does not establish a blanket legal exemption: the owner should review the current provider policy and applicable requirements before enabling production analytics. No legal conclusion is claimed here.
 

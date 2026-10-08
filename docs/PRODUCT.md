@@ -42,7 +42,8 @@ Public sections:
 - `/builds` — substantial things being built
 - `/experiments` — bounded technical investigations and prototypes
 - `/notes` — technical writing and engineering notes
-- `/about` — short personal context about the lab
+- `/about` — editorial introduction to Guilherme and the lab
+- `/privacy` — privacy disclosure, accessible from the footer
 
 Portuguese equivalents live under `/pt`.
 
@@ -77,10 +78,14 @@ English is canonical. Portuguese is a localized reading experience, not a separa
 
 Routes:
 
-- `/`, `/builds`, `/experiments`, `/notes`, `/about`
-- `/pt`, `/pt/builds`, `/pt/experiments`, `/pt/notes`, `/pt/about`
+- `/`, `/builds`, `/experiments`, `/notes`, `/about`, `/privacy`
+- `/pt`, `/pt/builds`, `/pt/experiments`, `/pt/notes`, `/pt/about`, `/pt/privacy`
 
 A content item may temporarily exist only in English. The Portuguese experience must communicate that state cleanly rather than block publication.
+
+## Approved About identity
+
+Guilherme Moura · Software Engineer · Brazil. The About page introduces Blueprint through the approved statement: “I build software and use Blueprint to document the engineering behind it.” This does not authorize additional biography, employment history, or inferred social-profile URLs.
 
 ## Non-goals for v1
 

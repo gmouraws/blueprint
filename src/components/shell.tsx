@@ -9,16 +9,16 @@ import { publishedEntries, entryUrl } from '@/lib/content';
 export function Shell({ locale, children }: { locale: Locale; children: ReactNode }) {
   const w = words[locale];
   const otherLocale = locale === 'en' ? 'pt-BR' : 'en';
-  const availablePaths = ['', 'builds', 'experiments', 'notes', 'about'].map(segment => pathFor(otherLocale, segment)).concat(publishedEntries().filter(e => e.locale === otherLocale).map(entryUrl));
+  const availablePaths = ['', 'builds', 'experiments', 'notes', 'about', 'privacy'].map(segment => pathFor(otherLocale, segment)).concat(publishedEntries().filter(e => e.locale === otherLocale).map(entryUrl));
   return <html lang={locale}><body>
     <a className="skip" href="#main">{w.skip}</a>
     <header className="site-header"><div className="container header-inner">
-      <Link className="brand" href={pathFor(locale)}><Image className="brand-mark" src="/brand-mark.svg" width={42} height={42} alt="" aria-hidden="true" unoptimized loading="eager" /><span>Blueprint<span className="brand-caption">{w.lab}</span></span></Link>
+      <Link className="brand" href={pathFor(locale)}><Image className="brand-mark" src="/brand-mark.svg" width={32} height={32} alt="" aria-hidden="true" unoptimized loading="eager" /><span>Blueprint<span className="brand-caption">{w.lab}</span></span></Link>
       <div className="header-controls"><nav aria-label={w.nav}><ul>{(['builds', 'experiments', 'notes', 'about'] as const).map(s => <li key={s}><Link href={pathFor(locale, s)}>{w[s]}</Link></li>)}</ul></nav>
       <LanguageSwitcher locale={locale} availablePaths={availablePaths} label={w.language} missing={w.missing} /></div>
     </div></header>
     <main id="main" className="container" tabIndex={-1}>{children}</main>
-    <footer className="container footer"><span>Blueprint · Guilherme Moura</span><Link href={pathFor(locale, 'about')}>{w.about} / {w.privacy}</Link></footer>
+    <footer className="container footer"><span>Blueprint · Guilherme Moura</span><div className="footer-links"><Link href={pathFor(locale, 'about')}>{w.about}</Link><Link href={pathFor(locale, 'privacy')}>{w.privacy}</Link></div></footer>
     {isProduction && <WebAnalytics />}
   </body></html>;
 }
