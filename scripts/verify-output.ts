@@ -73,7 +73,7 @@ export function verifyOutput({ buildDirectory, routes, production }: { buildDire
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const entries = allEntries();
   assert.ok(entries.every(entry => entry.publication === 'PUBLISHED'), 'Unpublished content in deployment registry');
-  const routes = ['/', '/builds', '/experiments', '/notes', '/about', '/pt', '/pt/builds', '/pt/experiments', '/pt/notes', '/pt/about', ...entries.map(entryUrl)];
+  const routes = ['/', '/builds', '/experiments', '/notes', '/about', '/privacy', '/pt', '/pt/builds', '/pt/experiments', '/pt/notes', '/pt/about', '/pt/privacy', ...entries.map(entryUrl)];
   const production = process.env.VERCEL_ENV === 'production';
   verifyOutput({ buildDirectory: '.next', routes, production });
   console.log(`Verified ${routes.length} static public routes, ${production ? 'production' : 'preview'} indexing policy, sitemap, robots, and draft source isolation.`);

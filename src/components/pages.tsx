@@ -4,32 +4,41 @@ import { MDXRemote } from 'next-mdx-remote/rsc';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSlug from 'rehype-slug';
 import { entryUrl, getEntry, listing, type Entry } from '@/lib/content';
-import { words, pathFor, type Locale, type Section } from '@/lib/i18n';
+import { words, pathFor, sections, type Locale, type Section } from '@/lib/i18n';
 
 function Status({ entry, locale }: { entry: Entry; locale: Locale }) {
   if (!entry.status) return null;
   const isBuild = entry.kind === 'builds';
   return <span className="status" data-build-status={isBuild ? entry.status : undefined}><span aria-hidden="true" className={isBuild ? 'status-dot' : undefined}>{isBuild ? null : '◦'}</span>{words[locale].statuses[entry.status]}</span>;
 }
-function Rows({ entries, locale }: { entries: Entry[]; locale: Locale }) {
+function Rows({ entries, locale, featuredId, headingLevel = 3 }: { entries: Entry[]; locale: Locale; featuredId?: string; headingLevel?: 2 | 3 }) {
   const w = words[locale];
-  return entries.length ? <ul className="entry-list">{entries.map(e => <li key={e.id}><div className="entry-meta"><span className="mono">{e.id}</span><Status entry={e} locale={locale} /></div><div><h3><Link href={entryUrl(e)} lang={e.locale}>{e.title}<span aria-hidden="true" className="arrow">→</span></Link></h3><p lang={e.locale}>{e.summary}</p>{e.locale !== locale && <span className="availability">{w.onlyEnglish}</span>}</div></li>)}</ul> : <p className="empty">{w.empty}</p>;
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  return entries.length ? <ul className="entry-list">{entries.map(e => <li key={e.id} className={e.id === featuredId ? 'featured' : undefined}><div className="entry-meta"><span className="mono">{e.id}</span><Status entry={e} locale={locale} />{e.publishedAt && <time className="date" dateTime={e.publishedAt}>{new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(e.publishedAt))}</time>}</div><div><Heading><Link href={entryUrl(e)} lang={e.locale}>{e.title}<span aria-hidden="true" className="arrow">→</span></Link></Heading><p lang={e.locale}>{e.summary}</p>{e.locale !== locale && <span className="availability">{w.onlyEnglish}</span>}</div></li>)}</ul> : <p className="empty">{w.empty}</p>;
 }
 export function Home({ locale }: { locale: Locale }) {
-  const w = words[locale]; const entries = listing(locale); const featured = entries.find(e => e.id === 'BUILD-001');
-  return <><section className="hero"><p className="eyebrow">BLUEPRINT / {w.lab}</p><h1>{w.tagline}</h1><p className="hero-intro">{w.intro}</p><div className="hero-index mono" aria-hidden="true">BUILD · EXP · NOTE <span>01 / V1</span></div></section>
-    {featured && <section className="featured" aria-labelledby="featured"><div><p className="eyebrow" id="featured">{w.featured}</p><div className="entry-meta"><span className="mono">{featured.id}</span><Status entry={featured} locale={locale} /></div><h2><Link href={entryUrl(featured)}>Blueprint <span aria-hidden="true">→</span></Link></h2><p>{featured.summary}</p><Link className="text-link" href={entryUrl(featured)}>{w.read} <span aria-hidden="true">→</span></Link></div><div className="blueprint-drawing" aria-hidden="true"><span className="diagram-label">SPEC / BUILD-001</span><div className="drawing-structure"><div className="drawing-core">Blueprint<span>{w.lab}</span></div><svg className="drawing-connectors" viewBox="0 0 300 44" preserveAspectRatio="none"><path d="M150 0V22M50 44V22H250V44M150 22V44" /></svg><div className="drawing-nodes"><span>{w.builds}</span><span>{w.experiments}</span><span>{w.notes}</span></div></div><span className="diagram-label">CONTENT → SYSTEM</span></div></section>}
-    <section className="activity" aria-labelledby="activity"><div className="section-heading"><h2 id="activity">{w.activity}</h2><span className="mono">LOG / V1</span></div><Rows entries={entries.filter(e => e.id !== 'BUILD-001')} locale={locale} /></section></>;
+  const w = words[locale];
+  return <><section className="hero"><h1>{w.purpose}</h1><p className="hero-intro">{w.homeContext}</p></section>
+    {sections.map((section, index) => <section key={section} className="activity editorial-index" aria-labelledby={`index-${section}`}><div className="section-heading"><span className="mono index-number" aria-hidden="true">0{index + 1} /</span><h2 id={`index-${section}`}><Link href={pathFor(locale, section)}>{w[section]}</Link></h2></div><Rows entries={listing(locale, section)} locale={locale} featuredId={section === 'builds' ? 'BUILD-001' : undefined} /></section>)}</>;
 }
 export function SectionPage({ locale, section }: { locale: Locale; section: Section }) {
-  const w = words[locale]; return <><div className="page-heading"><p className="eyebrow">BLUEPRINT / {w.lab}</p><h1>{w[section]}</h1><p>{w.descriptions[section]}</p></div><Rows entries={listing(locale, section)} locale={locale} /></>;
+  const w = words[locale]; return <><div className="page-heading"><p className="eyebrow section-signature"><span className="index-number" aria-hidden="true">0{sections.indexOf(section) + 1} /</span> Blueprint</p><h1>{w[section]}</h1><p>{w.descriptions[section]}</p></div><Rows entries={listing(locale, section)} locale={locale} headingLevel={2} /></>;
 }
 export function About({ locale }: { locale: Locale }) {
-  const w = words[locale]; return <><article className="prose about"><p className="eyebrow">BLUEPRINT / {w.lab}</p><h1>{w.about}</h1><p className="lead">{w.aboutText}</p><h2>{w.principle}</h2><p>{w.aboutDetail}</p><h2 id="privacy">{w.privacy}</h2><p>{w.privacyText}</p></article></>;
+  const w = words[locale];
+  return <article className="about-editorial">
+    <header className="about-heading"><p className="eyebrow section-signature"><span className="index-number" aria-hidden="true">04 /</span>{w.about}</p><h1>Guilherme Moura</h1><p className="about-byline">{w.roleLocation}</p><p className="lead about-intro">{w.aboutIntro}</p></header>
+    <section className="about-section" aria-labelledby="the-lab"><h2 id="the-lab">{w.theLab}</h2><div><p className="about-context">{w.aboutLab}</p><ul className="lab-index">{sections.map((section, index) => <li key={section}><Link href={pathFor(locale, section)}><span className="mono index-number" aria-hidden="true">0{index + 1} /</span>{w[section]}<span className="arrow" aria-hidden="true">→</span></Link><p>{w.labTypes[section]}</p></li>)}</ul></div></section>
+    <section className="about-section" aria-labelledby="the-principle"><h2 id="the-principle">{w.principleLabel}</h2><div><p className="about-principle">{w.principle}</p><a className="text-link" href="https://github.com/gmouraws/blueprint">{w.github}<span aria-hidden="true"> ↗</span></a></div></section>
+  </article>;
+}
+export function Privacy({ locale }: { locale: Locale }) {
+  const w = words[locale];
+  return <article className="prose privacy-page"><p className="eyebrow">Blueprint</p><h1>{w.privacy}</h1><p>{w.privacyText}</p></article>;
 }
 export async function Article({ locale, section, slug }: { locale: Locale; section: Section; slug: string }) {
   const e = getEntry(locale, section, slug); if (!e) notFound(); const w = words[locale];
-  return <><article className="article"><header className="article-heading"><Link className="eyebrow" href={pathFor(locale, section)}>{w[section]}</Link><div className="entry-meta"><span className="mono">{e.id}</span><Status entry={e} locale={locale} /></div><h1>{e.title}</h1><p className="lead">{e.summary}</p>{e.publishedAt && <p className="date">{w.published}: <time dateTime={e.publishedAt}>{new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(e.publishedAt))}</time></p>}{e.updatedAt && <p className="date">{w.updated}: <time dateTime={e.updatedAt}>{new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(e.updatedAt))}</time></p>}{e.stale && <p className="notice">{w.translation}</p>}</header><div className="prose"><MDXRemote source={e.body} components={{ pre: ({children, ...props}) => <pre {...props} tabIndex={0} role="region" aria-label={locale === 'en' ? 'Code example' : 'Exemplo de código'}>{children}</pre> }} options={{ mdxOptions: { rehypePlugins: [rehypeSlug, rehypeHighlight] } }} /></div><Evidence entry={e} locale={locale} /><div className="article-end mono">{e.id} / BLUEPRINT</div></article></>;
+  return <><article className="article" data-kind={section}><header className="article-heading"><Link className="eyebrow section-signature" href={pathFor(locale, section)}><span className="index-number" aria-hidden="true">0{sections.indexOf(section) + 1} /</span>{w[section]}</Link><div className="entry-meta"><span className="mono">{e.id}</span><Status entry={e} locale={locale} /></div>{section === 'builds' && <p className="case-label">{w.caseStudy}</p>}<h1>{e.title}</h1><p className="lead">{e.summary}</p>{e.publishedAt && <p className="date">{w.published}: <time dateTime={e.publishedAt}>{new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(e.publishedAt))}</time></p>}{e.updatedAt && <p className="date">{w.updated}: <time dateTime={e.updatedAt}>{new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(e.updatedAt))}</time></p>}{e.stale && <p className="notice">{w.translation}</p>}</header><div className="prose"><MDXRemote source={e.body} components={{ pre: ({children, ...props}) => <pre {...props} tabIndex={0} role="region" aria-label={locale === 'en' ? 'Code example' : 'Exemplo de código'}>{children}</pre> }} options={{ mdxOptions: { rehypePlugins: [rehypeSlug, rehypeHighlight] } }} /></div><Evidence entry={e} locale={locale} /><div className="article-end mono">{e.id} / BLUEPRINT</div></article></>;
 }
 function Evidence({ entry, locale }: { entry: Entry; locale: Locale }) {
   if (!entry.evidence?.length) return null;

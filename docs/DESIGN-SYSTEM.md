@@ -1,98 +1,52 @@
-# Blueprint Design System Direction
+# Blueprint Design System
 
-## Concept
+## Approved direction
 
-**Modern Engineering Blueprint**
+**Technical Editorial — an independent engineering publication.**
 
-The visual system should evoke engineering drawings and technical specifications without becoming retro, gimmicky, or visually noisy.
+Typography, alignment, useful metadata, section numbering, and thin rules carry the identity. Keep the interface quieter than the engineering content. The approved light-first direction supersedes the initial dark Modern Engineering Blueprint presentation; see ADR-008.
 
-Blueprint should feel precise, calm, modern, and deliberately technical.
+Avoid résumé/portfolio layouts, SaaS landing pages, dashboards, card grids, thumbnails without a content purpose, decorative coordinates/grids, gradients, glows, glass, shadows, and decorative motion. One light theme is sufficient for this release.
 
-## Avoid
+## Palette
 
-- traditional résumé/portfolio aesthetics;
-- generic SaaS landing-page patterns;
-- purple gradient branding;
-- glassmorphism;
-- Matrix/hacker aesthetics;
-- fake terminals as decoration;
-- excessive rounded cards;
-- excessive animation;
-- blueprint motifs so strong that readability suffers.
+- Technical paper background: `#f5f3ec`
+- Code/notice surface: `#ecebe3`
+- Primary text: `#242724`
+- Secondary text: `#62665e`
+- Restrained Blueprint accent and focus: `#2358ad`
+- Neutral rules: `#d2d3c8`
 
-## Visual language
-
-Use:
-
-- deep navy / near-black foundations;
-- restrained blueprint blue accents;
-- subtle technical grid/line work;
-- generous negative space;
-- strong typography;
-- thin dividers and annotation-like details;
-- restrained coordinates, identifiers, measurements, or technical labels where meaningful.
-
-Initial color direction, subject to accessibility validation:
-
-- background: `#07111F`
-- surface: `#0B1728`
-- blueprint accent: `#2F81F7`
-- text: `#E8EEF7`
-- muted: `#8292A8`
-- grid/line: low-opacity blue derived from the palette
-
-These are design direction values, not permission to sacrifice WCAG contrast.
+Use blue selectively for editorial numbers, identifiers, links, short rule accents, and focus. Thin neutral rules organize content; they are not interactive boundaries. Text and meaningful non-text indicators must meet WCAG 2.2 AA contrast requirements.
 
 ## Blueprint Planes mark
 
-The original vector mark uses four equal construction planes offset along one diagonal: Idea → Specification → Build → Iteration. Three blueprint-blue outlines lead to an ink-colored foreground plane. Square corners and opaque navy surfaces keep the geometry clear at 16 px. The header pairs this decorative mark with the accessible Blueprint / Engineering Lab wordmark.
+Preserve the original four offset construction planes: Idea → Specification → Build → Iteration. The mark retains its original navy, blue, and ink palette and geometry. The header uses it at 32 px beside the accessible Blueprint / Engineering Lab wordmark; the image itself is decorative.
 
-public/brand-mark.svg contains the 40-unit geometry. The favicon uses the same planes on navy; the social asset scales them beside the wordmark. Keep these SVG representations synchronized and regenerate social.png from social.svg when changing the mark. Use the approved palette without effects or animation.
+`public/brand-mark.svg` contains the 40-unit geometry. The favicon uses the same planes on navy; the social asset scales them beside the wordmark. Keep these SVG representations synchronized and regenerate `social.png` from `social.svg` only when changing the mark. This redesign does not change the favicon or social assets.
 
-## Typography
+## Typography and editorial structure
 
-Favor a highly readable modern sans-serif for primary reading. A restrained mono or technical face may be used for identifiers, metadata, coordinates, or labels.
+Use the existing system sans-serif stack for reading and headlines. Use monospace selectively for identifiers, statuses, dates, and small editorial labels. Normal prose must not look like source code. Avoid excessive uppercase and additional font families without a reading need.
 
-Do not make long-form prose look like source code.
+The section identity is `01 / Builds`, `02 / Experiments`, `03 / Notes`, and `04 / About`, with localized names. Reuse it in indexes and article navigation. Build case-study sections have their own sequential numbering and restrained rule accents. Privacy and elements without a hierarchical purpose are not numbered.
 
-## Content language
+The overall container is capped at 1120 px including gutters. Case-study and About layouts use a 900 px frame; article prose is capped at 680 px with an editorial number gutter on larger screens. Reading widths, metadata grouping, and navigation adapt deliberately for tablet and mobile.
 
-The interface may use lab vocabulary such as:
+## Page roles
 
-- BUILD
-- EXP
-- NOTE
-- SPEC
-- ARCH
-- LOG
+- Home introduces the purpose: “I build software and document the engineering behind it.” Its supporting copy explains the subjects and publication formats. Builds, Experiments, and Notes appear as separate editorial indexes; BUILD-001 remains first in the current Builds index.
+- Builds use IDs, textual lifecycle statuses, titles, summaries, and internal directional links. Case studies emphasize the question, constraints, decisions, failures, lessons, and existing Evidence, without invented metadata.
+- Experiments retain their investigation-oriented content and truthful lifecycle. Notes emphasize technical writing and readable sections, with dates only when supplied by content.
+- About introduces Guilherme Moura using the approved identity in `PRODUCT.md`, explains the lab through linked editorial rows, and states the principle. Keep “Things worth writing down.” in English and its concise natural Portuguese equivalent.
+- Privacy lives at `/privacy` and `/pt/privacy`; the full existing analytics disclosure remains available through separate footer links. It does not dominate About.
 
-Stable identifiers such as `BUILD-001` are part of the visual identity.
+Evidence is provenance: plain labels, links, and public-link/author-statement distinctions. Do not add badges, certification visuals, or social-proof treatment. Use `→` for internal directional links and `↗` for external destinations. Do not infer social-profile URLs.
 
-Build lifecycle statuses use a small static dot beside a visible localized label: green for LIVE, amber for BUILDING, blue for PLANNED, and muted for ARCHIVED. Color supplements the text; dots are hidden from assistive technology. BUILD-001 is LIVE following human-confirmed production and custom-domain HTTPS verification.
+## Status and accessibility
 
-## Layout
+Build status uses a static dot plus visible localized text: LIVE green (`#287348`), BUILDING amber (`#966b14`), PLANNED blue (`#2358ad`), ARCHIVED muted (`#62665e`). Dots supplement text and are hidden from assistive technology. Preserve source lifecycle values; presentation never advances a build or experiment.
 
-The home page should prioritize:
+Use semantic landmarks, a correct heading hierarchy, skip navigation, keyboard-operable links, visible focus, language attributes, and localized accessibility labels. Keep code overflow bounded and keyboard accessible. Respect reduced motion; no decorative animation is needed.
 
-1. Blueprint / Engineering Lab identity;
-2. tagline and concise explanation;
-3. current/featured build;
-4. recent lab activity;
-5. restrained owner attribution and external links.
-
-The design must work deliberately at desktop, tablet, and mobile widths. Tablet/mobile behavior is part of the component design, not a later retrofit.
-
-## Motion
-
-Motion should communicate state or hierarchy, not decorate the page. Respect `prefers-reduced-motion`.
-
-## Accessibility
-
-- semantic HTML;
-- keyboard navigability;
-- visible focus states;
-- WCAG-compliant contrast;
-- meaningful link text;
-- appropriate reduced-motion behavior;
-- no information conveyed only by color;
-- localized accessibility labels.
+Review both languages at 1440, 1024, 768, 375, and 320 px, including long titles, technical terms, section numbers, Evidence, and footer links. No page-level horizontal overflow is acceptable. Automated axe checks supplement visual and keyboard review.

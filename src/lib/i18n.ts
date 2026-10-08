@@ -6,7 +6,14 @@ export function pathFor(locale: Locale, path = '') {
 }
 export const words = {
   en: {
-    evidence: 'Evidence', publicLink: 'Public link', authorStatement: 'Author statement',
+    caseStudy: 'Case study', evidence: 'Evidence', publicLink: 'Public link', authorStatement: 'Author statement',
+    purpose: 'I build software and document the engineering behind it.',
+    homeContext: 'Builds, experiments, and notes on software, architecture, and AI-assisted development.',
+    roleLocation: 'Software Engineer · Brazil',
+    aboutIntro: 'I build software and use Blueprint to document the engineering behind it.',
+    theLab: 'The lab', principleLabel: 'Principle', github: 'Blueprint on GitHub',
+    aboutLab: 'Blueprint brings together systems I’m building, questions I’m exploring, and reusable engineering lessons. AI assists the work; direction and publication remain human decisions.',
+    labTypes: { builds: 'Things I’m building.', experiments: 'Questions I’m testing.', notes: 'Things worth writing down.' },
     lab: 'Engineering Lab', tagline: 'Engineering ideas into working systems.',
     intro: 'A personal engineering lab for building software, exploring architecture, experimenting with AI-assisted development, and documenting engineering decisions.',
     home: 'Lab', builds: 'Builds', experiments: 'Experiments', notes: 'Notes', about: 'About',
@@ -24,7 +31,14 @@ export const words = {
     statuses: { PLANNED: 'Planned', BUILDING: 'Building', LIVE: 'Live', ARCHIVED: 'Archived', RUNNING: 'Running', COMPLETED: 'Completed', FAILED: 'Failed' },
   },
   'pt-BR': {
-    evidence: 'Evidências', publicLink: 'Link público', authorStatement: 'Relato do autor',
+    caseStudy: 'Estudo de caso', evidence: 'Evidências', publicLink: 'Link público', authorStatement: 'Relato do autor',
+    purpose: 'Construo software e documento a engenharia por trás dele.',
+    homeContext: 'Builds, experimentos e notas sobre software, arquitetura e desenvolvimento assistido por IA.',
+    roleLocation: 'Engenheiro de software · Brasil',
+    aboutIntro: 'Construo software e uso o Blueprint para documentar a engenharia por trás dele.',
+    theLab: 'O laboratório', principleLabel: 'Princípio', github: 'Blueprint no GitHub',
+    aboutLab: 'O Blueprint reúne sistemas que estou construindo, perguntas que estou explorando e aprendizados de engenharia que podem ser reutilizados. A IA auxilia o trabalho; a direção e a publicação continuam sendo decisões humanas.',
+    labTypes: { builds: 'O que estou construindo.', experiments: 'Perguntas que estou investigando.', notes: 'O que vale a pena registrar.' },
     lab: 'Laboratório de Engenharia', tagline: 'Transformando ideias de engenharia em sistemas funcionais.',
     intro: 'Um laboratório pessoal de engenharia para construir software, explorar arquitetura, experimentar com desenvolvimento assistido por IA e documentar decisões de engenharia.',
     home: 'Lab', builds: 'Builds', experiments: 'Experimentos', notes: 'Notas', about: 'Sobre',

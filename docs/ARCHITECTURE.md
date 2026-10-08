@@ -99,7 +99,7 @@ Before production readiness:
 
 Vercel Web Analytics is approved as the minimal initial analytics integration. Metrics remain private; no advertising analytics, Google Analytics, custom events, or public visitor counter are permitted. See ADR-006 for boundaries and provider-policy review. The application adds no forms or account data collection.
 
-Implementation details and operating commands are documented in `docs/IMPLEMENTATION.md`. ADRs 005–007 record newly accepted content, routing, analytics, presentation, and quality decisions.
+Implementation details and operating commands are documented in `docs/IMPLEMENTATION.md`. ADRs 005–008 record newly accepted content, routing, analytics, presentation, and quality decisions.
 
 ## Future architecture
 

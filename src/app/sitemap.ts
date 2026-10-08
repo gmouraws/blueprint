@@ -4,7 +4,7 @@ import { pathFor } from '@/lib/i18n';
 import { origin, isProduction, pageMetadata } from '@/lib/seo';
 export default function sitemap(): MetadataRoute.Sitemap {
   if (!isProduction) return [];
-  const pages = (['en', 'pt-BR'] as const).flatMap(locale => ['', 'builds', 'experiments', 'notes', 'about'].map(segment => ({
+  const pages = (['en', 'pt-BR'] as const).flatMap(locale => ['', 'builds', 'experiments', 'notes', 'about', 'privacy'].map(segment => ({
     url: origin + pathFor(locale, segment),
     alternates: { languages: { en: origin + pathFor('en', segment), 'pt-BR': origin + pathFor('pt-BR', segment) } },
   })));
