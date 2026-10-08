@@ -126,5 +126,6 @@ test('all rendered internal links resolve', async ({page, request}) => {
 test('preview has no analytics and refuses indexing', async ({page, request}) => {
   await page.goto('/'); await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
   expect(await page.locator('script[src*="insights"]').count()).toBe(0);
+  await expect(page.locator('script[data-sdkn="@vercel/analytics/next"]')).toHaveCount(0);
   expect((await request.get('/')).headers()['x-robots-tag']).toBe('noindex, nofollow');
 });

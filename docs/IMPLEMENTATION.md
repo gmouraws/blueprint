@@ -46,6 +46,8 @@ The owner has confirmed that the corrected production deployment and blueprint.a
 
 No legal exemption is assumed from cookie-free analytics. No consent system is added without an actual requirement. About includes the analytics disclosure. No custom events are sent, URL queries/fragments are stripped, and referrers are suppressed by response policy.
 
+The official Analytics component is wrapped in src/components/analytics.tsx and mounted by the shared Shell for both root layouts only when VERCEL_ENV is production at build time. An onboarding dashboard is not proof that the component is missing. After enabling Web Analytics for the correct Vercel project, a new production deployment is required; then verify a normal browser loads the SDK-configured script and sends successful pageview requests without blockers. Script URLs may be provider-configured rather than fixed. Vercel's served script excludes automated/headless visitors, so CI checks mount/queue/privacy behavior with a substituted provider script and does not claim dashboard ingestion. Metrics remain private. See [Vercel's setup](https://vercel.com/docs/analytics/quickstart) and [troubleshooting](https://vercel.com/docs/analytics/troubleshooting).
+
 ## Remaining human checks
 
 Blueprint v1 has human visual review and release approval. The following checks concern ongoing operation and publication.
