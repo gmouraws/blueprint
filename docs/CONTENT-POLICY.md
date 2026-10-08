@@ -52,6 +52,14 @@ Avoid:
 - claims designed only to impress recruiters;
 - generic portfolio filler projects.
 
+## Public editorial forms
+
+**Build pages are engineering case studies, not project documentation.** Explain the motivating question, constraints, consequential decisions, trade-offs, failures, lessons, and available evidence. Planned Builds describe a hypothesis and uncertainty; they do not need invented outcomes or evidence. Detailed implementation instructions belong in the repository.
+
+**Blueprint documents what is worth understanding, not everything that happened.** Select details that give another engineer a reason to read; avoid exhaustive logs and stack inventories.
+
+An Experiment investigates a bounded technical question or hypothesis. A Note presents a focused, reusable engineering insight. Evidence is public provenance or explicitly self-documented information supporting claims when available, never certification. Link only to genuinely public material; private delivery logs and analytics are not public evidence. Avoid permanent counts that can become stale.
+
 ## Accuracy
 
 Do not invent personal history, results, metrics, project outcomes, dates, or technical experience.

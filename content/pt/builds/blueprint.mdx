@@ -4,40 +4,76 @@ kind: builds
 locale: pt-BR
 slug: blueprint
 title: "Blueprint"
-summary: "Um laboratório de engenharia bilíngue baseado em trabalho original e decisões documentadas."
+summary: "Um laboratório público de engenharia construído da especificação à produção com desenvolvimento assistido por IA e direção humana."
 publication: PUBLISHED
-status: BUILDING
+status: LIVE
 translationOf: BUILD-001
-sourceRevision: 4bfa419c90b987bdad50b18e5812e7846172962d9cf9aec5a39ad7d7a28d3a53
+sourceRevision: b2a78ff6386554f57550b74c137263e92531625dabd24afb97d399e038233af2
+evidence:
+  - label: Site no ar
+    basis: public
+    url: https://blueprint.app.br
+  - label: Código-fonte
+    basis: public
+    url: https://github.com/gmouraws/blueprint
+  - label: Commits
+    basis: public
+    url: https://github.com/gmouraws/blueprint/commits/main
+  - label: Pull requests
+    basis: public
+    url: https://github.com/gmouraws/blueprint/pulls
+  - label: Entrega / CI
+    basis: public
+    url: https://github.com/gmouraws/blueprint/actions
 ---
 
 ## A pergunta
 
-Como um laboratório pessoal pode tornar decisões de engenharia visíveis sem se transformar em um currículo? O Blueprint organiza seu trabalho público em Builds, Experimentos e Notas.
+Um coding agent pode levar um produto da especificação à produção enquanto as decisões de engenharia continuam sob controle humano?
 
-## Arquitetura
+O Blueprint começou como um laboratório pessoal de engenharia. O primeiro projeto escolhido foi o próprio laboratório: um sistema funcional para compartilhar Builds, Experimentos e Notas originais. Isso tornou o processo de desenvolvimento parte da história que vale examinar.
 
-A v1 aprovada usa Next.js, TypeScript, Tailwind CSS e MDX versionado no repositório. O conteúdo público é gerado durante o build. O inglês é o idioma de origem; traduções revisadas em pt-BR ficam em `/pt`.
+A pergunta era sobre limites: o agente poderia ter autonomia significativa de implementação enquanto a direção do produto, a arquitetura, a segurança e a publicação permanecessem sob controle humano? Este é o relato de um build, não um experimento com medições nem uma afirmação sobre produtividade com IA.
 
-Um único registro validado de conteúdo conecta rotas de artigos, listagens, traduções e metadados de SEO. A v1 não precisa de banco de dados, autenticação ou CMS.
+## Começando pelos limites
 
-## Decisões e trade-offs
+A implementação não começou pelo código. As especificações no repositório primeiro estabeleceram o propósito do produto, os limites arquiteturais, a direção visual, a política de conteúdo, a abordagem bilíngue, as regras de confidencialidade e as responsabilidades dos coding agents. O isolamento entre repositórios foi explicitado ao longo do trabalho.
 
-- A geração estática favorece deploy simples e conteúdo revisável. Atualizações de conteúdo exigem um novo build.
-- O MDX no repositório mantém as mudanças visíveis em pull requests. Autores precisam revisar MDX como entrada do build.
-- A tradução ocorre durante a autoria, preservando nomes técnicos e código. A publicação em inglês não depende da disponibilidade de tradução.
-- Vercel Web Analytics é a solução mínima de analytics aprovada. As métricas permanecem privadas.
+O repositório se tornou um contrato entre a intenção humana e a execução do agente. Definia o que o agente podia implementar e o que exigia uma decisão humana. Nem todas as escolhas estavam definidas de antemão: o plano de implementação e os refinamentos posteriores ainda precisavam de revisão.
 
-## Limite atual
+## Direção humana, desenvolvimento assistido por IA
 
-O Blueprint está em implementação. O deploy de produção e o lançamento público continuam pendentes. Esta nota não afirma resultados de performance, experimentos concluídos ou resultados de deploy.
+Dentro do escopo aprovado, o coding agent podia implementar funcionalidades, criar e modificar arquivos, adicionar dependências justificadas, refatorar, escrever testes, executar verificações de qualidade, trabalhar com CI e preparar pull requests.
 
-Veja [o propósito do laboratório](/pt/about) e [a nota sobre organização de repositórios](/pt/notes/designing-repositories-for-ai-agents).
+Essa autonomia não transferiu a autoridade sobre as decisões. A missão do produto, os principais limites arquiteturais, as regras de confidencialidade e isolamento de projetos profissionais, as afirmações factuais sobre o autor, a publicação, a aprovação e os merges permaneceram sob direção humana. A revisão visual também levou a refinamentos concretos antes do lançamento.
 
-## Log de engenharia
+A autonomia funciona melhor quando os limites são explícitos. Aqui, a revisão fazia parte do modelo de desenvolvimento; não se tratava de afirmar que a IA havia projetado ou lançado o produto por conta própria.
 
-### Primeiro deploy de produção — resolução pendente
+## O que foi construído
 
-O primeiro deploy de produção na Vercel falhou depois que o Next.js concluiu a geração das rotas estáticas. A falha ocorreu na verificação personalizada de output após o build do Blueprint: ela esperava `.next/server/app/index.html`, um caminho interno fixo de output do Next.js que não estava presente no ambiente de build da Vercel.
+O caminho de entrega é intencionalmente pequeno:
 
-A lição de engenharia é que verificações personalizadas não devem depender de caminhos de output do framework que não sejam documentados ou que variem conforme o ambiente. A resolução continua pendente até que o deploy de produção corrigido e o domínio personalizado blueprint.app.br com HTTPS sejam verificados com sucesso.
+**Next.js + MDX → GitHub → CI → Vercel**
+
+Next.js, TypeScript e Tailwind CSS sustentam um site static-first com MDX versionado no repositório. O inglês é canônico; traduções revisadas em pt-BR oferecem o mesmo conteúdo em `/pt`. GitHub Actions executa as verificações de qualidade, enquanto a integração Git da Vercel cuida do deploy.
+
+Essa escolha troca uma interface de publicação por mudanças revisadas no Git e um novo build a cada atualização de conteúdo. O problema da v1 não exigia banco de dados, CMS, autenticação ou backend personalizado.
+
+O ponto interessante não é a stack em si. Especificações, limites, testes e revisão no repositório permitiram que um coding agent implementasse uma parte significativa do sistema, preservando o controle humano sobre a direção do produto.
+
+## O que falhou
+
+O primeiro deploy de produção na Vercel falhou depois que o Next.js gerou as rotas estáticas com sucesso. O verificador personalizado após o build do Blueprint esperava `.next/server/app/index.html`. Esse caminho interno fixo havia funcionado no contexto anterior de validação local, mas não estava presente no ambiente de build da Vercel.
+
+O problema foi investigado, e o verificador passou a usar o prerender manifest e a descobrir os artefatos renderizados sem presumir nomes de arquivos de páginas. A verificação foi corrigida, não removida: as checagens de rotas estáticas, indexação e exclusão de conteúdo não publicado foram preservadas. A cobertura de regressão exercitou layouts alternativos de output, e a validação foi executada novamente.
+
+O deploy de produção corrigido foi concluído com sucesso. O domínio personalizado blueprint.app.br foi posteriormente configurado e verificado com HTTPS. O incidente do primeiro deploy está resolvido.
+
+A lição: verificações personalizadas não devem depender de detalhes internos do framework que não sejam documentados ou que variem conforme o ambiente. Uma checagem que só funciona no ambiente em que foi escrita pode se tornar uma falha de deploy por si só.
+
+## O que aprendi
+
+- **Especificações tornam a autonomia útil.** Escopo e critérios de qualidade explícitos dão ao agente um contrato concreto para seguir; não eliminam a necessidade de resolver ambiguidades.
+- **Autonomia de implementação e autoridade sobre decisões são coisas diferentes.** Delegar mudanças de código mantém a direção do produto, a revisão e a publicação com a pessoa responsável.
+- **Falhas fazem parte do estudo de caso.** A falha no deploy expôs uma premissa frágil e levou a um verificador mais robusto. Explicar essa correção é mais útil do que apresentar um caminho sem problemas até a produção.
+- **Arquitetura simples deixa espaço para mudanças.** Conteúdo estático e revisão pelo Git atenderam à necessidade da v1 sem criar um segundo sistema para operar. O trade-off é executar um novo build para publicar mudanças.

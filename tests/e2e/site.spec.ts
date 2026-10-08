@@ -31,8 +31,8 @@ test('Planes brand and favicon load in both languages and at small sizes', async
     await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/icon.svg');
     expect(await page.locator('.brand-mark').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     await page.goto(`${route === '/' ? '' : route}/builds/blueprint`);
-    await expect(page.locator('.article-heading .status')).toHaveText(route === '/' ? 'Building' : 'Em construção');
-    await expect(page.locator('.prose')).toContainText(route === '/' ? 'Resolution remains pending' : 'A resolução continua pendente');
+    await expect(page.locator('.article-heading .status')).toHaveText(route === '/' ? 'Live' : 'No ar');
+    await expect(page.locator('.prose')).toContainText(route === '/' ? 'The first deployment incident is resolved.' : 'O incidente do primeiro deploy está resolvido.');
     await expect(page.locator('.prose')).toContainText('HTTPS');
   }
   const icon = await request.get('/icon.svg');
@@ -46,14 +46,16 @@ for (const locale of ['en', 'pt-BR'] as const) {
   test(`planned ClinDevLab build and lifecycle indicators in ${locale}`, async ({page}) => {
     const prefix = locale === 'en' ? '' : '/pt';
     const planned = locale === 'en' ? 'Planned' : 'Planejado';
-    const building = locale === 'en' ? 'Building' : 'Em construção';
+    const live = locale === 'en' ? 'Live' : 'No ar';
     await page.goto(prefix || '/');
     await expect(page.locator('.featured .entry-meta')).toContainText('BUILD-001');
-    await expect(page.locator('.featured .status')).toHaveText(building);
-    await expect(page.locator('.featured .status-dot')).toHaveCSS('background-color', 'rgb(228, 184, 102)');
+    await expect(page.locator('.featured .status')).toHaveText(live);
+    await expect(page.locator('.featured .status-dot')).toHaveCSS('background-color', 'rgb(123, 201, 149)');
     await expect(page.locator('.activity').getByRole('link', {name: 'ClinDevLab'})).toHaveAttribute('href', `${prefix}/builds/clindevlab`);
 
     await page.goto(`${prefix}/builds`);
+    const blueprintRow = page.locator('.entry-list li').filter({has: page.getByRole('link', {name: 'Blueprint', exact: false})});
+    await expect(blueprintRow.locator('.status')).toHaveText(live);
     const row = page.locator('.entry-list li').filter({has: page.getByRole('link', {name: 'ClinDevLab'})});
     await expect(row).toContainText('BUILD-002');
     await expect(row.locator('.status')).toHaveText(planned);
@@ -67,6 +69,7 @@ for (const locale of ['en', 'pt-BR'] as const) {
     await expect(page.locator('.prose')).toContainText(locale === 'en' ? 'no application has been implemented' : 'nenhuma aplicação foi implementada');
     await expect(page.locator('.prose')).toContainText('CDISC');
     await expect(page.locator('.prose')).toContainText('SDTM');
+    await expect(page.locator('.evidence')).toHaveCount(0);
     await page.getByRole('link', {name: locale === 'en' ? 'Change language: Português' : 'Mudar idioma: English'}).click();
     await expect(page).toHaveURL(locale === 'en' ? /\/pt\/builds\/clindevlab$/ : /\/builds\/clindevlab$/);
   });
@@ -82,6 +85,29 @@ test('capture responsive release review views', async ({page}) => {
     await page.screenshot({path:`test-results/review-${name}.png`,fullPage:true});
   }
 });
+
+for (const [prefix, locale] of [['', 'en'], ['/pt', 'pt-BR']] as const) {
+  test(`Blueprint case study and public evidence in ${locale}`, async ({page}) => {
+    await page.goto(`${prefix}/builds/blueprint`);
+    await expect(page.locator('.prose h2')).toHaveCount(6);
+    await expect(page.locator('.prose')).toContainText('Next.js + MDX → GitHub → CI → Vercel');
+    await expect(page.locator('.evidence h2')).toHaveText(locale === 'en' ? 'Evidence' : 'Evidências');
+    expect(await page.locator('.evidence a').evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual([
+      'https://blueprint.app.br', 'https://github.com/gmouraws/blueprint',
+      'https://github.com/gmouraws/blueprint/commits/main', 'https://github.com/gmouraws/blueprint/pulls',
+      'https://github.com/gmouraws/blueprint/actions',
+    ]);
+    await expect(page.locator('.evidence-basis')).toHaveCount(5);
+    await expect(page.locator('.evidence-basis').first()).toHaveText(locale === 'en' ? 'Public link' : 'Link público');
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', locale === 'en' ? /human-directed, AI-assisted/ : /assistido por IA e direção humana/);
+    for (const [name, width] of [['desktop',1440], ['tablet',768], ['mobile',375]] as const) {
+      await page.setViewportSize({width,height:1080});
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({path:`test-results/review-case-study-${locale}-${name}.png`,fullPage:true});
+      await page.locator('.evidence').screenshot({path:`test-results/review-evidence-${locale}-${name}.png`});
+    }
+  });
+}
 test('skip link provides keyboard access to main', async ({page}) => {
   await page.goto('/'); await page.keyboard.press('Tab'); await expect(page.getByText('Skip to content')).toBeFocused();
   await page.keyboard.press('Enter'); await expect(page.locator('main')).toBeFocused();
@@ -100,5 +126,6 @@ test('all rendered internal links resolve', async ({page, request}) => {
 test('preview has no analytics and refuses indexing', async ({page, request}) => {
   await page.goto('/'); await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
   expect(await page.locator('script[src*="insights"]').count()).toBe(0);
+  await expect(page.locator('script[data-sdkn="@vercel/analytics/next"]')).toHaveCount(0);
   expect((await request.get('/')).headers()['x-robots-tag']).toBe('noindex, nofollow');
 });

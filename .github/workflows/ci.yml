@@ -24,7 +24,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - name: Verify production-mode output
-        run: npm run build
+        run: |
+          npm run build
+          npx playwright test tests/e2e/analytics.spec.ts
         env:
           VERCEL_ENV: production
           NEXT_ADAPTER_PATH: ${{ github.workspace }}/tests/fixtures/verification-adapter.mjs

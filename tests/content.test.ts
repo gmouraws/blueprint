@@ -29,6 +29,34 @@ test('source hashes normalize line endings and detect edits', () => {
   assert.equal(revisionOf('a\r\nb'), revisionOf('a\nb')); assert.notEqual(revisionOf('a'), revisionOf('b'));
 });
 test('unknown content is unavailable', () => { assert.equal(getEntry('en', 'notes', 'unknown'), undefined); });
+
+test('Build evidence distinguishes public links from author statements and rejects unsafe or misplaced links', () => {
+  const build = (extra: string, kind = 'builds') => ({source: source(extra).replace('NOTE-099', kind === 'builds' ? 'BUILD-099' : 'NOTE-099').replace('kind: notes', `kind: ${kind}`), locale: 'en' as const, kind: kind as 'builds' | 'notes', name: 'fixture.mdx'});
+  const entry = validateEntries([build('status: PLANNED\nevidence:\n  - label: Proposed direction\n    basis: self-documented\n')])[0];
+  assert.equal(entry.evidence?.[0].basis, 'self-documented');
+  assert.equal(entry.evidence?.[0].url, undefined);
+  for (const url of ['http://example.com', 'javascript:alert(1)', 'https://user:password@example.com']) {
+    assert.throws(() => validateEntries([build(`status: PLANNED\nevidence:\n  - label: Source\n    basis: public\n    url: ${url}\n`)]));
+  }
+  assert.throws(() => validateEntries([build('status: PLANNED\nevidence:\n  - label: Source\n    basis: public\n')]));
+  assert.throws(() => validateEntries([build('evidence:\n  - label: Source\n    basis: public\n    url: https://example.com\n', 'notes')]), /Evidence belongs to Builds/);
+});
+
+test('launch content has truthful lifecycles and matching localized evidence targets', () => {
+  for (const locale of ['en', 'pt-BR'] as const) {
+    const blueprint = getEntry(locale, 'builds', 'blueprint')!;
+    assert.equal(blueprint.status, 'LIVE');
+    assert.equal(getEntry(locale, 'builds', 'clindevlab')?.status, 'PLANNED');
+    assert.equal(getEntry(locale, 'builds', 'clindevlab')?.evidence, undefined);
+    assert.equal(blueprint.evidence?.length, 5);
+    assert.deepEqual(blueprint.evidence?.map(({basis, url}) => ({basis, url})), translation(blueprint)?.evidence?.map(({basis, url}) => ({basis, url})));
+  }
+  const enPath = 'content/en/builds/blueprint.mdx';
+  const ptPath = 'content/pt/builds/blueprint.mdx';
+  const en = fs.readFileSync(enPath, 'utf8');
+  const pt = fs.readFileSync(ptPath, 'utf8').replace('https://github.com/gmouraws/blueprint/actions', 'https://example.com');
+  assert.throws(() => validateEntries([{source:en,locale:'en',kind:'builds',name:'blueprint.mdx'},{source:pt,locale:'pt-BR',kind:'builds',name:'blueprint.mdx'}]), /Translation evidence mismatch/);
+});
 test('missing translation is allowed and outdated translations are detected', () => {
   const en = file();
   assert.equal(validateEntries([en]).length, 1);
@@ -46,8 +74,11 @@ test('generation excludes draft body and metadata from the deployment registry',
   const directory = fs.mkdtempSync(path.join(process.cwd(), 'test-results', 'content-fixture-'));
   for (const locale of ['en','pt']) for (const kind of ['builds','experiments','notes']) fs.mkdirSync(path.join(directory,'content',locale,kind), {recursive:true});
   fs.writeFileSync(path.join(directory,'content/en/notes/fixture.mdx'), source());
+  const draftBuild = source('status: PLANNED\nevidence:\n  - label: DRAFT_EVIDENCE_SENTINEL\n    basis: public\n    url: https://example.com/draft-evidence\n').replace('NOTE-099', 'BUILD-099').replace('kind: notes', 'kind: builds');
+  fs.writeFileSync(path.join(directory,'content/en/builds/fixture.mdx'), draftBuild);
   const result = spawnSync(process.execPath, ['--import',import.meta.resolve('tsx'),path.join(process.cwd(),'scripts/validate-content.ts')], {cwd:directory,encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
   const generated = fs.readFileSync(path.join(directory,'.generated/content.json'),'utf8');
   assert.equal(generated,'[]'); assert.ok(!generated.includes('DRAFT_SENTINEL_099')); assert.ok(!generated.includes('NOTE-099'));
+  assert.ok(!generated.includes('DRAFT_EVIDENCE_SENTINEL')); assert.ok(!generated.includes('draft-evidence'));
 });

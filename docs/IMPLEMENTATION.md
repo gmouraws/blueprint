@@ -34,21 +34,23 @@ Update sourceRevision only after translation review. Outdated translations fail 
 
 The generator validates source files and writes only PUBLISHED entries to ignored .generated/content.json. The application reads only this file. After editing content, restart `npm run dev` to regenerate and reload the registry. Draft-only assets must not be placed under public/, which is always publicly served. No draft rendering mode exists. MDX is trusted repository code: review changes and do not use unrelated/private sources or unreviewed executable content.
 
-Initial EN/PT entries contain approved project decisions and planned investigation methods. They claim no results or measured outcomes. PUBLISHED means eligible for the local release candidate; it does not record a deployment or replace human editorial approval. Review all prose and translations before production. About strings are maintained in src/lib/i18n.ts. No personal external URLs were supplied, so none were invented.
+Public entries contain reviewed case studies, planned investigations, and focused insights. BUILD-001 records the human-confirmed production outcome; other entries make no invented result claims. PUBLISHED means eligible for public output and does not imply LIVE. Review prose and translations before publication. About strings are maintained in src/lib/i18n.ts.
 
 ## Environment
 
 No application secrets or .env files are required. Production origin is fixed to https://blueprint.app.br. VERCEL_ENV is provided by Vercel later: production enables indexing and analytics; preview/development/absent values disable them. For local production-mode verification, set VERCEL_ENV=production before building and unset it afterward. These decisions are evaluated at build time; changing environment requires rebuilding.
 
-## Deployment preparation — not configured
+## Deployment workflow
 
-After human release review, connect this repository through Vercel Git integration, select main as production, match the Node/npm toolchain, and configure blueprint.app.br with HTTPS. Enable Web Analytics only after reviewing provider policy and privacy requirements. Protect preview deployments, enable GitHub required checks, and confirm production routing, metadata, analytics, and rollback. Do not add a duplicate deployment workflow.
+The owner has confirmed that the corrected production deployment and blueprint.app.br over HTTPS work. Deployment remains through Vercel Git integration after human review and merge to main. This refinement changes no infrastructure. Continue reviewing provider privacy requirements, preview protection, required GitHub checks, routing, metadata, analytics, and rollback. Do not add a duplicate deployment workflow.
 
 No legal exemption is assumed from cookie-free analytics. No consent system is added without an actual requirement. About includes the analytics disclosure. No custom events are sent, URL queries/fragments are stripped, and referrers are suppressed by response policy.
 
+The official Analytics component is wrapped in src/components/analytics.tsx and mounted by the shared Shell for both root layouts only when VERCEL_ENV is production at build time. An onboarding dashboard is not proof that the component is missing. After enabling Web Analytics for the correct Vercel project, a new production deployment is required; then verify a normal browser loads the SDK-configured script and sends successful pageview requests without blockers. Script URLs may be provider-configured rather than fixed. Vercel's served script excludes automated/headless visitors, so CI checks mount/queue/privacy behavior with a substituted provider script and does not claim dashboard ingestion. Metrics remain private. See [Vercel's setup](https://vercel.com/docs/analytics/quickstart) and [troubleshooting](https://vercel.com/docs/analytics/troubleshooting).
+
 ## Remaining human checks
 
-Blueprint v1 has human visual review and release approval. The following checks concern the later production setup and ongoing publication workflow.
+Blueprint v1 has human visual review and release approval. The following checks concern ongoing operation and publication.
 
 - Review future editorial changes and pt-BR translations, including protected terms.
 - Confirm statuses and add actual dates at publication.
@@ -58,9 +60,9 @@ Blueprint v1 has human visual review and release approval. The following checks 
 
 The security policy restricts embedding, objects, and base URLs. It does not claim a complete script CSP; nonce-based rendering would add complexity to a static site. No remote content, account system, or form is implemented.
 
-## Final launch editorial update
+## Build evidence
 
-BUILD-001 remains BUILDING, and the first deployment incident remains pending. After a human verifies the corrected production deployment and blueprint.app.br over HTTPS, make a small follow-up content change in both BUILD-001 files: set status to LIVE, update Current boundary, and record the verified resolution in Engineering Log. Include only observed verification facts; do not invent a timestamp or metrics. Review pt-BR, regenerate sourceRevision, and run the quality gates. Lifecycle rendering already supports LIVE across the home feature, listings, and article; no implementation or deployment configuration change is needed.
+Optional Build-only evidence frontmatter is a short list (up to eight items) with label, basis (public or self-documented), and optional url. Public items require a public HTTPS URL; self-documented items identify author statements and may omit a link. URLs cannot contain credentials. This is an editorial distinction, not automated verification or certification. Only add public links that have been reviewed. Localize labels while preserving the same ordered basis/URL pairs in translation. The shared article renderer displays the list near the end of the case study. Omit it when there is no supporting material, as with planned BUILD-002.
 
 ## Release hygiene
 

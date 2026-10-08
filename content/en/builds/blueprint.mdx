@@ -4,38 +4,74 @@ kind: builds
 locale: en
 slug: blueprint
 title: "Blueprint"
-summary: "A bilingual engineering lab built around original work and documented decisions."
+summary: "A public engineering lab built from specification to production through human-directed, AI-assisted development."
 publication: PUBLISHED
-status: BUILDING
+status: LIVE
+evidence:
+  - label: Live
+    basis: public
+    url: https://blueprint.app.br
+  - label: Source
+    basis: public
+    url: https://github.com/gmouraws/blueprint
+  - label: Commits
+    basis: public
+    url: https://github.com/gmouraws/blueprint/commits/main
+  - label: Pull requests
+    basis: public
+    url: https://github.com/gmouraws/blueprint/pulls
+  - label: Delivery / CI
+    basis: public
+    url: https://github.com/gmouraws/blueprint/actions
 ---
 
 ## The question
 
-How can a personal lab make engineering decisions visible without becoming a résumé? Blueprint organizes its public work into Builds, Experiments, and Notes.
+Can an AI coding agent take a product from specification to production while a human remains in control of the engineering decisions?
 
-## Architecture
+Blueprint began as a personal engineering lab. The first project chosen to build was the lab itself: a working system for sharing original Builds, Experiments, and Notes. That made the development process part of the story worth examining.
 
-The approved v1 uses Next.js, TypeScript, Tailwind CSS, and repository-owned MDX. Public content is generated at build time. English is the source language; reviewed pt-BR translations live under `/pt`.
+The question was about boundaries: could the agent have meaningful implementation autonomy while product direction, architecture, security, and publication stayed under human control? This is an account of one build, not a measured experiment or a claim about AI productivity.
 
-A single validated content registry connects article routes, listings, translations, and SEO metadata. No database, authentication, or CMS is required for v1.
+## Starting with constraints
 
-## Decisions and trade-offs
+Implementation did not begin with code. Repository specifications first established the product purpose, architectural limits, visual direction, content policy, bilingual approach, confidentiality rules, and responsibilities of coding agents. Repository isolation was made explicit as the work progressed.
 
-- Static generation favors simple deployment and reviewable content. Content updates require a new build.
-- Repository-owned MDX keeps changes visible in pull requests. Authors must review MDX as build input.
-- Translation happens during authoring, preserving technical names and code. English publication does not depend on translation availability.
-- Vercel Web Analytics is the approved minimal analytics solution. Metrics stay private.
+The repository became a contract between human intent and agent execution. It defined what the agent could implement and what required a human decision. Not every choice was known upfront: the implementation plan and later refinements still needed review.
 
-## Current boundary
+## Human-directed, AI-assisted
 
-Blueprint is in implementation. Production deployment and the public launch remain pending. This entry does not claim measured performance, completed experiments, or deployment results.
+Within the approved scope, the coding agent could implement features, create and modify files, add justified dependencies, refactor, write tests, run quality checks, work with CI, and prepare pull requests.
 
-See [the lab's purpose](/about) and [the repository design note](/notes/designing-repositories-for-ai-agents).
+That autonomy did not transfer decision authority. The product mission, major architectural boundaries, confidentiality and professional-project isolation rules, factual claims about the author, publication, approval, and merge decisions remained human-directed. Visual review also led to concrete refinements before release.
 
-## Engineering Log
+Autonomy works better when the boundaries are explicit. Here, review was part of the development model, rather than a claim that AI independently designed or shipped the product.
 
-### First production deployment — pending resolution
+## What was built
 
-The first Vercel production deployment failed after Next.js completed static route generation. The failure occurred in Blueprint's custom post-build output verification: it expected `.next/server/app/index.html`, a fixed internal Next.js output path that was not present in the Vercel build environment.
+The delivery path is deliberately small:
 
-The engineering lesson is that custom verification should not depend on undocumented or environment-specific framework output paths. Resolution remains pending until the corrected production deployment and the custom domain blueprint.app.br over HTTPS are successfully verified.
+**Next.js + MDX → GitHub → CI → Vercel**
+
+Next.js, TypeScript, and Tailwind CSS support a static-first site with repository-owned MDX. English is canonical; reviewed pt-BR translations offer the same content under `/pt`. GitHub Actions runs quality gates, while Vercel Git integration handles deployment.
+
+This trades a publishing interface for changes reviewed in Git and a new build when content changes. The v1 problem did not require a database, CMS, authentication system, or custom backend.
+
+The interesting part is not the stack itself. Repository-level specifications, constraints, tests, and review let a coding agent implement a meaningful portion of the system while preserving human control over what it should become.
+
+## What broke
+
+The first Vercel production deployment failed after Next.js successfully generated the static routes. Blueprint's custom post-build verifier expected `.next/server/app/index.html`. That fixed internal path had worked in the previous local validation context, but was absent in the Vercel build environment.
+
+The issue was investigated, and the verifier was changed to use the prerender manifest and discover rendered artifacts without guessing page filenames. Verification was fixed rather than removed: checks for static routes, indexing, and exclusion of unpublished content remained in place. Regression coverage exercised alternate output layouts, and validation was rerun.
+
+The corrected production deployment succeeded. The custom domain blueprint.app.br was subsequently configured and verified over HTTPS. The first deployment incident is resolved.
+
+The lesson: custom verification should not depend on undocumented or environment-specific framework internals. A check that only works in the environment where it was written can become a deployment failure of its own.
+
+## What I learned
+
+- **Specifications make autonomy useful.** Explicit scope and quality criteria give the agent a concrete contract to work against; they do not eliminate the need to resolve ambiguities.
+- **Implementation autonomy and decision authority are different.** Delegating code changes still leaves product direction, review, and publication with the human.
+- **Failures belong in the case study.** The deployment failure exposed a fragile assumption and led to a stronger verifier. It is more useful to explain that correction than to present a clean path to production.
+- **Simple architecture leaves room to change.** Static content and Git-based review met the v1 need without creating a second system to operate. The trade-off is rebuilding to publish changes.
