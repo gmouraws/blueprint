@@ -1,3 +1,4 @@
+import { ownerLinkedInUrl } from '@/lib/site';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { MDXRemote } from 'next-mdx-remote/rsc';
@@ -29,7 +30,7 @@ export function About({ locale }: { locale: Locale }) {
   return <article className="about-editorial">
     <header className="about-heading"><p className="eyebrow section-signature"><span className="index-number" aria-hidden="true">04 /</span>{w.about}</p><h1>Guilherme Moura</h1><p className="about-byline">{w.roleLocation}</p><p className="lead about-intro">{w.aboutIntro}</p></header>
     <section className="about-section" aria-labelledby="the-lab"><h2 id="the-lab">{w.theLab}</h2><div><p className="about-context">{w.aboutLab}</p><ul className="lab-index">{sections.map((section, index) => <li key={section}><Link href={pathFor(locale, section)}><span className="mono index-number" aria-hidden="true">0{index + 1} /</span>{w[section]}<span className="arrow" aria-hidden="true">→</span></Link><p>{w.labTypes[section]}</p></li>)}</ul></div></section>
-    <section className="about-section" aria-labelledby="the-principle"><h2 id="the-principle">{w.principleLabel}</h2><div><p className="about-principle">{w.principle}</p><a className="text-link" href="https://github.com/gmouraws/blueprint">{w.github}<span aria-hidden="true"> ↗</span></a></div></section>
+    <section className="about-section" aria-labelledby="the-principle"><h2 id="the-principle">{w.principleLabel}</h2><div><p className="about-principle">{w.principle}</p><div className="social-links"><a className="text-link" href="https://github.com/gmouraws/blueprint" rel="noopener noreferrer">{w.github}<span aria-hidden="true"> ↗</span></a><a className="text-link" href={ownerLinkedInUrl} rel="noopener noreferrer">LinkedIn<span aria-hidden="true"> ↗</span></a></div></div></section>
   </article>;
 }
 export function Privacy({ locale }: { locale: Locale }) {

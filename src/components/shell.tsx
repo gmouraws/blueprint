@@ -1,3 +1,4 @@
+import { ownerLinkedInUrl } from '@/lib/site';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { ReactNode } from 'react';
@@ -18,7 +19,7 @@ export function Shell({ locale, children }: { locale: Locale; children: ReactNod
       <LanguageSwitcher locale={locale} availablePaths={availablePaths} label={w.language} missing={w.missing} /></div>
     </div></header>
     <main id="main" className="container" tabIndex={-1}>{children}</main>
-    <footer className="container footer"><span>Blueprint · Guilherme Moura</span><div className="footer-links"><Link href={pathFor(locale, 'about')}>{w.about}</Link><Link href={pathFor(locale, 'privacy')}>{w.privacy}</Link></div></footer>
+    <footer className="container footer"><span>Blueprint · Guilherme Moura</span><div className="footer-links"><Link href={pathFor(locale, 'about')}>{w.about}</Link><Link href={pathFor(locale, 'privacy')}>{w.privacy}</Link><a href={ownerLinkedInUrl} rel="noopener noreferrer">LinkedIn<span aria-hidden="true"> ↗</span></a></div></footer>
     {isProduction && <WebAnalytics />}
   </body></html>;
 }

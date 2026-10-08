@@ -140,7 +140,13 @@ for (const [prefix, locale] of [['', 'en'], ['/pt', 'pt-BR']] as const) {
     await expect(page.locator('.lab-index a')).toHaveCount(3);
     await expect(page.locator('.lab-index li').last().locator('p')).toHaveText(locale === 'en' ? 'Things worth writing down.' : 'O que vale a pena registrar.');
     for (const section of ['builds','experiments','notes']) await expect(page.locator(`.lab-index a[href="${prefix}/${section}"]`)).toHaveCount(1);
-    await expect(page.locator('.about-editorial a[href^="https:"]')).toHaveAttribute('href', 'https://github.com/gmouraws/blueprint');
+    await expect(page.locator('.about-editorial').getByRole('link', {name: locale === 'en' ? 'Blueprint on GitHub' : 'Blueprint no GitHub', exact:true})).toHaveAttribute('href', 'https://github.com/gmouraws/blueprint');
+    for (const region of [page.locator('.about-editorial'), page.locator('footer')]) {
+      const linkedIn = region.getByRole('link', {name: 'LinkedIn', exact:true});
+      await expect(linkedIn).toHaveAttribute('href', 'https://www.linkedin.com/in/guilherme-moura16');
+      await expect(linkedIn).toHaveAttribute('rel', 'noopener noreferrer');
+      await expect(linkedIn).toBeVisible();
+    }
     for (const [size,width] of [['desktop',1440], ['mobile',375]] as const) {
       await page.setViewportSize({width,height:900});
       await page.evaluate(() => window.scrollTo(0,0));
