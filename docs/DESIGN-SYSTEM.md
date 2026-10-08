@@ -43,6 +43,12 @@ Initial color direction, subject to accessibility validation:
 
 These are design direction values, not permission to sacrifice WCAG contrast.
 
+## Blueprint Planes mark
+
+The original vector mark uses four equal construction planes offset along one diagonal: Idea → Specification → Build → Iteration. Three blueprint-blue outlines lead to an ink-colored foreground plane. Square corners and opaque navy surfaces keep the geometry clear at 16 px. The header pairs this decorative mark with the accessible Blueprint / Engineering Lab wordmark.
+
+public/brand-mark.svg contains the 40-unit geometry. The favicon uses the same planes on navy; the social asset scales them beside the wordmark. Keep these SVG representations synchronized and regenerate social.png from social.svg when changing the mark. Use the approved palette without effects or animation.
+
 ## Typography
 
 Favor a highly readable modern sans-serif for primary reading. A restrained mono or technical face may be used for identifiers, metadata, coordinates, or labels.

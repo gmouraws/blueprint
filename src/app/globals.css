@@ -16,8 +16,7 @@ main:focus { outline: none; }
 .site-header { border-bottom: 1px solid var(--line); }
 .header-inner { min-height: 104px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .brand { display: flex; align-items: center; gap: 14px; text-decoration: none; font-size: 1.25rem; font-weight: 700; }
-.brand-mark { width: 42px; height: 42px; border: 1px solid #568acb; display: grid; place-items: center; position: relative; font-family: monospace; }
-.brand-mark span { position: absolute; right: -5px; top: -14px; color: #8ab8ff; }
+.brand-mark { width: 42px; height: 42px; display: block; flex: none; }
 .brand-caption { display: block; color: var(--color-muted); font-size: .625rem; font-weight: 400; letter-spacing: .08em; text-transform: uppercase; }
 nav ul { display: flex; gap: 28px; list-style: none; padding: 0; margin: 0; }
 nav a { display: block; padding-block: 12px; text-decoration: none; font-size: .875rem; }

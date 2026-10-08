@@ -8,7 +8,7 @@ summary: "Um laboratório de engenharia bilíngue baseado em trabalho original e
 publication: PUBLISHED
 status: BUILDING
 translationOf: BUILD-001
-sourceRevision: 96ae553de363e02c86b78832d88ced3a3d7257d5c04cd85f53793bd1b66d8d54
+sourceRevision: 4bfa419c90b987bdad50b18e5812e7846172962d9cf9aec5a39ad7d7a28d3a53
 ---
 
 ## A pergunta
@@ -40,4 +40,4 @@ Veja [o propósito do laboratório](/pt/about) e [a nota sobre organização de 
 
 O primeiro deploy de produção na Vercel falhou depois que o Next.js concluiu a geração das rotas estáticas. A falha ocorreu na verificação personalizada de output após o build do Blueprint: ela esperava `.next/server/app/index.html`, um caminho interno fixo de output do Next.js que não estava presente no ambiente de build da Vercel.
 
-A lição de engenharia é que verificações personalizadas não devem depender de caminhos de output do framework que não sejam documentados ou que variem conforme o ambiente. A resolução continua pendente até que a correção seja implantada com sucesso.
+A lição de engenharia é que verificações personalizadas não devem depender de caminhos de output do framework que não sejam documentados ou que variem conforme o ambiente. A resolução continua pendente até que o deploy de produção corrigido e o domínio personalizado blueprint.app.br com HTTPS sejam verificados com sucesso.

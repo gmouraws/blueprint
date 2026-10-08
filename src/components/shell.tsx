@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { words, pathFor, type Locale } from '@/lib/i18n';
 import { isProduction } from '@/lib/seo';
@@ -12,7 +13,7 @@ export function Shell({ locale, children }: { locale: Locale; children: ReactNod
   return <html lang={locale}><body>
     <a className="skip" href="#main">{w.skip}</a>
     <header className="site-header"><div className="container header-inner">
-      <Link className="brand" href={pathFor(locale)}><span className="brand-mark" aria-hidden="true">B<span>+</span></span><span>Blueprint<span className="brand-caption">{w.lab}</span></span></Link>
+      <Link className="brand" href={pathFor(locale)}><Image className="brand-mark" src="/brand-mark.svg" width={42} height={42} alt="" aria-hidden="true" unoptimized loading="eager" /><span>Blueprint<span className="brand-caption">{w.lab}</span></span></Link>
       <div className="header-controls"><nav aria-label={w.nav}><ul>{(['builds', 'experiments', 'notes', 'about'] as const).map(s => <li key={s}><Link href={pathFor(locale, s)}>{w[s]}</Link></li>)}</ul></nav>
       <LanguageSwitcher locale={locale} availablePaths={availablePaths} label={w.language} missing={w.missing} /></div>
     </div></header>
