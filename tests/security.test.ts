@@ -6,7 +6,7 @@ import { createHmac } from 'node:crypto';
 import { SignJWT } from 'jose';
 import { handlers, services } from '../src/lib/server/handlers';
 import { type Config, configuration, configurationStatus, allowedOrigins } from '../src/lib/server/config';
-import { cookieOptions, COOKIE_NAME, passwordMatches, signSession, verifySession } from '../src/lib/server/session';
+import { cookieOptions, COOKIE_NAME, passwordMatches, signSession, verifySession, SESSION_SECONDS, REMEMBERED_SESSION_SECONDS } from '../src/lib/server/session';
 import { createRoomToken, ensureRoom, RoomFullError } from '../src/lib/server/livekit';
 import { LimitError, enforceLimitResults } from '../src/lib/server/rate-limit';
 import { encodeMessage, decodeMessage, normalizeNickname, validNickname } from '../src/lib/room';
@@ -81,7 +81,52 @@ test('successful login sets a signed HttpOnly Secure SameSite session with serve
   assert.match(cookie, /HttpOnly/); assert.match(cookie, /Secure/); assert.match(cookie, /SameSite=strict/i);
   const session = await verifySession(response.cookies.get(COOKIE_NAME)?.value, config);
   assert.ok(session); assert.equal(session.nickname, 'João'); assert.match(session.identity, /^[a-f\d-]{36}$/);
-  assert.equal(cookieOptions(config).maxAge, 43200);
+  assert.doesNotMatch(cookie, /Max-Age|Expires/i);
+  assert.equal(cookieOptions(config).maxAge, undefined);
+});
+test('remembered login is opt-in, lasts exactly 30 days and remains protected', async () => {
+  for (const remember of [false, true]) {
+    const response = await handlers(deps).login(request({ nickname: 'Ana', password: config.ROOM_PASSWORD, remember }));
+    assert.equal(response.status, 200);
+    const token = response.cookies.get(COOKIE_NAME)!.value;
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+    assert.equal(payload.remember, remember);
+    assert.equal(payload.exp - payload.iat, remember ? REMEMBERED_SESSION_SECONDS : SESSION_SECONDS);
+    const cookie = response.headers.get('set-cookie')!;
+    for (const flag of [/HttpOnly/, /Secure/, /SameSite=strict/i, /Path=\//]) assert.match(cookie, flag);
+    if (remember) assert.match(cookie, /Max-Age=2592000/); else assert.doesNotMatch(cookie, /Max-Age|Expires/i);
+    assert.deepEqual(await response.json(), { nickname: 'Ana' });
+  }
+  assert.equal((await handlers(deps).login(request({ nickname: 'Ana', password: config.ROOM_PASSWORD, remember: 'true' }))).status, 400);
+});
+test('both session modes expire at the server boundary, even if the browser retains the cookie', async context => {
+  const now = Date.now();
+  context.mock.timers.enable({ apis: ['Date'], now });
+  for (const remember of [false, true]) {
+    context.mock.timers.setTime(now);
+    const { token } = await signSession('Ana', config, remember);
+    const duration = remember ? REMEMBERED_SESSION_SECONDS : SESSION_SECONDS;
+    context.mock.timers.tick((duration - 1) * 1000);
+    assert.ok(await verifySession(token, config));
+    context.mock.timers.tick(1000);
+    assert.equal(await verifySession(token, config), null);
+    assert.equal((await handlers(deps).token(request({}, token))).status, 401);
+  }
+});
+test('session verifier rejects invalid claims and excessive lifetimes in either mode', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const key = createHmac('sha256', config.SESSION_SECRET).update(config.ROOM_PASSWORD).digest();
+  const claims = { nickname: 'Ana', sub: '00000000-0000-0000-0000-000000000000', iss: 'blueprint-room', aud: config.LIVEKIT_ROOM_NAME, iat: now, exp: now + SESSION_SECONDS };
+  for (const changes of [
+    { exp: undefined }, { iat: undefined }, { iat: now + 30 }, { remember: 'true' },
+    { remember: false, exp: now + SESSION_SECONDS + 1 }, { remember: true, exp: now + REMEMBERED_SESSION_SECONDS + 1 },
+    { exp: now + SESSION_SECONDS + 0.5 }, { aud: 'another-room' }, { nickname: '<script>' },
+  ]) {
+    const token = await new SignJWT({ ...claims, ...changes }).setProtectedHeader({ alg: 'HS256' }).sign(key);
+    assert.equal(await verifySession(token, config), null);
+  }
+  const legacy = await new SignJWT(claims).setProtectedHeader({ alg: 'HS256' }).sign(key);
+  assert.ok(await verifySession(legacy, config));
 });
 test('unsigned, altered, expired and password-rotated sessions are rejected', async () => {
   const { token } = await signSession('Ana', config);
@@ -95,6 +140,45 @@ test('unauthorized token requests cannot call LiveKit', async () => {
   let touched = false;
   const api = handlers({ ...deps, ensureRoom: async () => { touched = true; } });
   assert.equal((await api.token(request({}))).status, 401); assert.equal(touched, false);
+});
+test('password or signing-secret changes deny both session modes before rate limiting or LiveKit', async () => {
+  for (const remember of [false, true]) {
+    const { token } = await signSession('Ana', config, remember);
+    for (const change of [{ ROOM_PASSWORD: 'a-new-shared-password' }, { SESSION_SECRET: 'a-new-signing-secret-long-enough-for-tests' }]) {
+      let touched = false;
+      const api = handlers({ ...deps, getConfig: () => ({ ...config, ...change }), rateLimit: async () => { touched = true; }, ensureRoom: async () => { touched = true; } });
+      assert.equal((await api.token(request({}, token))).status, 401);
+      assert.equal(touched, false);
+    }
+  }
+});
+test('forgetting access deletes the cookie, even if expired or participant removal fails', async () => {
+  const { token, session } = await signSession('Ana', config, true);
+  let removals = 0;
+  const api = handlers({ ...deps, roomService: () => Object.assign(services.roomService(config), { removeParticipant: async (room: string, identity: string) => {
+    assert.equal(room, config.LIVEKIT_ROOM_NAME); assert.equal(identity, session.identity); removals++; throw new Error('offline');
+  } }) });
+  assert.equal((await api.logout(request({}, token, 'https://attacker.test'))).status, 403);
+  for (const value of [token, 'invalid-session', undefined]) {
+    const response = await api.logout(request({}, value));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.match(response.headers.get('set-cookie')!, /Max-Age=0/);
+    assert.equal(response.cookies.get(COOKIE_NAME)?.value, '');
+  }
+  assert.equal(removals, 1);
+  assert.equal((await api.token(request({}))).status, 401);
+});
+test('remembered sessions keep token rate limits and fail-closed dependency protection', async () => {
+  const { token, session } = await signSession('Ana', config, true);
+  for (const status of [429, 503]) {
+    let livekit = false;
+    const api = handlers({ ...deps, rateLimit: async (_config, operation, identity) => {
+      assert.equal(operation, 'token'); assert.equal(identity, session.identity); throw new LimitError(status);
+    }, ensureRoom: async () => { livekit = true; } });
+    assert.equal((await api.token(request({}, token))).status, status);
+    assert.equal(livekit, false);
+  }
 });
 test('cross-origin requests and unexpected endpoint inputs are rejected', async () => {
   assert.equal((await handlers(deps).login(request({}, undefined, 'https://attacker.test'))).status, 403);

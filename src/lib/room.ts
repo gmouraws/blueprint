@@ -12,7 +12,7 @@ export function validNickname(value: string) {
   return value.length >= 2 && value.length <= 24 && /^[\p{L}\p{N} _.-]+$/u.test(value);
 }
 
-export function encodeMessage(text: string): Uint8Array | null {
+export function encodeMessage(text: string): Uint8Array<ArrayBuffer> | null {
   const value = text.trim();
   const bytes = new TextEncoder().encode(value);
   return value && bytes.length <= MAX_MESSAGE_BYTES ? bytes : null;

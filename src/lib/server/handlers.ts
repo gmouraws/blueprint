@@ -9,11 +9,11 @@ import { normalizeNickname, validNickname, ROOM_FULL_MESSAGE } from '../room';
 
 export const services = { getConfig, rateLimit, ensureRoom, createRoomToken, roomService };
 type Services = typeof services;
-const credentials = z.object({ nickname: z.string().max(96).transform(normalizeNickname).refine(validNickname), password: z.string().min(1).max(256) }).strict();
-function json(value: object, status = 200, headers?: Record<string, string>) {
+const credentials = z.object({ nickname: z.string().max(96).transform(normalizeNickname).refine(validNickname), password: z.string().min(1).max(256), remember: z.boolean().default(false) }).strict();
+export function json(value: object, status = 200, headers?: Record<string, string>) {
   return NextResponse.json(value, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
 }
-async function readBody(request: NextRequest) {
+export async function readBody(request: NextRequest, maximum = 4096) {
   if (!request.headers.get('content-type')?.startsWith('application/json')) throw new Error('Invalid body');
   const reader = request.body?.getReader();
   if (!reader) throw new Error('Missing body');
@@ -23,7 +23,7 @@ async function readBody(request: NextRequest) {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.length;
-      if (size > 4096) { await reader.cancel(); throw new Error('Body too large'); }
+      if (size > maximum) { await reader.cancel(); throw new Error('Body too large'); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }
@@ -40,9 +40,9 @@ export function handlers(deps: Services = services) {
         const parsed = credentials.safeParse(await readBody(request).catch(() => null));
         if (!parsed.success) return json({ error: 'Use um apelido de 2 a 24 caracteres (letras, números, espaços, ponto, hífen ou sublinhado) e informe a senha.' }, 400);
         if (!passwordMatches(parsed.data.password, config)) return json({ error: 'Senha incorreta.' }, 401);
-        const { token, session } = await signSession(parsed.data.nickname, config);
+        const { token, session } = await signSession(parsed.data.nickname, config, parsed.data.remember);
         const response = json({ nickname: session.nickname });
-        response.cookies.set(COOKIE_NAME, token, cookieOptions(config));
+        response.cookies.set(COOKIE_NAME, token, cookieOptions(config, parsed.data.remember));
         return response;
       }
       const session = await verifySession(request.cookies.get(COOKIE_NAME)?.value, config);

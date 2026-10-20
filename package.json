@@ -14,10 +14,14 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "node --conditions=react-server --import tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
+    "test:transport": "playwright test --config playwright.transport.config.ts",
+    "db:migrate": "node --conditions=react-server --import tsx scripts/migrate-chat.ts",
+    "db:cleanup": "node --conditions=react-server --import tsx scripts/cleanup-chat.ts",
     "check": "npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {
     "@livekit/components-react": "2.9.24",
+    "@neondatabase/serverless": "1.2.0",
     "@upstash/ratelimit": "2.2.0",
     "@upstash/redis": "1.39.0",
     "jose": "6.2.13",
@@ -31,6 +35,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
+    "@electric-sql/pglite": "0.5.10",
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.20.5",
