@@ -1,104 +1,15 @@
-# Blueprint Product Specification v1
+# Blueprint Room: approved scope
 
-## Product
+The owner explicitly approved replacing the public engineering lab with one private browser-based voice and screen-sharing room at the root of blueprint.app.br. This is a product replacement, not an extra section. Preserve the repository, Git history, Vercel project and domain association.
 
-**Name:** Blueprint  
-**Domain:** blueprint.app.br  
-**Definition:** Personal Engineering Lab  
-**Owner:** Guilherme Moura  
-**Primary language:** English  
-**Secondary language:** Brazilian Portuguese
+- One fixed room, at most eight participants, enforced by LiveKit's server configuration.
+- One ephemeral plain-text chat channel. No replay for late joiners and no persistence.
+- Shared password, server-generated identity, editable nickname only at entry.
+- Microphone selection, mute, local incoming-audio mute, screen selection, screen sharing and fullscreen.
+- Screen audio is requested but depends on browser, OS and capture source. No guaranteed resolution, frame rate or latency.
+- Reconnection, device denial, canceled capture, unavailable services and full-room states must be understandable.
+- UI exclusively pt-BR; Chrome/Edge on Windows are the primary target.
+- Desktop sharing first, with accessible smaller-screen layouts.
+- No webcam, recordings, transcription, AI, analytics, advertisements, accounts database or chat history.
 
-### Tagline
-
-> Engineering ideas into working systems.
-
-### Product statement
-
-Blueprint is a personal engineering lab for building software, exploring architecture, experimenting with AI-assisted development, and documenting the engineering decisions behind working systems.
-
-It is intentionally not a traditional portfolio or résumé.
-
-## Purpose
-
-Blueprint should demonstrate engineering thinking through real builds, experiments, technical notes, architecture, trade-offs, failures, and lessons learned.
-
-Professional credibility is an outcome of the work being visible; it is not the organizing principle of the product.
-
-## Product principles
-
-1. **Show the engineering, not the employment.**
-2. **Build things worth documenting.**
-3. **Document decisions, not just results.**
-4. **Build in public.**
-5. **AI-assisted, human-directed.**
-6. **Simple until complexity is justified.**
-
-## Information architecture
-
-Public sections:
-
-- `/` — Lab/home
-- `/builds` — substantial things being built
-- `/experiments` — bounded technical investigations and prototypes
-- `/notes` — technical writing and engineering notes
-- `/about` — editorial introduction to Guilherme and the lab
-- `/privacy` — privacy disclosure, accessible from the footer
-
-Portuguese equivalents live under `/pt`.
-
-Do not introduce Experience, Career, Resume, Employers, Clients, or traditional Portfolio sections.
-
-## Content identity
-
-Content uses stable lab-style identifiers:
-
-- `BUILD-001`
-- `EXP-001`
-- `NOTE-001`
-
-Blueprint itself is `BUILD-001`.
-
-## MVP
-
-The first public release should contain:
-
-- **BUILD-001 — Blueprint**
-- **BUILD-002 — ClinDevLab** — approved early exploration, PLANNED; no implemented application or final scope.
-- **EXP-001 — Building with an AI Coding Agent**
-- **NOTE-001 — Why an Engineering Lab Instead of a Portfolio**
-- **NOTE-002 — Designing Software Repositories for AI Coding Agents**
-- a concise About page with no employment timeline
-
-Initial content must be truthful and must not pretend unfinished experiments have already produced results.
-
-## Languages
-
-English is canonical. Portuguese is a localized reading experience, not a separate product.
-
-Routes:
-
-- `/`, `/builds`, `/experiments`, `/notes`, `/about`, `/privacy`
-- `/pt`, `/pt/builds`, `/pt/experiments`, `/pt/notes`, `/pt/about`, `/pt/privacy`
-
-A content item may temporarily exist only in English. The Portuguese experience must communicate that state cleanly rather than block publication.
-
-## Approved About identity
-
-Guilherme Moura · Software Engineer · Brazil. The About page introduces Blueprint through the approved statement: “I build software and use Blueprint to document the engineering behind it.” This does not authorize additional biography, employment history, or inferred social-profile URLs.
-
-## Non-goals for v1
-
-- authentication;
-- database;
-- CMS;
-- comments;
-- newsletter infrastructure;
-- AI chat/RAG;
-- complex backend;
-- employment timeline;
-- automated publication of unreviewed editorial content.
-
-## Future direction
-
-Potential future capabilities may include richer architecture diagrams, interactive engineering experiments, feeds, search, and a grounded AI interface over public Blueprint content. They require separate decisions and must not complicate v1 prematurely.
+Only the owner-approved implementation is authorized. Do not add professional content, external biographies or unrelated repository context. Preview review precedes any production replacement.

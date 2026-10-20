@@ -1,6 +1,6 @@
 # ADR-007: V1 Presentation and Release Gates
 
-**Status:** Accepted; presentation choices superseded by [ADR-008](008-technical-editorial-presentation.md). Release gates remain in force.
+**Status:** Historical; superseded by [ADR-009](009-private-room-replacement.md). Previously accepted; presentation choices superseded by [ADR-008](008-technical-editorial-presentation.md). Release gates remain in force.
 
 ## Decision
 

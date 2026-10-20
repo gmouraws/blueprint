@@ -1,14 +1,22 @@
-# Blueprint
+# Blueprint Room
 
-Personal engineering lab for software, architecture, AI-assisted development, and experiments.
+A private browser room for up to eight friends: voice, screen sharing, and one ephemeral text channel. All application UI is Brazilian Portuguese. Code and repository documentation are English.
 
-Next.js App Router, TypeScript, Tailwind CSS, repository-owned bilingual MDX, and static public routes. English is the source language; Brazilian Portuguese lives under `/pt`.
+Next.js App Router on the existing Vercel project serves the UI, signed sessions, and token endpoints. Official LiveKit SDKs connect browsers directly to LiveKit Cloud. Upstash Redis stores short-lived authentication rate-limit counters only. No webcam, recordings, transcription, AI, analytics, or chat database.
 
 ```sh
 npm ci
+# Copy .env.example to .env.local and replace every placeholder.
 npm run dev
 ```
 
-See [implementation and quality commands](docs/IMPLEMENTATION.md), [product specification](docs/PRODUCT.md), and [content policy](docs/CONTENT-POLICY.md).
+Without valid configuration the entry page explicitly says configuration is required; there is no simulated call mode. See [setup and deployment](docs/IMPLEMENTATION.md), [security and architecture](docs/ARCHITECTURE.md), and [manual acceptance](docs/ACCEPTANCE.md).
 
-Blueprint v1 has human visual review and release approval. Vercel project and domain configuration remain pending; future editorial changes require human review before publication.
+```sh
+npm run check
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+The owner has authorized production replacement through the existing Git integration. This authorization does not establish that multi-user voice or screen sharing has passed real-device testing; see [release scope and rollback](docs/RELEASE.md). The old public website remains recoverable at `9cebdeb8e924c69ca16d92be8bb2774c217f682e`; see the recovery procedure in the setup guide.

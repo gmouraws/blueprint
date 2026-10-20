@@ -2,7 +2,7 @@
 
 ## Mission
 
-Blueprint is a public personal engineering lab by Guilherme Moura. It exists to build software, explore architecture, experiment with AI-assisted development, and document engineering decisions behind working systems.
+Blueprint Room is a private browser-based voice, screen-sharing, and ephemeral chat room for up to eight friends. The owner explicitly approved replacing the public engineering lab and releasing it through the existing production Git integration; see docs/adr/009-private-room-replacement.md and docs/RELEASE.md. Future production releases still require explicit owner authorization.
 
 Blueprint is not a résumé, employment portfolio, company history, or showcase of proprietary professional work.
 
@@ -48,21 +48,19 @@ If provenance is uncertain, do not use or publish the information.
 
 ## Product principles
 
-1. Show the engineering, not the employment.
-2. Build things worth documenting.
-3. Document decisions, trade-offs, failures, and lessons, not only outcomes.
-4. Build in public when safe.
-5. AI-assisted, human-directed.
-6. Keep the system simple until complexity is justified.
-7. Accessibility, performance, mobile, and tablet usability are first-class requirements.
+1. One fixed private room, at most eight participants, with server-enforced admission.
+2. Reliable voice and screen sharing before extra features.
+3. Ephemeral plain-text chat; no recordings, AI, analytics, or advertising.
+4. No secrets in browser bundles, logs, URLs, or Git.
+5. Keep architecture small; fail closed when security dependencies are unavailable.
+6. Preserve accessibility, keyboard controls, and smaller-screen usability.
+7. Preserve the previous website through Git history and a recorded recovery SHA.
 
 ## Languages
 
-- English is the canonical/source language.
-- Brazilian Portuguese is the secondary public language.
-- Follow `docs/TRANSLATION-GUIDE.md`.
-- Never translate technology names, code identifiers, framework/library names, commands, or other protected technical terms.
-- Translate explanatory prose naturally rather than mechanically.
+- All application UI is Brazilian Portuguese.
+- Code, comments, and repository documentation are English.
+- Preserve technology names and code identifiers; follow docs/TRANSLATION-GUIDE.md.
 
 ## Autonomy
 
@@ -81,8 +79,8 @@ Agents must not independently:
 
 - Prefer the smallest architecture that satisfies the requirements.
 - Keep secrets out of Git.
-- Do not commit `.env` files or credentials.
-- Favor static generation for public content.
+- Do not commit `.env` files or credentials. `.env.example` may contain placeholders only.
+- Use Vercel for UI/auth/token endpoints and LiveKit Cloud for media/data; never proxy media through Vercel.
 - Treat `main` as production.
 - Keep content and implementation reviewable.
 - Record consequential architecture decisions as ADRs.

@@ -1,6 +1,6 @@
 # ADR-003: Static-First Architecture
 
-**Status:** Accepted
+**Status:** Historical; superseded by [ADR-009](009-private-room-replacement.md). Previously accepted
 
 ## Context
 
