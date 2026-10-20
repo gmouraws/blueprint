@@ -4,8 +4,9 @@ import AxeBuilder from '@axe-core/playwright';
 test('entry is Portuguese, accessible, private and responsive', async ({ page, request }) => {
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR');
-  await expect(page.getByText('UMA SALA. ATÉ 8 PESSOAS.', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Boa companhia. Uma tela em comum.' })).toBeVisible();
+  await expect(page.getByText('Até 8 pessoas · Voz, chat e compartilhamento de tela', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Entrar na sala', level: 1 })).toBeVisible();
+  await expect(page.getByText(/Boa companhia|Uma tela em comum|Entre, a sala é nossa|Feito para estar junto/)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Entrar na sala' })).toBeEnabled();
   for (const width of [1440, 1024, 768, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -14,11 +15,38 @@ test('entry is Portuguese, accessible, private and responsive', async ({ page, r
     if ([1440, 768, 375].includes(width)) await page.screenshot({ path: `test-results/room-entry-${width}.png`, fullPage: true });
   }
   const response = await request.get('/');
+  expect(response.headers()['cache-control']).toContain('no-store');
   expect(response.headers()['x-robots-tag']).toContain('noindex');
   expect(response.headers()['permissions-policy']).toContain('microphone=(self)');
   expect(await (await request.get('/robots.txt')).text()).toContain('Disallow: /');
   for (const old of ['/sitemap.xml', '/about', '/builds', '/pt']) expect((await request.get(old)).status()).toBe(404);
   await expect(page.locator('script[src*="analytics"]')).toHaveCount(0);
+});
+
+test('runtime configuration diagnoses missing and invalid fields without leaking values', async ({ page, request }) => {
+  // The same optimized build is served with different runtime environments.
+  const origin = `http://localhost:${Number(process.env.PLAYWRIGHT_PORT ?? '3001') + 2}`;
+  await page.goto(origin);
+  await expect(page.getByText('Configuração necessária', { exact: true })).toBeVisible();
+  for (const label of ['Seu apelido', 'Senha da sala']) await expect(page.getByLabel(label)).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Entrar na sala' })).toBeDisabled();
+  await page.getByText('Ver diagnóstico da configuração', { exact: true }).click();
+  const issues = page.locator('.configuration-notice li');
+  await expect(issues).toHaveCount(3);
+  await expect(issues.filter({ hasText: 'LIVEKIT_API_SECRET' })).toContainText('ausente');
+  await expect(issues.filter({ hasText: 'UPSTASH_REDIS_REST_TOKEN' })).toContainText('valor de exemplo');
+  await expect(issues.filter({ hasText: 'APP_ORIGIN' })).toContainText('formato inválido');
+  const response = await request.get(origin);
+  expect(response.status()).toBe(200);
+  expect(response.headers()['cache-control']).toContain('no-store');
+  const html = await response.text();
+  for (const value of ['invalid-origin-canary', 'replace-with-redis-canary', 'test-only-password-not-a-secret', 'test-only-session-signing-key-for-browser-tests', 'test-api-key', 'wss://fixture.livekit.cloud', 'https://fixture.upstash.io']) expect(html).not.toContain(value);
+  for (const width of [1440, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
+    if (width !== 320) await page.screenshot({ path: `test-results/room-configuration-${width}.png`, fullPage: true });
+  }
 });
 
 test('authentication errors clear password and show useful feedback without a fake call', async ({ page }) => {

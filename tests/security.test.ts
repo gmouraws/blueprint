@@ -5,7 +5,7 @@ import { TokenVerifier, RoomConfiguration, Room } from 'livekit-server-sdk';
 import { createHmac } from 'node:crypto';
 import { SignJWT } from 'jose';
 import { handlers, services } from '../src/lib/server/handlers';
-import { type Config, configuration } from '../src/lib/server/config';
+import { type Config, configuration, configurationStatus, allowedOrigins } from '../src/lib/server/config';
 import { cookieOptions, COOKIE_NAME, passwordMatches, signSession, verifySession } from '../src/lib/server/session';
 import { createRoomToken, ensureRoom, RoomFullError } from '../src/lib/server/livekit';
 import { LimitError, enforceLimitResults } from '../src/lib/server/rate-limit';
@@ -25,6 +25,44 @@ test('configuration rejects absent values, placeholders and non-Cloud endpoints'
   assert.equal(configuration(config).success, true);
   assert.equal(configuration({ ...config, LIVEKIT_API_SECRET: 'replace-with-project-api-secret' }).success, false);
   assert.equal(configuration({ ...config, LIVEKIT_URL: 'wss://untrusted.test' }).success, false);
+});
+test('malformed URLs fail validation without throwing or revealing their input', () => {
+  for (const name of ['APP_ORIGIN', 'LIVEKIT_URL', 'UPSTASH_REDIS_REST_URL'] as const) {
+    const values = { ...config, [name]: 'malformed-url-canary' };
+    assert.equal(configuration(values).success, false);
+    assert.deepEqual(configurationStatus(values), { ready: false, issues: [{ name, status: 'invalid' }] });
+  }
+});
+test('configuration diagnostics contain only known variable names and safe categories', () => {
+  const values = { ...config, LIVEKIT_API_SECRET: undefined, ROOM_PASSWORD: 'short-canary', SESSION_SECRET: 'replace-with-session-canary' };
+  const status = configurationStatus(values);
+  assert.deepEqual(status, { ready: false, issues: [
+    { name: 'ROOM_PASSWORD', status: 'invalid' },
+    { name: 'SESSION_SECRET', status: 'placeholder' },
+    { name: 'LIVEKIT_API_SECRET', status: 'missing' },
+  ] });
+  for (const value of Object.values(values).filter((value): value is string => !!value)) assert.ok(!JSON.stringify(status).includes(value));
+  assert.deepEqual(configurationStatus(config), { ready: true, issues: [] });
+  assert.equal(configurationStatus({}).issues.length, 9);
+});
+test('origin validation remains exact and trusted Preview aliases are accepted independently', async () => {
+  for (const APP_ORIGIN of ['https://room.example.test/', 'https://room.example.test/path', 'http://room.example.test', 'https://user:password@room.example.test']) {
+    assert.equal(configuration({ ...config, APP_ORIGIN }).success, false);
+  }
+  const names = ['VERCEL', 'VERCEL_URL', 'VERCEL_BRANCH_URL'] as const;
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  try {
+    process.env.VERCEL = '1';
+    process.env.VERCEL_URL = 'blueprint-deployment.vercel.app';
+    process.env.VERCEL_BRANCH_URL = 'blueprint-branch.vercel.app';
+    assert.deepEqual(allowedOrigins(config), [config.APP_ORIGIN, 'https://blueprint-deployment.vercel.app', 'https://blueprint-branch.vercel.app']);
+    for (const origin of allowedOrigins(config)) assert.equal((await handlers(deps).token(request({}, undefined, origin))).status, 401);
+    assert.equal((await handlers(deps).token(request({}, undefined, 'https://untrusted.vercel.app'))).status, 403);
+    process.env.VERCEL_URL = 'blueprint-deployment.vercel.app.attacker.test';
+    assert.ok(!allowedOrigins(config).includes(`https://${process.env.VERCEL_URL}`));
+  } finally {
+    for (const name of names) { if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name]; }
+  }
 });
 test('nickname normalization preserves Portuguese and rejects markup/control characters', () => {
   assert.equal(normalizeNickname('  João   Silva  '), 'João Silva');

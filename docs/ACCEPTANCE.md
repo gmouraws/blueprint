@@ -3,6 +3,7 @@
 Automated tests do not establish real-device, multi-network or provider-quota behavior. Record actual results below or in the PR; do not mark unchecked scenarios passed.
 
 - [ ] Configure a free LiveKit project and free Upstash database; preview displays an enabled form. Wrong password fails; no token without a valid cookie.
+- [ ] Confirm the Preview commit and deployment are newer than the variable changes. Invalid setup keeps entry disabled; expanded diagnostics show only variable names and safe categories. Correct the listed variables in Preview, redeploy, and use the new Preview URL.
 - [ ] Eight friends on different computers/networks join the same fixed room using Chrome/Edge on Windows. Names, mic state and speaking labels are accurate. Check identical nicknames are still separate identities.
 - [ ] Connect seven clients, then race two independent browsers for the eighth slot. Exactly one joins. Retry a ninth after the room is full; rejection is clear. Inspect Cloud room cap=8.
 - [ ] Let everyone leave, allow automatic room deletion, then race joins again. Also obtain a token, let the empty room expire and join with a fresh valid token: recreated room remains capped at eight. Never disable the server cap.

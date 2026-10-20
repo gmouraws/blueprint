@@ -3,6 +3,8 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 
 const appPaths = JSON.parse(readFileSync('.next/server/app-paths-manifest.json', 'utf8'));
+const prerender = JSON.parse(readFileSync('.next/prerender-manifest.json', 'utf8'));
+assert.ok(!Object.hasOwn(prerender.routes, '/'), 'Entry configuration must be evaluated at request time, not prerendered');
 for (const route of ['/page', '/api/login/route', '/api/token/route', '/api/logout/route', '/robots.txt/route']) assert.ok(appPaths[route], `Missing route: ${route}`);
 assert.ok(!Object.keys(appPaths).some(route => /\/(?:pt|about|privacy|builds|notes|experiments|sitemap\.xml)(?:\/|$)/.test(route)), 'Obsolete public route emitted');
 function files(directory: string): string[] {

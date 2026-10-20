@@ -52,9 +52,17 @@ The existing project is blueprint (prj_hNhWNMGea9fQLySMr6CfR92BodNS), associated
 
 No LiveKit or Upstash account/resources were created by this implementation. Credentials are not present in the repository. The configuration-required preview is intentional until the owner supplies them.
 
+## Troubleshooting Preview configuration
+
+The entry page evaluates configuration on each request, not during prerendering. However, Vercel deployments retain the environment from their creation: saving variables does not update an existing deployment. Open the newest Preview after a new branch push or Preview redeployment. See https://vercel.com/docs/environment-variables .
+
+When entry is disabled, expand "Ver diagnóstico da configuração". It lists only required variable names and safe categories: missing (absent/empty), placeholder (an example value remains), or invalid (the configured value violates validation). It never displays values, their lengths, raw validation exceptions or service credentials. Verify all nine exact names in .env.example, including LIVEKIT_API_SECRET. Select Preview, with either all Preview branches or exactly codex/private-voice-room; branch-specific overrides take precedence.
+
+APP_ORIGIN must remain an exact HTTPS origin without a trailing slash, path, query or credentials. The configured origin need not equal every deployment URL: the trusted Vercel-provided VERCEL_URL and VERCEL_BRANCH_URL are also accepted for requests to their exact origins. Arbitrary vercel.app hosts and client-supplied host headers are not trusted. A valid-looking configuration enables the form but does not prove provider credentials or connectivity; Redis is checked during authentication and LiveKit during authenticated token issuance. Never bypass those checks to enable entry.
+
 ## Verification and limits
 
-npm run check runs lint, route type generation, TypeScript and focused security tests. npm run build performs the optimized Next build and verifies expected routes, removal of public editorial output/analytics and absence of configured secret values in browser assets. CI supplies five harmless canaries to verify isolation without real credentials. npm run test:e2e runs Chromium/axe tests; network fixtures cover UI errors and the real disconnected room layout, **not successful media connectivity**. It never connects to a real LiveKit service with test credentials.
+npm run check runs lint, route type generation, TypeScript and focused security tests. npm run build performs the optimized Next build and verifies expected routes, runtime-only entry rendering, removal of public editorial output/analytics and absence of configured secret values in browser assets. CI supplies five harmless canaries to verify isolation without real credentials. npm run test:e2e serves the same optimized build with valid and invalid runtime configurations and verifies diagnostics do not disclose values. Chromium/axe tests and network fixtures cover UI errors and the real disconnected room layout, **not successful media connectivity**. It never connects to a real LiveKit service with test credentials.
 
 The production dependency audit is clean at implementation time. npm reports five inherited high-severity development-tool findings through eslint-config-next → fast-glob → micromatch → braces (GHSA-vfj7-8cjw-p6xm), without a compatible patched version reported. Do not force-downgrade the Next ESLint configuration to another major. Recheck before production.
 
