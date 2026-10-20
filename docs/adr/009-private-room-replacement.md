@@ -1,6 +1,6 @@
 # ADR-009: Replace the public lab with Blueprint Room
 
-**Status:** Accepted for implementation and preview; production replacement requires explicit review/merge approval.
+**Status:** Accepted for implementation and production replacement with explicit owner approval. See docs/RELEASE.md for the release boundary and remaining manual verification.
 
 ## Context
 
@@ -14,4 +14,4 @@ Use Upstash Redis sliding-window counters for production-compatible rate limitin
 
 ## Consequences
 
-The app needs LiveKit and Upstash setup, but only free plans are authorized. Provider quotas apply. Browser support and capture audio vary. Short token expiry limits initial admission, not ongoing session length. Real multi-user/ninth-admission/media/reconnect acceptance is required before production. Preserve the original main SHA in docs/IMPLEMENTATION.md for a reviewed Git revert; never rewrite history. No DNS changes or manual production deployment are authorized by this implementation.
+The app needs LiveKit and Upstash setup, but only free plans are authorized. Provider quotas apply. Browser support and capture audio vary. Short token expiry limits initial admission, not ongoing session length. The owner authorized production release after reporting working Preview entry, while explicitly leaving real multi-user/ninth-admission/media/reconnect acceptance unverified. Preserve the original main SHA in docs/IMPLEMENTATION.md for a reviewed Git revert; never rewrite history. Use the existing Git integration for this release; no DNS changes or duplicate manual production deployment are needed.

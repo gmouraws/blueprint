@@ -48,9 +48,9 @@ The existing project is blueprint (prj_hNhWNMGea9fQLySMr6CfR92BodNS), associated
 2. In this project's Settings → Environment Variables, set the nine values for **Preview** (optionally scoped to this branch). Use the preview room name and isolated secrets. APP_ORIGIN can be the exact preview alias; generated Vercel deployment origins are also accepted.
 3. Redeploy that **preview commit** after setting the variables. Do not change production env or deploy production yet. If preview protection requests Vercel authentication, invited testers need authorized access; do not disable protection to let automation in.
 4. Complete docs/ACCEPTANCE.md on real Chrome/Edge machines. Free-plan screen-audio availability and ninth-participant rejection must be verified, not inferred from unit tests.
-5. Only after preview approval, the owner configures the separate **Production** values (APP_ORIGIN=https://blueprint.app.br, a separate room name and secrets), then explicitly approves merging. Existing Git integration replaces the root website on main. Verify domain/HTTPS, denied indexing, auth, microphone and screen capture after deployment. No manual release or DNS change is required.
+5. Only after preview approval, the owner configures the separate **Production** values, then explicitly approves merging. APP_ORIGIN must match the final HTTPS origin after redirects: the existing domain configuration redirects blueprint.app.br to www.blueprint.app.br, so use the latter origin without a trailing slash. Keep a separate room name and session secret. Existing Git integration replaces the root website on main. Verify domain/HTTPS, denied indexing, auth, microphone and screen capture after deployment. No manual release or DNS change is required.
 
-No LiveKit or Upstash account/resources were created by this implementation. Credentials are not present in the repository. The configuration-required preview is intentional until the owner supplies them.
+No LiveKit or Upstash account/resources were created by this implementation. Credentials are not present in the repository. The owner has since configured Preview and Production and authorized the production release; see docs/RELEASE.md. Never treat that approval as evidence of unperformed media tests.
 
 ## Troubleshooting Preview configuration
 

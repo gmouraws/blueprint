@@ -2,7 +2,7 @@
 
 ## Mission
 
-Blueprint Room is a private browser-based voice, screen-sharing, and ephemeral chat room for up to eight friends. The owner explicitly approved replacing the public engineering lab; see docs/adr/009-private-room-replacement.md. Work only toward preview review until the owner approves production replacement.
+Blueprint Room is a private browser-based voice, screen-sharing, and ephemeral chat room for up to eight friends. The owner explicitly approved replacing the public engineering lab and releasing it through the existing production Git integration; see docs/adr/009-private-room-replacement.md and docs/RELEASE.md. Future production releases still require explicit owner authorization.
 
 Blueprint is not a résumé, employment portfolio, company history, or showcase of proprietary professional work.
 

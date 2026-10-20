@@ -19,4 +19,4 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-This branch is for preview review only. Do not merge or promote it until real-device acceptance is complete. The old public website remains recoverable at `9cebdeb8e924c69ca16d92be8bb2774c217f682e`; see the recovery procedure in the setup guide.
+The owner has authorized production replacement through the existing Git integration. This authorization does not establish that multi-user voice or screen sharing has passed real-device testing; see [release scope and rollback](docs/RELEASE.md). The old public website remains recoverable at `9cebdeb8e924c69ca16d92be8bb2774c217f682e`; see the recovery procedure in the setup guide.
