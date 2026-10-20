@@ -10,6 +10,7 @@ The owner explicitly approved replacing the public engineering lab with one priv
 - Reconnection, device denial, canceled capture, unavailable services and full-room states must be understandable.
 - UI exclusively pt-BR; Chrome/Edge on Windows are the primary target.
 - Desktop sharing first, with accessible smaller-screen layouts.
+- Owner-approved call improvements: optional silent microphone test, input/output selection where supported, per-participant and selected-screen playback volumes, optional membership tones, validated local preferences, and real SDK connection/quality feedback. These changes require Preview review before production release.
 - No webcam, recordings, transcription, AI, analytics, advertisements, accounts database or chat history.
 
 Only the owner-approved implementation is authorized. Do not add professional content, external biographies or unrelated repository context. Preview review precedes any production replacement.

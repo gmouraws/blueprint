@@ -5,6 +5,9 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Brand, Icon } from './icons';
 import { MAX_PARTICIPANTS, normalizeNickname, validNickname, type ConnectionDetails } from '@/lib/room';
 import type { ConfigurationStatus } from '@/lib/server/config';
+import { createCallRoom, closeCallRoom } from '@/lib/client/call-room';
+import type { Room } from 'livekit-client';
+import { MicrophoneCheck, type MicrophoneCheckHandle } from './microphone';
 
 const ConnectedRoom = dynamic(() => import('./room'), { ssr: false, loading: () => <div className="loading" role="status">Preparando a sala…</div> });
 const configurationLabels = { missing: 'ausente', placeholder: 'valor de exemplo', invalid: 'formato inválido' };
@@ -16,36 +19,45 @@ async function post(path: string, body: object) {
 }
 export default function Entry({ configuration }: { configuration: ConfigurationStatus }) {
   const configured = configuration.ready;
-  const [details, setDetails] = useState<ConnectionDetails | null>(null);
+  const [call, setCall] = useState<{ room: Room; details: ConnectionDetails } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const nicknameRef = useRef<HTMLInputElement>(null);
+  const microphoneCheck = useRef<MicrophoneCheckHandle>(null);
+  const callRoom = useRef<Room | null>(null);
+  const joining = useRef(false);
+  const alive = useRef(false);
   useEffect(() => {
-    try { if (nicknameRef.current) nicknameRef.current.value = localStorage.getItem('blueprint.nickname') ?? ''; } catch { /* Storage is optional. */ }
-  }, [details]);
+    try { const nickname = normalizeNickname(localStorage.getItem('blueprint.nickname') ?? ''); if (nicknameRef.current && validNickname(nickname)) nicknameRef.current.value = nickname; } catch { /* Storage is optional. */ }
+  }, [call]);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; if (callRoom.current) void closeCallRoom(callRoom.current); }; }, []);
   async function join(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (joining.current || !configured) return;
     const form = event.currentTarget;
     const fields = new FormData(form);
     const nickname = normalizeNickname(String(fields.get('nickname') ?? ''));
     if (!validNickname(nickname)) { setError('Use um apelido de 2 a 24 caracteres: letras, números, espaços, ponto, hífen ou sublinhado.'); return; }
     const password = String(fields.get('password') ?? '');
+    microphoneCheck.current?.stop();
+    const room = createCallRoom(); callRoom.current = room; joining.current = true;
     (form.elements.namedItem('password') as HTMLInputElement).value = '';
     setBusy(true); setError('');
     try {
       await post('/api/login', { nickname, password });
       try { localStorage.setItem('blueprint.nickname', nickname); } catch { /* Storage is optional. */ }
-      setDetails(await post('/api/token', {}));
-    } catch (failure) { setError(failure instanceof Error && failure.name !== 'TimeoutError' ? failure.message : 'A conexão demorou demais. Tente novamente.'); }
-    finally { setBusy(false); }
+      const details = await post('/api/token', {});
+      if (alive.current) setCall({ room, details }); else void closeCallRoom(room);
+    } catch (failure) { void closeCallRoom(room); callRoom.current = null; if (alive.current) setError(failure instanceof Error && failure.name !== 'TimeoutError' ? failure.message : 'A conexão demorou demais. Tente novamente.'); }
+    finally { joining.current = false; if (alive.current) setBusy(false); }
   }
   async function leave(message = '') {
-    setDetails(null); setError(message);
+    joining.current = true; setBusy(true); setCall(null); callRoom.current = null; setError(message);
     try { await post('/api/logout', {}); }
     catch { setError(message || 'Você saiu da chamada. Não foi possível encerrar a sessão no servidor; feche o navegador se estiver em um computador compartilhado.'); }
+    finally { joining.current = false; if (alive.current) setBusy(false); }
   }
-  if (details) return <ConnectedRoom details={details} onLeave={leave} />;
+  if (call) return <ConnectedRoom room={call.room} details={call.details} onLeave={leave} />;
   return <main className="entry-page">
     <header className="entry-header"><Brand /><span className="small-label"><Icon name="lock" /> Espaço privado</span></header>
     <div className="entry-content">
@@ -66,6 +78,7 @@ export default function Entry({ configuration }: { configuration: ConfigurationS
           {error && <p className="error" role="alert">{error}</p>}
           <button className="primary join-button" disabled={busy || !configured}>{busy ? 'Entrando…' : 'Entrar na sala'}<span aria-hidden="true">→</span></button>
         </form>
+        <MicrophoneCheck ref={microphoneCheck} disabled={busy || !configured} />
         <p className="entry-note">Você entra com o microfone desligado. Permissões de áudio e tela são solicitadas ao ativar cada recurso.</p>
       </section>
     </div>

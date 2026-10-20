@@ -58,6 +58,37 @@ label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 7px
 .chat-form { border-top: 1px solid var(--line); padding: 16px; } .chat-form label { font-size: 12px; } .chat-form textarea { font-size: 13px; max-height: 160px; } .chat-send { display: flex; align-items: center; justify-content: space-between; margin-top: 9px; gap: 8px; font-size: 10px; } .chat-form .error { margin: 10px 0 0; }
 .call-controls { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px; border-top: 1px solid var(--line); background: #181f28; } .microphone-controls,.main-controls { display: flex; align-items: center; gap: 12px; } .device-select { margin: 0; color: var(--color-muted); font-size: 10px; max-width: 170px; } .device-select select { font-size: 12px; min-height: 32px; padding: 5px 8px; } .call-controls button { white-space: nowrap; }
 .standalone,.loading { max-width: 650px; padding: 60px 24px; margin: auto; } .standalone h1 { font-size: 32px; margin-bottom: 24px; } .standalone p { margin-bottom: 24px; }
+.participant { display: block; }
+.participant-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.participant-identity > div { flex: 1; min-width: 0; }
+.participant-identity strong { overflow-wrap: anywhere; }
+.participant-identity > svg { flex: none; width: 16px; }
+.volume-control { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 4px 8px; margin-top: 10px; }
+.volume-control label { margin: 0; font-size: 11px; color: var(--color-muted); min-width: 0; }
+.volume-control input[type=range] { display: block; min-height: 44px; padding: 0; border: 0; accent-color: var(--color-accent); }
+.volume-number { font: 11px Consolas, monospace; color: var(--color-muted); }
+.volume-control button { grid-column: 1 / -1; justify-self: start; min-height: 44px; padding: 4px 8px; font-size: 11px; }
+.screen-audio-controls { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 12px; color: var(--color-muted); }
+.screen-audio-controls .volume-control { margin: 0; grid-template-columns: minmax(0,1fr) auto auto; }
+.screen-audio-controls .volume-control button { grid-column: auto; }
+.call-settings,.microphone-check { border-top: 1px solid var(--line); margin-top: 16px; font-size: 12px; }
+.call-settings summary,.microphone-check summary { cursor: pointer; min-height: 44px; padding: 12px 0; color: var(--color-muted); }
+.microphone-check { margin-bottom: 12px; }
+.microphone-check label,.audio-device-settings label { font-size: 12px; }
+.microphone-check select,.audio-device-settings select { font-size: 12px; margin: 6px 0 10px; }
+.microphone-check meter { display: block; width: 100%; height: 20px; margin-top: 5px; }
+.test-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+.test-actions button { font-size: 12px; }
+.audio-device-settings p,.microphone-check p { margin-block: 8px; }
+.checkbox-label { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-block: 8px; font-size: 12px; }
+.checkbox-label input { width: 18px; min-height: 18px; margin: 0; accent-color: var(--color-accent); }
+.audio-diagnostics dl { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 5px 12px; margin: 0 0 10px; }
+.audio-diagnostics dd { margin: 0; }
+.audio-diagnostics p { color: var(--color-muted); margin-bottom: 8px; }
+.chat-keyboard { font-size: 10px; margin-top: 6px; }
+.chat-panel .messages { min-height: 0; }
+@media (max-width: 900px) { .room-columns .chat-panel { height: 480px; } }
+@media (max-width: 640px) { .room-columns .participants-panel { max-height: min(45svh,420px); } }
 @media (min-width: 1700px) { .room-columns { grid-template-columns: 255px minmax(0,1fr) 340px; } }
 @media (max-width: 1150px) { .room-columns { grid-template-columns: 200px minmax(0,1fr) 275px; } .stage-column { padding: 20px; } .call-controls { flex-wrap: wrap; } .device-select { max-width: 145px; } .entry-page { padding-inline: 32px; } }
 @media (max-width: 900px) { .room-shell { height: auto; min-height: 100svh; } .room-columns { grid-template-columns: 190px minmax(0,1fr); } .chat-panel { grid-column: 1 / -1; height: 420px; border-left: 0; border-top: 1px solid var(--line); } .stage-column { min-height: 530px; } .call-controls { position: static; } .entry-form-section { padding: 24px; } }

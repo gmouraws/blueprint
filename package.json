@@ -14,6 +14,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "node --conditions=react-server --import tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
+    "test:transport": "playwright test --config playwright.transport.config.ts",
     "check": "npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {

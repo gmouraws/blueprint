@@ -30,6 +30,8 @@ One reliable data topic carries UTF-8 text only, at most 2000 bytes per message.
 
 ## Sources
 
+The communication lifecycle, local preferences, device/output behavior and controlled media verification are described in [ADR-010](adr/010-room-communication-lifecycle.md) and [the verification guide](COMMUNICATION-VERIFICATION.md). The entry remains microphone-off; local volume settings never change another participant's microphone.
+
 - https://docs.livekit.io/frontends/reference/tokens-grants/
 - https://docs.livekit.io/reference/other/roomservice-api/
 - https://docs.livekit.io/transport/media/screenshare/
