@@ -90,6 +90,7 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
       await alice.setViewportSize({ width, height: 1000 });
       expect(await alice.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect(await alice.evaluate(() => document.querySelector('.chat-form')!.getBoundingClientRect().bottom <= document.querySelector('.call-controls')!.getBoundingClientRect().top + 1)).toBe(true);
+      expect(await alice.evaluate(() => document.querySelector('.chat-form')!.getBoundingClientRect().bottom <= document.querySelector('.call-settings')!.getBoundingClientRect().top + 1)).toBe(true);
       expect((await new AxeBuilder({ page: alice }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
       await alice.screenshot({ path: `test-results/call-connected-${width}.png`, fullPage: true });
     }

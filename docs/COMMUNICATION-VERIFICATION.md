@@ -56,3 +56,5 @@ Production remains unchanged until this Preview is reviewed and a separate produ
 - [MDN output selection](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/setSinkId)
 
 The persistent-chat suite additionally checks reload/late-join history, no-voice access, stable pagination, response-loss idempotency, draft preservation, access rejection and retention/isolation. Review [CHAT-STORAGE.md](CHAT-STORAGE.md) before any production merge.
+
+The deployed Preview also saved and recovered a real verification message after reload with voice disconnected, using owner-completed authentication and the actual Redis/Neon services. A voice connection attempted in the Codex in-app browser ended with the application's connection-failure message. No microphone was activated, and no cloud media acceptance is claimed. The cause was not established; verify voice on supported physical browsers/devices before any production approval. A final tablet review also found and fixed composer/settings overlap; the transport screenshot test now asserts their boundaries do not overlap.

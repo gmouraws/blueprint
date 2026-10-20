@@ -11,7 +11,7 @@ The owner authorized free Neon provisioning through the existing Blueprint Verce
 
 Both are in AWS US East 1 / Vercel `iad1`, connected exclusively to Blueprint project `prj_hNhWNMGea9fQLySMr6CfR92BodNS`. Each has its own credentials and environment marker. Their schema v1 migrations were executed through the authenticated Neon SQL Editor; subsequent queries confirmed the correct environment, schema version and zero existing messages. Provisioning a production database is not an application deployment: main and the production application were not changed.
 
-A separate Preview-only SQL transaction verified environment mismatch rejection, idempotent insertion, 30-day read exclusion and expired-row cleanup, then rolled back its disposable records. This establishes database behavior, not authenticated browser-to-Neon connectivity; that is checked separately after Preview deployment.
+A separate Preview-only SQL transaction verified environment mismatch rejection, idempotent insertion, 30-day read exclusion and expired-row cleanup, then rolled back its disposable records. After deployment, the owner authenticated in Preview and a browser check saved one clearly identified verification message, reloaded the page and recovered it through Chat without joining voice. This separately verified the real session/Redis/HTTP/Neon path. The verification message remains only in Preview and follows normal retention.
 
 ## Variables
 
