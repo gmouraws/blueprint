@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 test('entry is Portuguese, accessible, private and responsive', async ({ page, request }) => {
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR');
+  await expect(page.getByText('UMA SALA. ATÉ 8 PESSOAS.', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Boa companhia. Uma tela em comum.' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Entrar na sala' })).toBeEnabled();
   for (const width of [1440, 1024, 768, 375, 320]) {
@@ -34,12 +35,12 @@ test('authentication errors clear password and show useful feedback without a fa
 
 test('room full response is visible and nickname persists without password', async ({ page }) => {
   await page.route('**/api/login', route => route.fulfill({ json: { nickname: 'Ana' } }));
-  await page.route('**/api/token', route => route.fulfill({ status: 409, json: { error: 'A sala está cheia: cinco pessoas já estão conectadas.' } }));
+  await page.route('**/api/token', route => route.fulfill({ status: 409, json: { error: 'A sala está cheia: 8 pessoas já estão conectadas.' } }));
   await page.goto('/');
   await page.getByLabel('Seu apelido').fill('Ana');
   await page.getByLabel('Senha da sala').fill('test-only-password');
   await page.getByRole('button', { name: 'Entrar na sala' }).click();
-  await expect(page.locator('main').getByRole('alert')).toContainText('A sala está cheia');
+  await expect(page.locator('main').getByRole('alert')).toHaveText('A sala está cheia: 8 pessoas já estão conectadas.');
   await page.reload();
   await expect(page.getByLabel('Seu apelido')).toHaveValue('Ana');
   await expect(page.getByLabel('Senha da sala')).toHaveValue('');
@@ -65,6 +66,7 @@ test('actual room layout handles failed connection and exposes accessible contro
   await page.getByLabel('Senha da sala').fill('test-only-password');
   await page.getByRole('button', { name: 'Entrar na sala' }).click();
   await expect(page.getByRole('heading', { name: 'Entre amigos' })).toBeVisible();
+  await expect(page.getByText('— / 8', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ativar microfone' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Compartilhar tela' })).toBeDisabled();
   await page.getByRole('button', { name: 'Silenciar áudio' }).click();

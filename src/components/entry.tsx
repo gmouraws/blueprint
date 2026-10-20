@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Brand, Icon } from './icons';
-import { normalizeNickname, validNickname, type ConnectionDetails } from '@/lib/room';
+import { MAX_PARTICIPANTS, normalizeNickname, validNickname, type ConnectionDetails } from '@/lib/room';
 
 const ConnectedRoom = dynamic(() => import('./room'), { ssr: false, loading: () => <div className="loading" role="status">Preparando a sala…</div> });
 async function post(path: string, body: object) {
@@ -46,7 +46,7 @@ export default function Entry({ configured }: { configured: boolean }) {
   return <main className="entry-page">
     <header className="entry-header"><Brand /><span className="small-label"><Icon name="lock" /> Espaço privado</span></header>
     <div className="entry-content">
-      <section className="entry-intro"><p className="eyebrow">UMA SALA. ATÉ CINCO PESSOAS.</p><h1>Boa companhia.<br /><span>Uma tela em comum.</span></h1><p>Converse por voz, compartilhe a tela e fique por perto. Tudo aqui, direto no navegador.</p><ul className="entry-features"><li><Icon name="mic" /> Voz sem webcam</li><li><Icon name="screen" /> Tela e áudio compartilhados</li><li><Icon name="lock" /> Acesso com senha</li></ul></section>
+      <section className="entry-intro"><p className="eyebrow">UMA SALA. ATÉ {MAX_PARTICIPANTS} PESSOAS.</p><h1>Boa companhia.<br /><span>Uma tela em comum.</span></h1><p>Converse por voz, compartilhe a tela e fique por perto. Tudo aqui, direto no navegador.</p><ul className="entry-features"><li><Icon name="mic" /> Voz sem webcam</li><li><Icon name="screen" /> Tela e áudio compartilhados</li><li><Icon name="lock" /> Acesso com senha</li></ul></section>
       <section className="entry-form-section" aria-labelledby="entry-title"><p className="eyebrow">BLUEPRINT ROOM</p><h2 id="entry-title">Entre, a sala é nossa.</h2><p className="muted">Use seu apelido e a senha combinada.</p>
         {!configured && <div className="notice" role="status"><strong>Configuração necessária</strong><p>O responsável precisa configurar LiveKit e a proteção de acesso antes de abrir a sala. Nenhuma chamada será iniciada agora.</p></div>}
         <form onSubmit={join} aria-busy={busy}>

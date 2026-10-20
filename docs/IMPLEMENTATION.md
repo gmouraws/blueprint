@@ -6,7 +6,7 @@ Use the repository's Node 22 baseline (22.17+); npm ci installs the pinned lockf
 
 1. Copy .env.example to .env.local. Replace every placeholder. Never commit .env.local or paste its contents into a PR/chat.
 2. Generate SESSION_SECRET locally: `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`. Keep it private.
-3. Choose a unique shared ROOM_PASSWORD of at least 16 characters and distribute privately to the five friends.
+3. Choose a unique shared ROOM_PASSWORD of at least 16 characters and distribute privately to the invited friends.
 4. Set APP_ORIGIN=http://localhost:3000 for npm run dev. Exact origin matching matters; use that URL in the browser.
 5. Run npm ci, then npm run dev. Without credentials the app displays configuration required, with no fake connections.
 
@@ -15,7 +15,7 @@ Use the repository's Node 22 baseline (22.17+); npm ci installs the pinned lockf
 1. Sign in at https://cloud.livekit.io and create a project on **Build ($0/month)**. Do not select paid plans or add paid features. Current plan details: https://livekit.io/pricing . Quotas are finite; screen sharing consumes data transfer and participant minutes. Usage beyond the free allowance may stop service; do not enable an upgrade without owner approval.
 2. In project settings/API keys, obtain the project WebSocket URL, API key and secret. Set LIVEKIT_URL (wss://…livekit.cloud), LIVEKIT_API_KEY and LIVEKIT_API_SECRET server-side.
 3. Set LIVEKIT_ROOM_NAME=blueprint-room-preview for preview/local testing. It is a fixed server-side name, not a client choice. Use a separate Cloud project for production if the free account allows it, or at least a distinct room name such as blueprint-room-production. Preview participants must never join the live production room.
-4. Do not enable agents, recording, egress, transcription or AI. The app creates/recreates the room with a five-person cap. If an existing room has a different cap, stop participants and delete that room in the intended project, then retry. Never remove the cap to fix admission.
+4. Do not enable agents, recording, egress, transcription or AI. The app creates/recreates the room with an eight-person cap. If an existing room has a different cap (including the former five-person limit), let everyone leave and wait for automatic deletion, or delete the empty room in the intended project, then retry. Never remove the cap to fix admission.
 
 ## Upstash Redis (durable rate limits only)
 
@@ -47,7 +47,7 @@ The existing project is blueprint (prj_hNhWNMGea9fQLySMr6CfR92BodNS), associated
 1. Push/review the feature PR. The existing Git integration creates a **preview**; never use --prod or promote during this phase.
 2. In this project's Settings → Environment Variables, set the nine values for **Preview** (optionally scoped to this branch). Use the preview room name and isolated secrets. APP_ORIGIN can be the exact preview alias; generated Vercel deployment origins are also accepted.
 3. Redeploy that **preview commit** after setting the variables. Do not change production env or deploy production yet. If preview protection requests Vercel authentication, invited testers need authorized access; do not disable protection to let automation in.
-4. Complete docs/ACCEPTANCE.md on real Chrome/Edge machines. Free-plan screen-audio availability and six-way admission must be verified, not inferred from unit tests.
+4. Complete docs/ACCEPTANCE.md on real Chrome/Edge machines. Free-plan screen-audio availability and ninth-participant rejection must be verified, not inferred from unit tests.
 5. Only after preview approval, the owner configures the separate **Production** values (APP_ORIGIN=https://blueprint.app.br, a separate room name and secrets), then explicitly approves merging. Existing Git integration replaces the root website on main. Verify domain/HTTPS, denied indexing, auth, microphone and screen capture after deployment. No manual release or DNS change is required.
 
 No LiveKit or Upstash account/resources were created by this implementation. Credentials are not present in the repository. The configuration-required preview is intentional until the owner supplies them.

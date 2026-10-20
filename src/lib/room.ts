@@ -1,4 +1,5 @@
-export const MAX_PARTICIPANTS = 5;
+export const MAX_PARTICIPANTS = 8;
+export const ROOM_FULL_MESSAGE = `A sala está cheia: ${MAX_PARTICIPANTS} pessoas já estão conectadas. Tente novamente quando alguém sair.`;
 export const CHAT_TOPIC = 'blueprint.chat';
 export const MAX_MESSAGE_BYTES = 2000;
 export const MAX_MESSAGES = 200;

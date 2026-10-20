@@ -2,7 +2,7 @@
 
 The owner explicitly approved replacing the public engineering lab with one private browser-based voice and screen-sharing room at the root of blueprint.app.br. This is a product replacement, not an extra section. Preserve the repository, Git history, Vercel project and domain association.
 
-- One fixed room, at most five participants, enforced by LiveKit's server configuration.
+- One fixed room, at most eight participants, enforced by LiveKit's server configuration.
 - One ephemeral plain-text chat channel. No replay for late joiners and no persistence.
 - Shared password, server-generated identity, editable nickname only at entry.
 - Microphone selection, mute, local incoming-audio mute, screen selection, screen sharing and fullscreen.

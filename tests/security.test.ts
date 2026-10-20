@@ -71,7 +71,7 @@ test('rate limits and unavailable protection fail closed before password validat
     assert.equal(response.status, status); assert.equal(response.cookies.get(COOKIE_NAME), undefined);
   }
 });
-test('fixed-room tokens have minimal grants, short TTL and a five-person recreation cap', async () => {
+test('fixed-room tokens have minimal grants, short TTL and an eight-person recreation cap', async () => {
   const { session } = await signSession('Ana', config);
   const jwt = await createRoomToken(config, session);
   const claims = await new TokenVerifier(config.LIVEKIT_API_KEY, config.LIVEKIT_API_SECRET).verify(jwt);
@@ -83,7 +83,7 @@ test('fixed-room tokens have minimal grants, short TTL and a five-person recreat
   const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString());
   assert.ok(payload.exp - payload.nbf <= 120);
   const roomConfig = RoomConfiguration.fromJson(payload.roomConfig);
-  assert.equal(roomConfig.maxParticipants, 5); assert.equal(roomConfig.name, config.LIVEKIT_ROOM_NAME);
+  assert.equal(roomConfig.maxParticipants, 8); assert.equal(roomConfig.name, config.LIVEKIT_ROOM_NAME);
   assert.equal(roomConfig.agents.length, 0); assert.equal(roomConfig.egress, undefined);
 });
 test('token issuance checks existing room safety before returning any credentials', async () => {
@@ -112,11 +112,13 @@ test('a successful SDK timeout response is still denied and retry windows are bo
   assert.doesNotThrow(() => enforceLimitResults([{ success: true, reset: Date.now() + 60000 }]));
 });
 
-test('room creation requests five slots and rejects existing unlimited rooms', async () => {
+test('room creation allows the eighth slot, rejects a full room and rejects incompatible caps', async () => {
   await ensureRoom(config, { createRoom: async options => {
-    assert.equal(options.name, config.LIVEKIT_ROOM_NAME); assert.equal(options.maxParticipants, 5);
-    return new Room({ maxParticipants: 5, numParticipants: 0 });
+    assert.equal(options.name, config.LIVEKIT_ROOM_NAME); assert.equal(options.maxParticipants, 8);
+    return new Room({ maxParticipants: 8, numParticipants: 7 });
   } });
-  await assert.rejects(ensureRoom(config, { createRoom: async () => new Room({ maxParticipants: 0 }) }), /Unsafe room configuration/);
-  await assert.rejects(ensureRoom(config, { createRoom: async () => new Room({ maxParticipants: 5, numParticipants: 5 }) }), RoomFullError);
+  for (const maxParticipants of [0, 5]) {
+    await assert.rejects(ensureRoom(config, { createRoom: async () => new Room({ maxParticipants }) }), /Unsafe room configuration/);
+  }
+  await assert.rejects(ensureRoom(config, { createRoom: async () => new Room({ maxParticipants: 8, numParticipants: 8 }) }), RoomFullError);
 });

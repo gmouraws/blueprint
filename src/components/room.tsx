@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, ConnectionState, Track, ConnectionError, type Participant } from 'livekit-client';
 import { RoomContext, RoomAudioRenderer, VideoTrack, useAudioPlayback, useConnectionState, useIsMuted, useIsSpeaking, useLocalParticipant, useMediaDeviceSelect, useParticipants, useRoomContext, useTracks } from '@livekit/components-react';
-import { MAX_PARTICIPANTS, type ConnectionDetails } from '@/lib/room';
+import { MAX_PARTICIPANTS, ROOM_FULL_MESSAGE, type ConnectionDetails } from '@/lib/room';
 import { Brand, Icon } from './icons';
 import { Chat } from './chat';
 
 function connectionMessage(error: unknown) {
   // Provider versions may surface capacity via a signalling error rather than a disconnect enum.
-  if (error instanceof Error && /max.*participants|participants.*exceeded|room.*full/i.test(error.message)) return 'A sala está cheia: cinco pessoas já estão conectadas. Tente novamente quando alguém sair.';
+  if (error instanceof Error && /max.*participants|participants.*exceeded|room.*full/i.test(error.message)) return ROOM_FULL_MESSAGE;
   if (error instanceof ConnectionError && error.status === 401) return 'A autorização expirou. Saia e entre novamente.';
   return 'Não foi possível entrar na sala. Ela pode estar cheia ou indisponível. Saia e tente novamente em instantes.';
 }
@@ -71,7 +71,7 @@ export function RoomView({ error = '', onLeave }: { error?: string; onLeave: () 
   }
   return <main className="room-shell">
     <header className="room-header"><Brand /><span className="connection" role="status"><i className={connected ? 'connected-dot' : ''} />{status}</span><span className="small-label"><Icon name="lock" /> Sala privada</span></header>
-    <div className="room-columns"><aside className="participants-panel"><div className="panel-heading"><h2>Na sala</h2><span className="pill">{connected ? participants.length : '—'} / {MAX_PARTICIPANTS}</span></div><p className="muted side-description">Um lugar para os cinco.</p><ul className="participants">{participants.filter(participant => participant.identity).map(participant => <ParticipantRow key={participant.identity} participant={participant} />)}</ul>{!connected && <p className="muted">Aguardando conexão com a sala.</p>}<div className="sidebar-note"><Icon name="lock" /><p>Voz e tela só entre quem entrou. Sem gravação pelo aplicativo.</p></div></aside>
+    <div className="room-columns"><aside className="participants-panel"><div className="panel-heading"><h2>Na sala</h2><span className="pill">{connected ? participants.length : '—'} / {MAX_PARTICIPANTS}</span></div><p className="muted side-description">Um lugar para até {MAX_PARTICIPANTS} pessoas.</p><ul className="participants">{participants.filter(participant => participant.identity).map(participant => <ParticipantRow key={participant.identity} participant={participant} />)}</ul>{!connected && <p className="muted">Aguardando conexão com a sala.</p>}<div className="sidebar-note"><Icon name="lock" /><p>Voz e tela só entre quem entrou. Sem gravação pelo aplicativo.</p></div></aside>
       <section className="stage-column" aria-label="Área de compartilhamento"><div className="stage-heading"><div><p className="eyebrow">SALA DE VOZ</p><h1>Entre amigos</h1></div><span className="pill">Sem webcam</span></div>
         {error && <p className="error banner" role="alert">{error}</p>}
         {notice && <p className="notice banner" role="status">{notice}</p>}

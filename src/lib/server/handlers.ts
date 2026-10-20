@@ -5,7 +5,7 @@ import { getConfig, allowedOrigins } from './config';
 import { COOKIE_NAME, cookieOptions, passwordMatches, signSession, verifySession } from './session';
 import { rateLimit, LimitError } from './rate-limit';
 import { createRoomToken, ensureRoom, roomService, RoomFullError } from './livekit';
-import { normalizeNickname, validNickname } from '../room';
+import { normalizeNickname, validNickname, ROOM_FULL_MESSAGE } from '../room';
 
 export const services = { getConfig, rateLimit, ensureRoom, createRoomToken, roomService };
 type Services = typeof services;
@@ -61,7 +61,7 @@ export function handlers(deps: Services = services) {
       const token = await deps.createRoomToken(config, session);
       return json({ token, serverUrl: config.LIVEKIT_URL, identity: session.identity, nickname: session.nickname });
     } catch (error) {
-      if (error instanceof RoomFullError) return json({ error: 'A sala está cheia: cinco pessoas já estão conectadas. Tente novamente quando alguém sair.' }, 409);
+      if (error instanceof RoomFullError) return json({ error: ROOM_FULL_MESSAGE }, 409);
       if (error instanceof LimitError) return json({ error: error.status === 429 ? 'Muitas tentativas. Aguarde antes de tentar novamente.' : 'A proteção de acesso está indisponível. Tente novamente mais tarde.' }, error.status, { 'Retry-After': String(error.retryAfter) });
       return json({ error: 'Sala indisponível. A configuração dos serviços precisa ser verificada pelo responsável.' }, 503);
     }

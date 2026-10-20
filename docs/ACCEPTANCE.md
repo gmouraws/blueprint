@@ -3,9 +3,9 @@
 Automated tests do not establish real-device, multi-network or provider-quota behavior. Record actual results below or in the PR; do not mark unchecked scenarios passed.
 
 - [ ] Configure a free LiveKit project and free Upstash database; preview displays an enabled form. Wrong password fails; no token without a valid cookie.
-- [ ] Five friends on different computers/networks join the same fixed room using Chrome/Edge on Windows. Names, mic state and speaking labels are accurate. Check identical nicknames are still separate identities.
-- [ ] Connect four clients, then race two independent browsers for the fifth slot. Exactly one joins. Retry a sixth after the room is full; rejection is clear. Inspect Cloud room cap=5.
-- [ ] Let everyone leave, allow automatic room deletion, then race joins again. Also obtain a token, let the empty room expire and join with a fresh valid token: recreated room remains capped at five. Never disable the server cap.
+- [ ] Eight friends on different computers/networks join the same fixed room using Chrome/Edge on Windows. Names, mic state and speaking labels are accurate. Check identical nicknames are still separate identities.
+- [ ] Connect seven clients, then race two independent browsers for the eighth slot. Exactly one joins. Retry a ninth after the room is full; rejection is clear. Inspect Cloud room cap=8.
+- [ ] Let everyone leave, allow automatic room deletion, then race joins again. Also obtain a token, let the empty room expire and join with a fresh valid token: recreated room remains capped at eight. Never disable the server cap.
 - [ ] Enable/disable microphone and select another input device. Deny permission once, recover through browser permission settings. Verify mute does not stop screen audio/video.
 - [ ] Silenciar áudio mutes all incoming mic/screen audio only on that client. Other participants keep hearing. No local microphone/shared-audio echo. Test autoplay unblock button.
 - [ ] Share tab, window and screen from the native picker. Share from two people and switch selected view; fullscreen works. No webcam permission is requested.
