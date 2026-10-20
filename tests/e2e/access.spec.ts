@@ -93,7 +93,7 @@ test('session invalidated while entry is open returns to password entry without 
   await expect(page.locator('main').getByRole('alert')).toHaveText('Sua sessão expirou. Entre novamente.');
   await expect(page.getByLabel('Senha da sala')).toBeVisible();
   await expect(page.getByLabel('Manter conectado neste dispositivo')).not.toBeChecked();
-  await expect(page.getByRole('heading', { name: 'Entre amigos' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Sala principal' })).toHaveCount(0);
 });
 
 test('forget access reports failures honestly and clears even an expired cookie through the real endpoint', async ({ page, context }) => {

@@ -94,7 +94,7 @@ test('actual room layout handles failed connection and exposes accessible contro
   await page.getByLabel('Seu apelido').fill('Ana');
   await page.getByLabel('Senha da sala').fill('test-only-password');
   await page.getByRole('button', { name: 'Entrar na sala' }).click();
-  await expect(page.getByRole('heading', { name: 'Entre amigos' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sala principal' })).toBeVisible();
   await expect(page.getByText('— / 8', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ativar microfone' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Compartilhar tela' })).toBeDisabled();

@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { captures, energy, gain, join, liveTracks, prepare, service } from './fixtures';
+import { captures, energy, gain, join, liveTracks, prepare, service, chatStore, closeChatStores } from './fixtures';
+test.afterAll(closeChatStores);
 
 test('real peers exchange chat and audio; independent volumes, device labels, cleanup', async ({ browser }, testInfo) => {
   const room = `transport-${Date.now()}`;
@@ -10,9 +11,16 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
   const alice = await a.newPage(); const bob = await b.newPage();
   try {
     await prepare(alice, 'Alice', room); await join(alice);
-    await prepare(bob, 'Bruno', room); await join(bob);
+    await prepare(bob, 'Bruno', room);
+    await bob.getByRole('button', { name: 'Abrir chat sem entrar na voz' }).click();
+    await expect(bob.getByText('Você não está conectado à voz.')).toBeVisible();
+    expect(await captures(bob)).toBe(0);
+    await bob.getByRole('button', { name: 'Entrar na voz', exact: true }).click();
+    await expect(bob.getByText('Conectado', { exact: true })).toBeVisible();
     await expect(alice.getByText('Bruno', { exact: true })).toBeVisible();
     expect(await captures(alice)).toBe(0); expect(await captures(bob)).toBe(0);
+    await alice.getByRole('tab', { name: 'Chat', exact: true }).click();
+    await bob.getByRole('tab', { name: 'Chat', exact: true }).click();
     await alice.getByLabel('Mensagem', { exact: true }).fill('Olá da Alice');
     await alice.getByLabel('Mensagem', { exact: true }).press('Enter');
     await expect(bob.getByText('Olá da Alice', { exact: true })).toBeVisible();
@@ -26,11 +34,22 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
     await expect(alice.getByText('Linha um\nLinha dois', { exact: true })).toBeVisible();
     await expect(alice.locator('.message')).toHaveCount(2); await expect(bob.locator('.message')).toHaveCount(2);
     await alice.evaluate(() => { (window as unknown as { mediaProbe: { failData: boolean } }).mediaProbe.failData = true; });
+    const history = await chatStore(room); history.faults.failWrites = true;
     await alice.getByLabel('Mensagem', { exact: true }).fill('Reenviar');
     await expect(async () => { await alice.getByRole('button', { name: 'Enviar mensagem' }).click(); await expect(alice.locator('.chat-form .error')).toContainText('Seu texto foi mantido'); }).toPass();
     await expect(alice.getByLabel('Mensagem', { exact: true })).toHaveValue('Reenviar');
+    history.faults.failWrites = false;
+    await alice.getByLabel('Mensagem', { exact: true }).press('Enter');
+    await expect(alice.getByText('Salva no histórico', { exact: true })).toBeVisible();
+    // A broken LiveKit hint still converges through the authoritative HTTP history.
+    await expect(bob.getByText('Reenviar', { exact: true })).toBeVisible({ timeout: 15000 });
     await alice.evaluate(() => { (window as unknown as { mediaProbe: { failData: boolean } }).mediaProbe.failData = false; });
-    await expect(async () => { await alice.getByLabel('Mensagem', { exact: true }).press('Enter'); await expect(bob.getByText('Reenviar', { exact: true })).toBeVisible(); }).toPass();
+    await alice.getByRole('tab', { name: 'Sala', exact: true }).click();
+    await bob.getByLabel('Mensagem', { exact: true }).fill('Aviso enquanto vê a sala');
+    await bob.getByLabel('Mensagem', { exact: true }).press('Enter');
+    await expect(alice.getByLabel('1 mensagens novas')).toBeVisible({ timeout: 15000 });
+    await alice.getByRole('tab', { name: /^Chat/ }).click();
+    await expect(alice.getByLabel('1 mensagens novas')).toHaveCount(0);
     const started = Date.now();
     await alice.getByRole('button', { name: 'Ativar microfone', exact: true }).click();
     await expect(alice.getByRole('button', { name: 'Desligar microfone', exact: true })).toBeVisible();
@@ -41,6 +60,12 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
     expect(await captures(bob)).toBe(0);
     await bob.getByRole('slider', { name: 'Voz de Alice' }).fill('35');
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBeCloseTo(0.35);
+    const peersBefore = await bob.evaluate(() => (window as unknown as { mediaProbe: { peers: unknown[] } }).mediaProbe.peers.length);
+    await bob.getByRole('tab', { name: 'Sala', exact: true }).click();
+    await bob.getByRole('tab', { name: 'Chat', exact: true }).click();
+    expect(await bob.evaluate(() => (window as unknown as { mediaProbe: { peers: unknown[] } }).mediaProbe.peers.length)).toBe(peersBefore);
+    await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBeCloseTo(0.35);
+    const beforeViewAudio = await energy(bob); await expect.poll(() => energy(bob)).toBeGreaterThan(beforeViewAudio);
     await bob.getByRole('button', { name: 'Silenciar voz de alice', exact: true }).click();
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBe(0);
     await bob.getByRole('button', { name: 'Ouvir voz de alice', exact: true }).click();
@@ -95,6 +120,11 @@ test('selected screen has one audio path, separate volume, and global mute resto
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.8);
     await viewer.getByRole('slider', { name: 'Áudio da tela selecionada' }).fill('45');
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.45);
+    await bob.getByRole('tab', { name: 'Chat', exact: true }).click();
+    await viewer.getByRole('tab', { name: 'Chat', exact: true }).click();
+    await expect(bob.getByRole('button', { name: 'Parar compartilhamento', exact: true })).toBeVisible();
+    await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.45);
+    await viewer.getByRole('tab', { name: 'Sala', exact: true }).click();
     await viewer.getByRole('button', { name: 'Silenciar áudio', exact: true }).click();
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBe(0);
     await viewer.getByRole('button', { name: 'Ouvir áudio', exact: true }).click();

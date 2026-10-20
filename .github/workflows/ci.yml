@@ -28,6 +28,9 @@ jobs:
           LIVEKIT_API_KEY: ci-canary-api-key
           LIVEKIT_API_SECRET: ci-canary-livekit-secret-not-a-real-secret
           UPSTASH_REDIS_REST_TOKEN: ci-canary-redis-token-not-a-real-secret
+          DATABASE_URL: ci-canary-database-url-not-a-real-secret
+          DATABASE_URL_UNPOOLED: ci-canary-direct-database-url-not-a-real-secret
+          CRON_SECRET: ci-canary-cron-secret-not-a-real-secret
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

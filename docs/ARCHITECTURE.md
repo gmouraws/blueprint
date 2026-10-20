@@ -2,7 +2,7 @@
 
 ## Boundaries
 
-Next.js serves the entry and room shell at /. Node.js route handlers expose POST /api/login, /api/token and /api/logout. Browsers connect directly to LiveKit Cloud for WebRTC and reliable data packets. Vercel never proxies media. There is no custom WebSocket server or static export.
+Next.js serves the entry and room shell at /. Node.js route handlers expose POST /api/login, /api/token and /api/logout. Browsers connect directly to LiveKit Cloud for WebRTC and reliable data packets. Vercel never proxies media. Authenticated GET/POST /api/chat use Neon PostgreSQL over HTTPS; a separate protected cleanup endpoint supports retention. There is no custom WebSocket server or static export.
 
 The root is request-rendered so configuration availability is determined at runtime. Missing/placeholder/invalid configuration disables entry. The client receives only a readiness flag and allowlisted variable names with missing, placeholder or invalid categories; parsed values and raw validation errors stay server-side. Malformed URLs return validation failures without throwing. All routes send noindex/nofollow/noarchive; robots disallows /. Old pages, sitemap, content registry, metadata assets and analytics have been removed.
 
@@ -30,7 +30,9 @@ Existing active LiveKit connections refresh/reconnect using SDK/server behavior;
 
 Microphone starts off; explicit activation requests permission. Screen sharing uses the native LiveKit/browser picker, separate audio/video sources, a 1080p/15fps capture preference and 2.5 Mbps video encoding ceiling. These are preferences, not measured guarantees. Adaptive stream and dynacast are enabled. Audio is rendered only for remote tracks; local previews are muted. Incoming mute changes only local playback volume. Device failures/canceled sharing are recoverable. SDK events update UI when the browser stops sharing. SDK disconnect and pagehide release tracks.
 
-One reliable data topic carries UTF-8 text only, at most 2000 bytes per message. The receiver rejects invalid/oversized packets and uses the event's authenticated participant name/identity. Timestamps show local send/receipt time, not a trusted global chronology. Messages are held only in memory (latest 200); late joiners get no history. Local send pacing and receive pacing bound accidental floods; this is not a hostile-public-chat moderation service. A send acknowledgment is not proof every peer received/read the message, especially during disconnects. No names or timestamps supplied inside message payloads are trusted.
+Chat is persisted through authenticated HTTP handlers with per-session Redis limits (30 writes/minute, 90 reads/minute). The database assigns stable ordered IDs and UTC timestamps, and a per-sender request UUID prevents retry duplicates. Latest-50 plus before/after cursors support catch-up. LiveKit data carries refresh hints only; polling reconciles committed records even without voice. Plain text is limited to 2000 UTF-8 bytes. Expired records are hidden on reads and physically deleted by daily Production cron or explicit Preview maintenance. See [ADR-012](adr/012-persistent-room-chat.md) and [database operations](CHAT-STORAGE.md).
+
+The sidebar has Texto/# geral and Voz/Sala principal. Accessible Sala/Chat tabs change only view visibility. Room ownership, incoming audio, volumes, microphone state and the chat draft remain mounted across changes. Entering Chat alone does not request a LiveKit token or start microphone capture; joining voice always requires an explicit action.
 
 ## Sources
 

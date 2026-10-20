@@ -23,7 +23,7 @@ async function post(path: string, body: object) {
 export default function Entry({ configuration, initialNickname = null }: { configuration: ConfigurationStatus; initialNickname?: string | null }) {
   const configured = configuration.ready;
   const [authenticatedNickname, setAuthenticatedNickname] = useState(initialNickname);
-  const [call, setCall] = useState<{ room: Room; details: ConnectionDetails } | null>(null);
+  const [call, setCall] = useState<{ room: Room; details?: ConnectionDetails } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const nicknameRef = useRef<HTMLInputElement>(null);
@@ -41,11 +41,12 @@ export default function Entry({ configuration, initialNickname = null }: { confi
     if (joining.current || !configured) return;
     const form = event.currentTarget;
     const fields = new FormData(form);
+    const chatOnly = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'chat';
     const nickname = authenticatedNickname ?? normalizeNickname(String(fields.get('nickname') ?? ''));
     if (!validNickname(nickname)) { setError('Use um apelido de 2 a 24 caracteres: letras, números, espaços, ponto, hífen ou sublinhado.'); return; }
     const password = String(fields.get('password') ?? '');
     microphoneCheck.current?.stop();
-    const room = createCallRoom(); callRoom.current = room; joining.current = true;
+    const room = createCallRoom(!chatOnly); callRoom.current = room; joining.current = true;
     setBusy(true); setError('');
     try {
       if (!authenticatedNickname) {
@@ -53,7 +54,7 @@ export default function Entry({ configuration, initialNickname = null }: { confi
         if (alive.current) setAuthenticatedNickname(nickname);
         try { localStorage.setItem('blueprint.nickname', nickname); } catch { /* Storage is optional. */ }
       }
-      const details = await post('/api/token', {});
+      const details = chatOnly ? undefined : await post('/api/token', {});
       if (alive.current) setCall({ room, details }); else void closeCallRoom(room);
     } catch (failure) {
       void closeCallRoom(room); callRoom.current = null;
@@ -104,6 +105,7 @@ export default function Entry({ configuration, initialNickname = null }: { confi
           </>}
           {error && <p className="error" role="alert">{error}</p>}
           <button className="primary join-button" disabled={busy || !configured}>{busy ? 'Entrando…' : 'Entrar na sala'}<span aria-hidden="true">→</span></button>
+          <button className="chat-entry" name="destination" value="chat" disabled={busy || !configured}>Abrir chat sem entrar na voz</button>
         </form>
         {authenticatedNickname && <button className="forget-access" disabled={busy} onClick={forget}>Esquecer acesso neste dispositivo</button>}
         <MicrophoneCheck ref={microphoneCheck} disabled={busy || !configured} />

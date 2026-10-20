@@ -26,7 +26,7 @@ Use the repository's Node 22 baseline (22.17+); npm ci installs the pinned lockf
 
 ## Environment variable reference
 
-All nine values are **server-only environment variables**. Do not prefix any with NEXT_PUBLIC_. The authenticated token response intentionally reveals LIVEKIT_URL, nickname, participant identity and a short-lived participant token; it never includes the API secret or shared password.
+The original nine values below are **server-only environment variables**. Persistent chat additionally uses DATABASE_URL and CRON_SECRET; see [chat storage](CHAT-STORAGE.md) for the provisioned resources, local CHAT_ENVIRONMENT, migrations and scheduler. Do not prefix any with NEXT_PUBLIC_. The authenticated token response intentionally reveals LIVEKIT_URL, nickname, participant identity and a short-lived participant token; it never includes the API secret or shared password.
 
 - APP_ORIGIN: exact allowed app origin, without trailing slash. Local HTTP localhost is supported; deployed app must use HTTPS.
 - ROOM_PASSWORD: shared password, 16–256 characters.
@@ -62,7 +62,7 @@ APP_ORIGIN must remain an exact HTTPS origin without a trailing slash, path, que
 
 ## Verification and limits
 
-npm run check runs lint, route type generation, TypeScript and focused security tests. npm run build performs the optimized Next build and verifies expected routes, runtime-only entry rendering, removal of public editorial output/analytics and absence of configured secret values in browser assets. CI supplies five harmless canaries to verify isolation without real credentials. npm run test:e2e serves the same optimized build with valid and invalid runtime configurations and verifies diagnostics do not disclose values. Chromium/axe tests and network fixtures cover UI errors and the real disconnected room layout, **not successful media connectivity**. It never connects to a real LiveKit service with test credentials.
+npm run check runs lint, route type generation, TypeScript and focused security tests. npm run build performs the optimized Next build and verifies expected routes, runtime-only entry rendering, removal of public editorial output/analytics and absence of configured secret values in browser assets. CI supplies eight harmless canaries to verify isolation without real credentials. npm run test:e2e serves the same optimized build with valid and invalid runtime configurations and verifies diagnostics do not disclose values. Chromium/axe tests and network fixtures cover UI errors and the real disconnected room layout, **not successful media connectivity**. It never connects to a real LiveKit service with test credentials.
 
 The production dependency audit is clean at implementation time. npm reports five inherited high-severity development-tool findings through eslint-config-next → fast-glob → micromatch → braces (GHSA-vfj7-8cjw-p6xm), without a compatible patched version reported. Do not force-downgrade the Next ESLint configuration to another major. Recheck before production.
 

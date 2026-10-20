@@ -1,5 +1,15 @@
 import { expect, type Page } from '@playwright/test';
 import { AccessToken, RoomServiceClient, TrackSource, RoomConfiguration } from 'livekit-server-sdk';
+import { createChatFixture } from '../chat-fixture';
+const chatStores = new Map<string, ReturnType<typeof createChatFixture>>();
+export function chatStore(room: string) {
+  if (!chatStores.has(room)) chatStores.set(room, createChatFixture());
+  return chatStores.get(room)!;
+}
+export async function closeChatStores() {
+  for (const store of chatStores.values()) await (await store).close();
+  chatStores.clear();
+}
 
 // Loopback-only development credentials, never used by application auth or a cloud service.
 const key = 'blueprint-test';
@@ -53,6 +63,7 @@ export async function instrument(page: Page) {
 }
 
 export async function prepare(page: Page, identity: string, room: string) {
+  await (await chatStore(room)).install(page, identity);
   const token = new AccessToken(key, secret, { identity, name: identity, ttl: 300 });
   token.addGrant({ roomJoin: true, room, canSubscribe: true, canPublish: true, canPublishData: true,
     canPublishSources: [TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO], canUpdateOwnMetadata: false });
