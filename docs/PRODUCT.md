@@ -4,7 +4,8 @@ The owner explicitly approved replacing the public engineering lab with one priv
 
 - One fixed room, at most eight participants, enforced by LiveKit's server configuration.
 - One ephemeral plain-text chat channel. No replay for late joiners and no persistence.
-- Shared password, server-generated identity, editable nickname only at entry.
+- Shared password, server-generated identity, nickname chosen at password login and fixed for that authenticated session.
+- Optional remembered access: unchecked by default, with a 12-hour browser session or an opt-in 30-day persistent cookie. Returning users explicitly join with the microphone off. Leaving disconnects media; a separate entry-screen action forgets authentication. Password rotation invalidates old sessions.
 - Microphone selection, mute, local incoming-audio mute, screen selection, screen sharing and fullscreen.
 - Screen audio is requested but depends on browser, OS and capture source. No guaranteed resolution, frame rate or latency.
 - Reconnection, device denial, canceled capture, unavailable services and full-room states must be understandable.

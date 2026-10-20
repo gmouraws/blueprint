@@ -105,7 +105,8 @@ test('membership tones skip initial snapshot, mute, disabled preference and reco
     await alice.getByRole('button', { name: 'Ouvir áudio', exact: true }).click();
     await alice.getByText('Configurações de áudio', { exact: true }).click();
     await alice.getByLabel('Sons de entrada e saída').uncheck();
-    await bob.getByLabel('Senha da sala').fill('browser-fixture-password'); await join(bob);
+    await expect(bob.getByLabel('Senha da sala')).toHaveCount(0);
+    await join(bob);
     await expect(alice.getByText('Bruno', { exact: true })).toBeVisible(); expect(await tones()).toBe(1);
     await alice.getByLabel('Sons de entrada e saída').check();
     await bob.getByRole('button', { name: 'Sair da sala' }).click();

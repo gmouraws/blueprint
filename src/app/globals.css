@@ -29,6 +29,11 @@ label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 7px
 .entry-form-section form { margin-top: 24px; } .entry-form-section input { margin-bottom: 18px; }
 .join-button { width: 100%; justify-content: space-between; margin: 4px 0 14px; }
 .entry-note { color: var(--color-muted); font-size: 12px; line-height: 1.65; }
+.entry-form-section .remember-access { margin: 0; font-size: 13px; }
+.entry-form-section .remember-access input { margin: 0; padding: 0; flex: none; }
+.remember-help { margin: 0 0 16px 28px; }
+.remembered-access { color: var(--color-muted); font-size: 13px; margin-bottom: 16px; }
+.forget-access { width: 100%; background: transparent; font-weight: 400; margin-bottom: 16px; }
 .configuration-notice details { margin-top: 8px; }
 .configuration-notice summary { cursor: pointer; padding-block: 10px; min-height: 44px; }
 .configuration-notice ul { padding: 0; margin: 8px 0 16px; list-style: none; }
