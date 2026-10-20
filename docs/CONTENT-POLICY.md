@@ -1,75 +1,7 @@
-# Blueprint Content Policy
+# Repository and privacy boundaries
 
-## Core rule
+Use only gmouraws/blueprint, the owner's explicit instructions and public technical documentation. Never inspect or reuse unrelated private repositories or professional source material. Do not publish employer/client details, private systems, credentials, biographies or inferred personal information.
 
-> Blueprint documents engineering knowledge, not employment.
+The application has no editorial publishing system. Nicknames and messages are user input: validate size, render as plain text and attribute received messages through LiveKit's authenticated participant identity. Do not log passwords, cookies, tokens or messages. Do not add analytics, recordings or persistent chat history.
 
-All public content must be safe to publish independently of any employer, client, or professional engagement.
-
-## Prohibited content
-
-Do not publish or infer:
-
-- employer, client, coworker, stakeholder, customer, or patient names;
-- internal or proprietary project/product names;
-- professional source code or repository material;
-- screenshots from professional systems;
-- internal URLs, infrastructure, architecture diagrams, credentials, or environment details;
-- confidential requirements, business rules, metrics, datasets, tickets, meeting material, or communications;
-- customer, patient, or other sensitive data;
-- proprietary implementation details;
-- material reconstructed from unrelated private repositories or sources.
-
-## Independent creation rule
-
-A general engineering concept learned through professional experience may inspire a Blueprint topic. The published work must nevertheless be independently designed and implemented from first principles using public knowledge and original Blueprint code.
-
-Never disguise proprietary work by merely renaming entities.
-
-If provenance is uncertain, do not publish it.
-
-## Editorial character
-
-Blueprint is not a résumé and should not read like one.
-
-Prefer:
-
-- engineering questions;
-- architecture decisions;
-- trade-offs;
-- experiments;
-- measurements;
-- failures;
-- lessons;
-- original builds.
-
-Avoid:
-
-- employer timelines;
-- client lists;
-- job descriptions;
-- skill-rating grids;
-- claims designed only to impress recruiters;
-- generic portfolio filler projects.
-
-## Public editorial forms
-
-**Build pages are engineering case studies, not project documentation.** Explain the motivating question, constraints, consequential decisions, trade-offs, failures, lessons, and available evidence. Planned Builds describe a hypothesis and uncertainty; they do not need invented outcomes or evidence. Detailed implementation instructions belong in the repository.
-
-**Blueprint documents what is worth understanding, not everything that happened.** Select details that give another engineer a reason to read; avoid exhaustive logs and stack inventories.
-
-An Experiment investigates a bounded technical question or hypothesis. A Note presents a focused, reusable engineering insight. Evidence is public provenance or explicitly self-documented information supporting claims when available, never certification. Link only to genuinely public material; private delivery logs and analytics are not public evidence. Avoid permanent counts that can become stale.
-
-## Accuracy
-
-Do not invent personal history, results, metrics, project outcomes, dates, or technical experience.
-
-Draft content may describe a planned experiment as planned or running. It must not describe a result until that result exists.
-
-## External references
-
-Public documentation, standards, papers, and open-source projects may be cited when useful. Attribute them appropriately and respect licenses and copyright.
-
-## Publication control
-
-Technical implementation can be highly automated. Substantial new editorial or biographical claims require human review before production publication.
+Room content is transported by LiveKit Cloud; WebRTC transport encryption is not a claim of end-to-end encryption against the provider. Peers can still record with their own tools. Hosting/media providers may retain operational logs under their own policies. Shared-password access is appropriate to the explicitly requested small trusted group, not an identity-proof system.

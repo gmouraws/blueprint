@@ -1,71 +1,65 @@
-# Blueprint v1 implementation
+# Setup, preview and recovery
 
-## Local workflow
+## Local environment
 
-Use Node.js 22.17 or a compatible Node 22 release and npm (one committed package-lock.json).
+Use the repository's Node 22 baseline (22.17+); npm ci installs the pinned lockfile. livekit-client 2.22.0 is pinned because 2.23.0 introduces a dependency requiring Node 22.22, above the existing local baseline. No dependency downgrade changes media architecture.
 
-```sh
-npm ci
-npm run dev
-```
+1. Copy .env.example to .env.local. Replace every placeholder. Never commit .env.local or paste its contents into a PR/chat.
+2. Generate SESSION_SECRET locally: `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`. Keep it private.
+3. Choose a unique shared ROOM_PASSWORD of at least 16 characters and distribute privately to the five friends.
+4. Set APP_ORIGIN=http://localhost:3000 for npm run dev. Exact origin matching matters; use that URL in the browser.
+5. Run npm ci, then npm run dev. Without credentials the app displays configuration required, with no fake connections.
 
-Quality gates:
+## LiveKit Cloud (free Build plan)
 
-```sh
-npm run check
-npm run build
-npx playwright install chromium
-npm run test:e2e
-```
+1. Sign in at https://cloud.livekit.io and create a project on **Build ($0/month)**. Do not select paid plans or add paid features. Current plan details: https://livekit.io/pricing . Quotas are finite; screen sharing consumes data transfer and participant minutes. Usage beyond the free allowance may stop service; do not enable an upgrade without owner approval.
+2. In project settings/API keys, obtain the project WebSocket URL, API key and secret. Set LIVEKIT_URL (wss://…livekit.cloud), LIVEKIT_API_KEY and LIVEKIT_API_SECRET server-side.
+3. Set LIVEKIT_ROOM_NAME=blueprint-room-preview for preview/local testing. It is a fixed server-side name, not a client choice. Use a separate Cloud project for production if the free account allows it, or at least a distinct room name such as blueprint-room-production. Preview participants must never join the live production room.
+4. Do not enable agents, recording, egress, transcription or AI. The app creates/recreates the room with a five-person cap. If an existing room has a different cap, stop participants and delete that room in the intended project, then retry. Never remove the cap to fix admission.
 
-Build validates content before Next.js. Public routes are statically generated. Server Components are the default; the path-aware header language switcher and production analytics use small Client Components. The switcher receives only published destination paths, preserving article equivalents without request-dependent rendering. Tailwind CSS supplies tokens and processing; CSS handles the site layout without an additional component library.
+## Upstash Redis (durable rate limits only)
 
-## Content
+1. Create an account at https://console.upstash.com and a **Free**, single-region Redis database near the Vercel functions. The published free tier is $0 with 500K commands/month and 250MB storage at implementation time; verify https://upstash.com/pricing/redis before setup.
+2. Copy its REST URL and REST token into UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN. Use the single-region database for authoritative counters. Do not configure eventual-consistency multi-region limits.
+3. Keep the free tier; do not add billing, enable auto-upgrades or buy a plan. Each login performs multiple Redis operations; exhausted quotas/service failure block authentication. Existing media calls do not depend on Redis after connection. Review usage privately in the provider console.
+4. No chat history is stored there. Only expiring rate-limit counters with hashed identifiers are used. Rate-limit analytics is disabled.
 
-Files live in content/en and content/pt beneath builds, experiments, and notes. The filename must equal slug.mdx. Frontmatter requires id, kind (plural section name), locale (en/pt-BR), slug, title, summary, and publication (DRAFT/PUBLISHED). Build/experiment status is mandatory; notes cannot have status. Optional publishedAt/updatedAt are real ISO date strings, quoted in YAML. Omit them until a real publication/update occurs. Optional tags are strings.
+## Environment variable reference
 
-Portuguese files require translationOf (the English stable ID) and sourceRevision (SHA-256 of the entire English file, CRLF normalized to LF). After reviewing meaning, protected terminology, and code, compute the revision:
+All nine values are **server-only environment variables**. Do not prefix any with NEXT_PUBLIC_. The authenticated token response intentionally reveals LIVEKIT_URL, nickname, participant identity and a short-lived participant token; it never includes the API secret or shared password.
 
-```sh
-npx tsx -e "import {readFileSync} from 'node:fs'; import {revisionOf} from './src/lib/content'; console.log(revisionOf(readFileSync('content/en/builds/blueprint.mdx', 'utf8')))"
-```
+- APP_ORIGIN: exact allowed app origin, without trailing slash. Local HTTP localhost is supported; deployed app must use HTTPS.
+- ROOM_PASSWORD: shared password, 16–256 characters.
+- SESSION_SECRET: cryptographically random signing secret, at least 32 characters. Rotation invalidates cookies.
+- LIVEKIT_URL: project wss://…livekit.cloud URL.
+- LIVEKIT_API_KEY: project API key; server only even though it is not the secret.
+- LIVEKIT_API_SECRET: project API secret; never disclose.
+- LIVEKIT_ROOM_NAME: one lowercase server-controlled name per environment, 3–64 characters.
+- UPSTASH_REDIS_REST_URL: HTTPS database REST endpoint.
+- UPSTASH_REDIS_REST_TOKEN: database REST credential; never disclose.
 
-Update sourceRevision only after translation review. Outdated translations fail the quality gate; an absent translation does not. Publication and lifecycle are separate: a PUBLISHED article can truthfully describe a PLANNED experiment.
+Vercel supplies VERCEL, VERCEL_URL and VERCEL_BRANCH_URL; do not spoof these locally. The generated deployment/branch URLs are allowed origins automatically. APP_ORIGIN remains the exact custom-domain/local origin.
 
-The generator validates source files and writes only PUBLISHED entries to ignored .generated/content.json. The application reads only this file. After editing content, restart `npm run dev` to regenerate and reload the registry. Draft-only assets must not be placed under public/, which is always publicly served. No draft rendering mode exists. MDX is trusted repository code: review changes and do not use unrelated/private sources or unreviewed executable content.
+## Existing Vercel integration
 
-Public entries contain reviewed case studies, planned investigations, and focused insights. BUILD-001 records the human-confirmed production outcome; other entries make no invented result claims. PUBLISHED means eligible for public output and does not imply LIVE. Review prose and translations before publication. About strings are maintained in src/lib/i18n.ts.
+The existing project is blueprint (prj_hNhWNMGea9fQLySMr6CfR92BodNS), associated with blueprint.app.br; retain it. No DNS, domain or production project settings need to change. There is no static-export setting; Next.js functions serve the API. Production remains main. GitHub Actions runs quality gates, not deployment commands.
 
-## Environment
+1. Push/review the feature PR. The existing Git integration creates a **preview**; never use --prod or promote during this phase.
+2. In this project's Settings → Environment Variables, set the nine values for **Preview** (optionally scoped to this branch). Use the preview room name and isolated secrets. APP_ORIGIN can be the exact preview alias; generated Vercel deployment origins are also accepted.
+3. Redeploy that **preview commit** after setting the variables. Do not change production env or deploy production yet. If preview protection requests Vercel authentication, invited testers need authorized access; do not disable protection to let automation in.
+4. Complete docs/ACCEPTANCE.md on real Chrome/Edge machines. Free-plan screen-audio availability and six-way admission must be verified, not inferred from unit tests.
+5. Only after preview approval, the owner configures the separate **Production** values (APP_ORIGIN=https://blueprint.app.br, a separate room name and secrets), then explicitly approves merging. Existing Git integration replaces the root website on main. Verify domain/HTTPS, denied indexing, auth, microphone and screen capture after deployment. No manual release or DNS change is required.
 
-No application secrets or .env files are required. Production origin is fixed to https://blueprint.app.br. VERCEL_ENV is provided by Vercel later: production enables indexing and analytics; preview/development/absent values disable them. For local production-mode verification, set VERCEL_ENV=production before building and unset it afterward. These decisions are evaluated at build time; changing environment requires rebuilding.
+No LiveKit or Upstash account/resources were created by this implementation. Credentials are not present in the repository. The configuration-required preview is intentional until the owner supplies them.
 
-## Deployment workflow
+## Verification and limits
 
-The owner has confirmed that the corrected production deployment and blueprint.app.br over HTTPS work. Deployment remains through Vercel Git integration after human review and merge to main. This refinement changes no infrastructure. Continue reviewing provider privacy requirements, preview protection, required GitHub checks, routing, metadata, analytics, and rollback. Do not add a duplicate deployment workflow.
+npm run check runs lint, route type generation, TypeScript and focused security tests. npm run build performs the optimized Next build and verifies expected routes, removal of public editorial output/analytics and absence of configured secret values in browser assets. CI supplies five harmless canaries to verify isolation without real credentials. npm run test:e2e runs Chromium/axe tests; network fixtures cover UI errors and the real disconnected room layout, **not successful media connectivity**. It never connects to a real LiveKit service with test credentials.
 
-No legal exemption is assumed from cookie-free analytics. No consent system is added without an actual requirement. The dedicated /privacy and /pt/privacy pages include the analytics disclosure and are linked separately from About in the footer. No custom events are sent, URL queries/fragments are stripped, and referrers are suppressed by response policy.
+The production dependency audit is clean at implementation time. npm reports five inherited high-severity development-tool findings through eslint-config-next → fast-glob → micromatch → braces (GHSA-vfj7-8cjw-p6xm), without a compatible patched version reported. Do not force-downgrade the Next ESLint configuration to another major. Recheck before production.
 
-The official Analytics component is wrapped in src/components/analytics.tsx and mounted by the shared Shell for both root layouts only when VERCEL_ENV is production at build time. An onboarding dashboard is not proof that the component is missing. After enabling Web Analytics for the correct Vercel project, a new production deployment is required; then verify a normal browser loads the SDK-configured script and sends successful pageview requests without blockers. Script URLs may be provider-configured rather than fixed. Vercel's served script excludes automated/headless visitors, so CI checks mount/queue/privacy behavior with a substituted provider script and does not claim dashboard ingestion. Metrics remain private. See [Vercel's setup](https://vercel.com/docs/analytics/quickstart) and [troubleshooting](https://vercel.com/docs/analytics/troubleshooting).
+## Recovery
 
-## Remaining human checks
+Original current-main commit: `9cebdeb8e924c69ca16d92be8bb2774c217f682e` (before the private room replacement). There were no uncommitted user files at the start. Git history is preserved.
 
-Blueprint v1 has human visual review and release approval. The following checks concern ongoing operation and publication.
-
-- Review future editorial changes and pt-BR translations, including protected terms.
-- Confirm statuses and add actual dates at publication.
-- Review visual design at desktop/tablet/mobile sizes and screen-reader behavior.
-- Check provider privacy obligations, preview protection, domain ownership, branch protection, and production analytics after authorized setup.
-- Review npm advisories before release. Production dependency audit is clean at implementation time; lint tooling has a transitive braces advisory with no patched version reported by npm. Do not downgrade Next.js tooling to an incompatible major merely to silence it.
-
-The security policy restricts embedding, objects, and base URLs. It does not claim a complete script CSP; nonce-based rendering would add complexity to a static site. No remote content, account system, or form is implemented.
-
-## Build evidence
-
-Optional Build-only evidence frontmatter is a short list (up to eight items) with label, basis (public or self-documented), and optional url. Public items require a public HTTPS URL; self-documented items identify author statements and may omit a link. URLs cannot contain credentials. This is an editorial distinction, not automated verification or certification. Only add public links that have been reviewed. Localize labels while preserving the same ordered basis/URL pairs in translation. The shared article renderer displays the list near the end of the case study. Omit it when there is no supporting material, as with planned BUILD-002.
-
-## Release hygiene
-
-Post-build verification uses the Next.js prerender manifest to require all public routes and metadata routes to remain static, reject unpublished route output, and forbid runtime fallback paths. It discovers rendered artifacts recursively under the server build output, matching pages by canonical URL and metadata responses by content rather than guessing filenames. Indexing, exact sitemap URLs, robots, the published-only registry, and source isolation in output file traces remain mandatory. CI also builds with a provider-neutral test adapter to exercise Next.js's alternate output layout. A missing artifact or unsupported manifest fails verification rather than silently skipping a check.
-
-Build output, the generated registry, browser screenshots/reports, next-env.d.ts, .vercel/, and environment files are ignored. `npm run typecheck` runs `next typegen` before TypeScript, so generated declarations are available from a clean checkout. Next.js automatic agent-rule generation is disabled to preserve the repository-owned AGENTS.md. The committed social.png is an intentional sharing asset derived from social.svg, not a test screenshot.
+To inspect the former site without changing production: create a separate local branch from that SHA (`git switch -c codex/recover-public-site 9cebdeb8e924c69ca16d92be8bb2774c217f682e`). To restore production after an eventual merge, revert the replacement PR's actual merge commit with `git revert -m 1 <merge-commit-sha>` on a new branch, review its PR, then merge through the normal Git integration. For a squash merge use `git revert <squash-sha>` instead. Do not reset/force-push main. Verify the restored site before deleting private-room provider credentials/resources.

@@ -20,16 +20,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: npm run build
+      - name: Build and verify server-only secret isolation
+        run: npm run build
+        env:
+          ROOM_PASSWORD: ci-canary-password-not-a-real-secret
+          SESSION_SECRET: ci-canary-signing-key-not-a-real-secret
+          LIVEKIT_API_KEY: ci-canary-api-key
+          LIVEKIT_API_SECRET: ci-canary-livekit-secret-not-a-real-secret
+          UPSTASH_REDIS_REST_TOKEN: ci-canary-redis-token-not-a-real-secret
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - name: Verify production-mode output
-        run: |
-          npm run build
-          npx playwright test tests/e2e/analytics.spec.ts
-        env:
-          VERCEL_ENV: production
-          NEXT_ADAPTER_PATH: ${{ github.workspace }}/tests/fixtures/verification-adapter.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: failure()
         with:

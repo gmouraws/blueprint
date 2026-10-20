@@ -1,106 +1,38 @@
-# Blueprint Architecture v1
+# Private room architecture
 
-## Architectural goal
+## Boundaries
 
-Use the smallest production-quality architecture that supports a bilingual, content-driven engineering lab with excellent performance, accessibility, SEO, and maintainability.
+Next.js serves the entry and room shell at /. Node.js route handlers expose POST /api/login, /api/token and /api/logout. Browsers connect directly to LiveKit Cloud for WebRTC and reliable data packets. Vercel never proxies media. There is no custom WebSocket server or static export.
 
-## Proposed stack
+The root is request-rendered so configuration availability is determined at runtime. Missing/placeholder configuration disables entry. All routes send noindex/nofollow/noarchive; robots disallows /. Old pages, sitemap, content registry, metadata assets and analytics have been removed.
 
-- Next.js
-- TypeScript
-- Tailwind CSS
-- MDX/content files
-- syntax highlighting suitable for technical content
-- Mermaid or an equivalent lightweight approach when diagrams are justified
-- Vercel hosting
-- GitHub as source of truth
+## Authentication
 
-Exact library choices beyond the core stack should be justified during implementation rather than accumulated preemptively.
+Server validation normalizes nicknames (2–24 characters; letters, numbers, spaces, dot, underscore, hyphen), bounds the JSON body to 4096 bytes, rejects unexpected fields and compares SHA-256 password digests in constant time. Every mutating request requires an exact approved Origin; cross-site fetches are rejected. Allowed origins come from APP_ORIGIN and trusted Vercel deployment/branch environment variables, never client host headers.
 
-## Runtime shape
+Successful login sets a 12-hour HS256-signed HttpOnly, SameSite=Strict cookie, Secure on HTTPS/Vercel. Local HTTP development is the only non-Secure case. Each login receives a random UUID; names cannot be updated through LiveKit. The signing key depends on both SESSION_SECRET and ROOM_PASSWORD, so rotating either invalidates cookies. Logout clears the cookie and attempts server-side participant removal, while SDK disconnect stops devices. A stolen signed cookie remains usable until expiry/rotation; there is no individual session revocation database. A shared secret does not establish a person's real identity. One browser session uses one identity; another tab using it can replace its connection.
 
-Blueprint v1 should be static-first.
+Upstash's single-region sliding-window counters protect login globally (60/10 minutes) and by HMAC-hashed Vercel client IP (10/10 minutes). Local development uses a shared local bucket. Token requests are limited per signed identity (12/minute). Analytics and in-memory cache are disabled. Timeout/network/service failures fail closed; there is no serverless-memory fallback. Counters expire automatically; raw IPs/passwords are not stored. Sharing a network shares an IP budget. Distributed abuse can exhaust the global budget and temporarily deny login; a stronger public-access model is outside this five-friend scope.
 
-Public content should be generated at build time whenever practical. Do not introduce a database, authentication layer, CMS, or custom backend for v1.
+## Admission and permissions
 
-## Deployment
+Every token is issued only after authenticated server-side createRoom(maxParticipants=5). An existing room whose actual cap differs causes refusal, rather than credential issuance. A preflight full-room response is only a convenience; it does not enforce admission.
 
-Target flow:
+Each signed 120-second LiveKit token also embeds RoomConfiguration(maxParticipants=5, emptyTimeout=300, departureTimeout=30). If LiveKit deletes the empty room between issuance and join, it recreates the room with the same cap. All simultaneous joiners have the same configuration. LiveKit enforces the admission limit, including competing sixth joins. Tokens grant only the fixed room, microphone, screen video/audio, subscriptions and data publishing. No camera, room administration, listing, recording, self-metadata changes, agents or egress.
 
-`Codex/developer -> GitHub -> Vercel -> blueprint.app.br`
+Existing active LiveKit connections refresh/reconnect using SDK/server behavior; the 120-second token limits initial admission, not call duration. After a terminal disconnect, the UI requires a fresh login/token. The user may retry after a capacity or availability error; no unlimited fallback room exists. Do not manually create another room with the same name and a different cap in the Cloud console.
 
-- `main` is production.
-- Feature work should be reviewable before reaching `main`.
-- Preview deployments should be used when available.
-- No secrets belong in the repository.
+## Media and chat
 
-## Content
+Microphone starts off; explicit activation requests permission. Screen sharing uses the native LiveKit/browser picker, separate audio/video sources, a 1080p/15fps capture preference and 2.5 Mbps video encoding ceiling. These are preferences, not measured guarantees. Adaptive stream and dynacast are enabled. Audio is rendered only for remote tracks; local previews are muted. Incoming mute changes only local playback volume. Device failures/canceled sharing are recoverable. SDK events update UI when the browser stops sharing. SDK disconnect and pagehide release tracks.
 
-Expected conceptual structure:
+One reliable data topic carries UTF-8 text only, at most 2000 bytes per message. The receiver rejects invalid/oversized packets and uses the event's authenticated participant name/identity. Timestamps show local send/receipt time, not a trusted global chronology. Messages are held only in memory (latest 200); late joiners get no history. Local send pacing and receive pacing bound accidental floods; this is not a hostile-public-chat moderation service. A send acknowledgment is not proof every peer received/read the message, especially during disconnects. No names or timestamps supplied inside message payloads are trusted.
 
-```text
-content/
-  en/
-    builds/
-    experiments/
-    notes/
-  pt/
-    builds/
-    experiments/
-    notes/
-```
+## Sources
 
-The implementation may refine this structure if the result remains simple, typed, and compatible with the product/translation rules.
-
-Content metadata should support at least:
-
-- stable ID;
-- slug;
-- title;
-- summary;
-- locale;
-- status where relevant;
-- publication/update dates when real;
-- tags/categories when useful;
-- translation relationship.
-
-## Internationalization and SEO
-
-- English is canonical/default.
-- Portuguese lives under `/pt`.
-- Generate correct localized metadata.
-- Use canonical and `hreflang` relationships appropriately.
-- Avoid duplicate-content ambiguity.
-- Language switching should preserve the equivalent page when a translation exists.
-
-## Quality gates
-
-Before production readiness:
-
-- type checking passes;
-- linting passes;
-- tests appropriate to the implementation pass;
-- production build passes;
-- critical routes render in both locales;
-- responsive behavior is validated;
-- accessibility basics are validated;
-- metadata/canonical/hreflang behavior is validated;
-- broken internal links are prevented or checked.
-
-## Security and privacy
-
-- no credentials or secrets in Git;
-- no professional/private content;
-- minimize third-party scripts;
-- avoid unnecessary tracking;
-- collect no personal data in v1 unless separately approved.
-
-### Approved implementation amendment
-
-Vercel Web Analytics is approved as the minimal initial analytics integration. Metrics remain private; no advertising analytics, Google Analytics, custom events, or public visitor counter are permitted. See ADR-006 for boundaries and provider-policy review. The application adds no forms or account data collection.
-
-Implementation details and operating commands are documented in `docs/IMPLEMENTATION.md`. ADRs 005–008 record newly accepted content, routing, analytics, presentation, and quality decisions.
-
-## Future architecture
-
-Search, analytics expansion, feeds, interactive experiments, APIs, databases, and AI/RAG may be introduced only when a concrete product requirement justifies them.
+- https://docs.livekit.io/frontends/reference/tokens-grants/
+- https://docs.livekit.io/reference/other/roomservice-api/
+- https://docs.livekit.io/transport/media/screenshare/
+- https://docs.livekit.io/reference/components/react/hook/usedatachannel/
+- https://upstash.com/docs/redis/sdks/ratelimit-ts/features
+- https://vercel.com/docs/headers/request-headers

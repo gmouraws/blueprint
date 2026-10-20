@@ -1,6 +1,6 @@
 # ADR-006: Minimal Vercel Web Analytics
 
-**Status:** Accepted
+**Status:** Historical; superseded by [ADR-009](009-private-room-replacement.md). Previously accepted
 
 ## Context
 
