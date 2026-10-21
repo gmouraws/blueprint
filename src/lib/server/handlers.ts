@@ -2,15 +2,16 @@ import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getConfig, allowedOrigins } from './config';
-import { COOKIE_NAME, cookieOptions, passwordMatches, signSession, verifySession } from './session';
+import { COOKIE_NAME, cookieOptions, verifySession } from './session';
 import { rateLimit, LimitError } from './rate-limit';
 import { createRoomToken, ensureRoom, roomService, RoomFullError } from './livekit';
-import { normalizeNickname, validNickname, ROOM_FULL_MESSAGE } from '../room';
-import { admissionService, AdmissionBusy } from './voice-admission';
+import { ROOM_FULL_MESSAGE } from '../room';
+import { issueMedia, revokeSessions } from './account-media';
+import { livekitRoomName, screenRoomName } from './livekit';
+import { admissionService, AdmissionBusy, TakeoverRequired } from './voice-admission';
 
 export const services = { getConfig, rateLimit, ensureRoom, createRoomToken, roomService, admissionService };
 type Services = typeof services;
-const credentials = z.object({ nickname: z.string().max(96).transform(normalizeNickname).refine(validNickname), password: z.string().min(1).max(256), remember: z.boolean().default(false) }).strict();
 export function json(value: object, status = 200, headers?: Record<string, string>) {
   return NextResponse.json(value, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
 }
@@ -35,21 +36,11 @@ export function handlers(deps: Services = services) {
     try {
       const config = deps.getConfig();
       if (!allowedOrigins(config).includes(request.headers.get('origin') ?? '') || request.headers.get('sec-fetch-site') === 'cross-site') return json({ error: 'Origem não permitida.' }, 403);
-      if (action === 'login') {
-        const ip = process.env.VERCEL === '1' ? request.headers.get('x-vercel-forwarded-for') ?? 'unknown' : 'local';
-        await deps.rateLimit(config, 'login', ip);
-        const parsed = credentials.safeParse(await readBody(request).catch(() => null));
-        if (!parsed.success) return json({ error: 'Use um apelido de 2 a 24 caracteres (letras, números, espaços, ponto, hífen ou sublinhado) e informe a senha.' }, 400);
-        if (!passwordMatches(parsed.data.password, config)) return json({ error: 'Senha incorreta.' }, 401);
-        const { token, session } = await signSession(parsed.data.nickname, config, parsed.data.remember);
-        const response = json({ nickname: session.nickname });
-        response.cookies.set(COOKIE_NAME, token, cookieOptions(config, parsed.data.remember));
-        return response;
-      }
+      if (action === 'login') return json({ error: 'Use o código enviado ao seu e-mail.' }, 410);
       const session = await verifySession(request.cookies.get(COOKIE_NAME)?.value, config);
       if (action === 'logout') {
         // SDK disconnect releases devices; server removal also revokes the LiveKit token.
-        const mediaRevoked = session ? await deps.admissionService(config).leave(session).then(() => true, () => false) : true;
+        const mediaRevoked = session ? !(await revokeSessions(session.identity, session.sessionId)).cleanupPending : true;
         // Forgetting browser access must remain possible during a media-service outage.
         const response = json({ ok: true, mediaRevoked });
         response.cookies.set(COOKIE_NAME, '', { ...cookieOptions(config), maxAge: 0 });
@@ -57,11 +48,15 @@ export function handlers(deps: Services = services) {
       }
       if (!session) return json({ error: 'Sua sessão expirou. Entre novamente.' }, 401);
       const body = await readBody(request).catch(() => null);
-      const parsed = z.object({ room: z.enum(['main', 'second']).default('main') }).strict().safeParse(body);
+      const parsed = z.object({ room: z.enum(['main', 'second']).default('main'), takeover: z.boolean().default(false) }).strict().safeParse(body);
       if (!parsed.success) return json({ error: 'Solicitação inválida.' }, 400);
       await deps.rateLimit(config, 'token', session.identity);
-      return json(await deps.admissionService(config).join(session, parsed.data.room));
+      return json(await issueMedia(session, () => deps.admissionService(config).join(session, parsed.data.room, parsed.data.takeover), result => [
+        { identity: result.identity, room: livekitRoomName(config, parsed.data.room) },
+        { identity: result.screens.identity, room: screenRoomName(config, parsed.data.room) },
+      ]));
     } catch (error) {
+      if (error instanceof TakeoverRequired) return json({ error: 'Sua conta está em outra chamada. Deseja transferir a chamada para este dispositivo?', takeoverRequired: true }, 409);
       if (error instanceof RoomFullError) return json({ error: ROOM_FULL_MESSAGE }, 409);
       if (error instanceof AdmissionBusy) return json({ error: 'Outra entrada está em andamento. Aguarde e tente novamente.' }, 409);
       if (error instanceof LimitError) return json({ error: error.status === 429 ? 'Muitas tentativas. Aguarde antes de tentar novamente.' : 'A proteção de acesso está indisponível. Tente novamente mais tarde.' }, error.status, { 'Retry-After': String(error.retryAfter) });

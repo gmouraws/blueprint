@@ -6,9 +6,11 @@ import { RoomContext, useAudioPlayback, useConnectionState, useLocalParticipant,
 import { VOICE_ROOMS, type ConnectionDetails, type VoiceRoomId } from '@/lib/room';
 import { closeCallRoom, prepareCallAudio } from '@/lib/client/call-room';
 import { connectRoom, VoiceConnectionTimeout } from '@/lib/client/connect-room';
-import { readPreferences, savePreferences } from '@/lib/client/preferences';
+import { readPreferences, savePreferences, currentPreferenceAccount } from '@/lib/client/preferences';
 import { playMembershipTone, resumeSounds } from '@/lib/client/call-sounds';
 import { Brand, Icon } from './icons';
+import { AccountProfile, loadProfile } from './account-profile';
+import { AccountLogin } from './account-login';
 import { Chat } from './chat';
 import { AudioDevices } from './audio-devices';
 import { useMicrophone } from './microphone';
@@ -23,10 +25,10 @@ import { useCallAudio } from './use-call-audio';
 import { AudioShortcuts, useAudioShortcuts } from './audio-shortcuts';
 import { useMicrophoneProcessing } from './microphone-processing';
 
-async function post(path: string, body: object) {
+async function post(path: string, body: object): Promise<ConnectionDetails & { error?: string }> {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store', signal: AbortSignal.timeout(20000) });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || 'Não foi possível atualizar a voz.');
+  if (!response.ok) { if (path === '/api/token' && result.takeoverRequired && !('takeover' in body) && window.confirm(result.error)) return post(path, {...body,takeover:true}); throw new Error(result.error || 'Não foi possível atualizar a voz.'); }
   return result;
 }
 export default function ConnectedRoom({ room, details, onLeave }: { room: Room; details?: ConnectionDetails; onLeave: (message?: string) => void }) {
@@ -34,6 +36,23 @@ export default function ConnectedRoom({ room, details, onLeave }: { room: Room; 
   const [joining, setJoining] = useState(!!details);
   const [currentRoom, setCurrentRoom] = useState<VoiceRoomId>(details?.voiceRoom ?? 'main');
   const [publisher] = useState(createScreenRoom);
+  const [expired, setExpired] = useState(false);
+  const [accountRevision, setAccountRevision] = useState(0);
+  const loginDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => { if (expired) loginDialog.current?.showModal(); }, [expired]);
+  async function restoreAccount() {
+    const previous = currentPreferenceAccount();
+    const profile = await loadProfile();
+    // Another account must not inherit a draft or in-memory device choices.
+    if (previous !== profile.id) setAccountRevision(value => value + 1);
+    setExpired(false);
+  }
+  useEffect(() => {
+    let active = true;
+    const check = async () => { try { const response = await fetch('/api/account', {cache:'no-store'}); if (response.status === 401 && active) { await publisher.disconnect(true); await room.disconnect(true); setExpired(true); } } catch { /* A network failure is not a logout. */ } };
+    const timer = setInterval(() => void check(), 30000);
+    return () => { active = false; clearInterval(timer); };
+  }, [room, publisher]);
   const admission = useRef(details?.identity);
   const joinLock = useRef(!!details);
   const leaving = useRef(false);
@@ -62,7 +81,7 @@ export default function ConnectedRoom({ room, details, onLeave }: { room: Room; 
     finally { await closeCallRoom(room); onLeave(message); }
   }
   async function joinVoice(destination: VoiceRoomId) {
-    if (joinLock.current || leaving.current || ![ConnectionState.Disconnected, ConnectionState.Connected].includes(room.state) || (room.state === ConnectionState.Connected && destination === currentRoom)) return;
+    if (expired || joinLock.current || leaving.current || ![ConnectionState.Disconnected, ConnectionState.Connected].includes(room.state) || (room.state === ConnectionState.Connected && destination === currentRoom)) return;
     joinLock.current = true; intentionalDisconnect.current = true; setJoining(true); setError(''); prepareCallAudio(room);
     try {
       await publisher.disconnect(true); await room.disconnect(true);
@@ -77,11 +96,11 @@ export default function ConnectedRoom({ room, details, onLeave }: { room: Room; 
     } catch (failure) { if (!leaving.current) setError(failure instanceof VoiceConnectionTimeout ? 'A conexão de voz demorou demais. Confira sua rede e tente novamente. O chat continua disponível.' : 'Não foi possível entrar na sala. A sala pode estar cheia ou indisponível. Tente novamente.'); }
     finally { intentionalDisconnect.current = false; joinLock.current = false; if (!leaving.current) setJoining(false); }
   }
-  return <RoomContext.Provider value={room}><RoomView publisher={publisher} error={error} onLeave={leave} onJoin={joinVoice} joining={joining} currentRoom={currentRoom} initialView={details ? 'sala' : 'chat'} /></RoomContext.Provider>;
+  return <RoomContext.Provider value={room}>{expired&&<dialog ref={loginDialog} onCancel={event=>event.preventDefault()} className="profile-dialog" aria-label="Entrar novamente"><p>Sua sessão expirou. Seu rascunho continua nesta página. A mídia foi desconectada.</p><AccountLogin onAuthenticated={()=>void restoreAccount().catch(()=>setError('Não foi possível carregar o perfil. Tente novamente.'))}/></dialog>}<RoomView key={accountRevision} expired={expired} publisher={publisher} error={error} onLeave={leave} onJoin={joinVoice} joining={joining} currentRoom={currentRoom} initialView={details ? 'sala' : 'chat'} /></RoomContext.Provider>;
 }
 
-export function RoomView({ publisher: providedPublisher, error = '', onLeave, onJoin, joining = false, currentRoom = 'main', initialView = 'sala' }: {
-  publisher?: Room; error?: string; onLeave: () => void; onJoin?: (room: VoiceRoomId) => void; joining?: boolean; currentRoom?: VoiceRoomId; initialView?: 'sala' | 'chat';
+export function RoomView({ publisher: providedPublisher, error = '', onLeave, onJoin, joining = false, currentRoom = 'main', initialView = 'sala', expired = false }: {
+  publisher?: Room; expired?: boolean; error?: string; onLeave: () => void; onJoin?: (room: VoiceRoomId) => void; joining?: boolean; currentRoom?: VoiceRoomId; initialView?: 'sala' | 'chat';
 }) {
   const room = useRoomContext();
   const state = useConnectionState();
@@ -94,7 +113,7 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
   const [viewed, setViewed] = useState(initialView === 'sala');
   const [listening, setListening] = useState('');
   const foreign = state === ConnectionState.Disconnected || browsing !== currentRoom;
-  const observer = useScreenObserver(browsing, viewed && foreign && !joining);
+  const observer = useScreenObserver(browsing, viewed && foreign && !joining && !expired);
   const screenRoom = foreign ? observer.room ?? fallbackPublisher : publisher;
   const screenState = useConnectionState(screenRoom);
   const publisherState = useConnectionState(publisher);
@@ -169,7 +188,7 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
   const audioControls = { enabled: isMicrophoneEnabled, pending: microphone.pending, disabled: !connected || joining || processing.pending, muted: audioMuted, combined: audio.combined, combinedBusy: audio.busy, onMicrophone: () => audio.dispatch('microphone'), onCancel: microphone.cancel, onListening: () => audio.dispatch('listening'), onAll: () => audio.dispatch('all') };
   function changeScreenVolume(setting: VolumeSetting) { setScreenSetting(setting); savePreferences({ screenVolume: setting.volume }); }
   return <main className="room-shell">
-    <header className="room-header"><Brand /><span className="connection" role="status"><i className={connected ? 'connected-dot' : ''} /><span>Voz: <span>{status}</span>{connected && ' · ' + name(currentRoom)}</span></span><span className="small-label"><Icon name="lock" /> Sala privada</span></header>
+    <header className="room-header"><Brand /><AccountProfile /><span className="connection" role="status"><i className={connected ? 'connected-dot' : ''} /><span>Voz: <span>{status}</span>{connected && ' · ' + name(currentRoom)}</span></span><span className="small-label"><Icon name="lock" /> Sala privada</span></header>
     <div className="room-columns"><aside className="participants-panel"><VoiceNavigation currentRoom={currentRoom} connected={connected} browsing={browsing} busy={voiceBusy || screenPending || microphone.pending} onBrowse={browse} onJoin={enter} onChat={() => setView('chat')} chatActive={view === 'chat'} volumes={volumes} onVolume={(identity, value) => setVolumes(previous => ({ ...previous, [identity]: value }))} /></aside>
       <div className="workspace-main"><div className="view-tabs" role="tablist" aria-label="Visualização">{(['sala', 'chat'] as const).map(tab => <button key={tab} role="tab" id={'tab-' + tab} aria-controls={'panel-' + tab} aria-selected={view === tab} tabIndex={view === tab ? 0 : -1} onClick={() => { if (tab === 'sala') setViewed(true); setView(tab); }} onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 'sala' : event.key === 'End' ? 'chat' : tab === 'sala' ? 'chat' : 'sala'; if (next === 'sala') setViewed(true); setView(next); document.getElementById('tab-' + next)?.focus(); } }}>{tab === 'sala' ? 'Sala' : 'Chat'}{tab === 'chat' && unread > 0 && view !== 'chat' && <span className="pill" aria-label={unread + ' mensagens novas'}>{unread > 99 ? '99+' : unread}</span>}</button>)}</div>
         <MembershipNotifications enabled={sounds} muted={audioMuted} roomName={name(currentRoom)} />

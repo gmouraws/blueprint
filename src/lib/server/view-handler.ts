@@ -1,4 +1,6 @@
 import 'server-only';
+import { accountTransaction } from './account-db';
+import { issueMedia } from './account-media';
 import { randomUUID } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
@@ -21,6 +23,8 @@ export async function viewHandler(request: NextRequest, deps = defaults, leave =
       const parsed = z.object({ room: z.enum(['main', 'second']), identity: z.string().max(100) }).strict().safeParse(body);
       if (!parsed.success || !parsed.data.identity.startsWith(session.identity + ':view:') || !z.uuid().safeParse(parsed.data.identity.slice(session.identity.length + 6)).success) return json({ error: 'Solicitação inválida.' }, 400);
       await deps.rateLimit(config, 'view-leave', session.identity);
+      const owned = await accountTransaction(db => db.query('SELECT identity FROM blueprint_media_lease WHERE identity=$1 AND session_id=$2 AND room=$3', [parsed.data.identity, session.sessionId, screenRoomName(config, parsed.data.room)]));
+      if (!owned.rows.length) return json({ error: 'Visualização indisponível.' }, 404);
       try {
         await deps.roomService(config).removeParticipant(screenRoomName(config, parsed.data.room), parsed.data.identity, { revokeTokenTs: BigInt(Math.floor(Date.now() / 1000) + 30) });
       } catch (failure) {
@@ -33,7 +37,7 @@ export async function viewHandler(request: NextRequest, deps = defaults, leave =
     if (!parsed.success) return json({ error: 'Solicitação inválida.' }, 400);
     await deps.rateLimit(config, 'view-token', session.identity);
     const identity = `${session.identity}:view:${randomUUID()}`;
-    const token = await deps.createScreenToken(config, { ...session, identity }, parsed.data.room, false);
+    const token = await issueMedia(session, () => deps.createScreenToken(config, { ...session, identity }, parsed.data.room, false), () => [{ identity, room: screenRoomName(config, parsed.data.room) }]);
     return json({ token, identity, nickname: session.nickname, serverUrl: config.LIVEKIT_URL, voiceRoom: parsed.data.room });
   } catch (failure) {
     if (failure instanceof LimitError) return json({ error: 'Aguarde antes de abrir outra sala.' }, failure.status);

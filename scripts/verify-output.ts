@@ -5,12 +5,12 @@ import assert from 'node:assert/strict';
 const appPaths = JSON.parse(readFileSync('.next/server/app-paths-manifest.json', 'utf8'));
 const prerender = JSON.parse(readFileSync('.next/prerender-manifest.json', 'utf8'));
 assert.ok(!Object.hasOwn(prerender.routes, '/'), 'Entry configuration must be evaluated at request time, not prerendered');
-for (const route of ['/page', '/api/login/route', '/api/token/route', '/api/view/route', '/api/view/leave/route', '/api/logout/route', '/api/chat/route', '/api/chat/cleanup/route', '/api/voice/route', '/api/voice/leave/route', '/api/attachments/route', '/api/attachments/[id]/route', '/robots.txt/route']) assert.ok(appPaths[route], `Missing route: ${route}`);
+for (const route of ['/page', '/api/account/route', '/api/account/code/route', '/api/account/verify/route', '/api/account/avatar/route', '/api/login/route', '/api/token/route', '/api/view/route', '/api/view/leave/route', '/api/logout/route', '/api/chat/route', '/api/chat/cleanup/route', '/api/voice/route', '/api/voice/leave/route', '/api/attachments/route', '/api/attachments/[id]/route', '/robots.txt/route']) assert.ok(appPaths[route], `Missing route: ${route}`);
 assert.ok(!Object.keys(appPaths).some(route => /\/(?:pt|about|privacy|builds|notes|experiments|sitemap\.xml)(?:\/|$)/.test(route)), 'Obsolete public route emitted');
 function files(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? files(path.join(directory, entry.name)) : [path.join(directory, entry.name)]);
 }
-const secrets = ['ROOM_PASSWORD', 'SESSION_SECRET', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'UPSTASH_REDIS_REST_TOKEN', 'DATABASE_URL', 'DATABASE_URL_UNPOOLED', 'CRON_SECRET', 'BLOB_READ_WRITE_TOKEN'].map(key => process.env[key]).filter((value): value is string => !!value && value.length >= 8);
+const secrets = ['BETTER_AUTH_SECRET', 'RESEND_API_KEY', 'ROOM_PASSWORD', 'SESSION_SECRET', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'UPSTASH_REDIS_REST_TOKEN', 'DATABASE_URL', 'DATABASE_URL_UNPOOLED', 'CRON_SECRET', 'BLOB_READ_WRITE_TOKEN'].map(key => process.env[key]).filter((value): value is string => !!value && value.length >= 8);
 for (const file of files('.next/static').filter(file => /\.(?:js|map|html)$/.test(file))) {
   const contents = readFileSync(file, 'utf8');
   assert.ok(secrets.every(secret => !contents.includes(secret)), `Server secret found in browser artifact: ${file}`);

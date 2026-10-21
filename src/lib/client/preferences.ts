@@ -1,11 +1,26 @@
+import { accountPreferences, type AccountPreferences } from '../account-preferences';
 import { validateShortcuts, emptyShortcuts, type Shortcuts } from './shortcuts';
-export type Preferences = { microphone: string; sounds: boolean; screenVolume: number; noiseSuppression: boolean; shortcuts: Shortcuts };
-export const defaultPreferences: Preferences = { microphone: 'default', sounds: true, screenVolume: 80, noiseSuppression: true, shortcuts: emptyShortcuts };
-const key = 'blueprint.audio-preferences';
+export type Preferences = { microphone: string; output: string; sounds: boolean; screenVolume: number; noiseSuppression: boolean; shortcuts: Shortcuts };
+export const defaultPreferences: Preferences = { microphone: 'default', output: 'default', sounds: true, screenVolume: 80, noiseSuppression: true, shortcuts: emptyShortcuts };
+const legacyKey = 'blueprint.audio-preferences';
+let accountId = '';
+let defaults: AccountPreferences = {};
+export function preferencePlatform() { return typeof navigator !== 'undefined' && /Win/.test(navigator.platform) ? 'windows' : typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? 'mac' : 'other'; }
+const key = () => `blueprint.preferences.v2:${accountId || 'guest'}:${preferencePlatform()}`;
+export function currentPreferenceAccount() { return accountId; }
+function overrides(value: unknown): Partial<Preferences> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const validated = validatePreferences(value);
+  return Object.fromEntries(Object.keys(defaultPreferences).filter(name => Object.hasOwn(value, name)).map(name => [name, validated[name as keyof Preferences]]));
+}
+export function configurePreferences(id: string, value: unknown) { accountId = id; defaults = accountPreferences(value); }
+export function canImportPreferences() { try { return !!accountId && !!localStorage.getItem(legacyKey) && !localStorage.getItem(key() + ':imported'); } catch { return false; } }
+export function importPreferences() { if (!canImportPreferences()) return; try { const old = validatePreferences(JSON.parse(localStorage.getItem(legacyKey)!)); const current = overrides(JSON.parse(localStorage.getItem(key()) ?? '{}')); localStorage.setItem(key(), JSON.stringify({ ...old, ...current })); localStorage.setItem(key() + ':imported', 'true'); } catch { /* Optional storage. */ } }
 export function validatePreferences(value: unknown): Preferences {
   const data = value && typeof value === 'object' ? value as Partial<Preferences> : {};
   return {
     shortcuts: validateShortcuts(data.shortcuts),
+    output: typeof data.output === 'string' && data.output.length > 0 && data.output.length <= 256 ? data.output : 'default',
     microphone: typeof data.microphone === 'string' && data.microphone.length > 0 && data.microphone.length <= 256 ? data.microphone : 'default',
     sounds: typeof data.sounds === 'boolean' ? data.sounds : true,
     noiseSuppression: typeof data.noiseSuppression === 'boolean' ? data.noiseSuppression : true,
@@ -13,10 +28,16 @@ export function validatePreferences(value: unknown): Preferences {
   };
 }
 export function readPreferences(): Preferences {
-  try { return validatePreferences(JSON.parse(localStorage.getItem(key) ?? 'null')); } catch { return { ...defaultPreferences }; }
+  const base = { ...defaultPreferences, ...defaults, shortcuts: defaults.shortcuts?.[preferencePlatform()] ?? emptyShortcuts };
+  try { return validatePreferences({ ...base, ...overrides(JSON.parse(localStorage.getItem(key()) ?? '{}')) }); } catch { return validatePreferences(base); }
 }
 export function savePreferences(change: Partial<Preferences>) {
-  try { localStorage.setItem(key, JSON.stringify(validatePreferences({ ...readPreferences(), ...change }))); } catch { /* Storage is optional. */ }
+  try {
+    const previous = overrides(JSON.parse(localStorage.getItem(key()) ?? '{}'));
+    const validated = validatePreferences({ ...readPreferences(), ...change });
+    const allowed = Object.keys(change).filter(name => name in defaultPreferences) as (keyof Preferences)[];
+    localStorage.setItem(key(), JSON.stringify({ ...previous, ...Object.fromEntries(allowed.map(name => [name, validated[name]])) }));
+  } catch { /* Storage is optional. */ }
 }
 export function microphoneError(error: unknown) {
   const name = error instanceof Error ? error.name : '';

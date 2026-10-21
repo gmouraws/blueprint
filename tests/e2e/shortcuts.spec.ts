@@ -1,13 +1,14 @@
+import { installAccount, authenticate } from '../browser-account';
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { mkdir } from 'node:fs/promises';
 
 test('shortcuts are unset, validated, persistent and ignore typing, composition and repeats', async ({ page }) => {
-  await page.route('**/api/login', route => route.fulfill({ json: { nickname: 'Ana' } }));
+  await installAccount(page, 'Ana' );
   await page.route('**/api/voice', route => route.fulfill({ json: { rooms: { main: [], second: [] } } }));
   await page.route('**/api/chat**', route => route.fulfill({ json: { messages: [], hasMore: false, serverTime: new Date().toISOString() } }));
   async function enter() {
-    await page.goto('/'); await page.getByLabel('Seu apelido').fill('Ana'); await page.getByLabel('Senha da sala').fill('test-only-password');
+    await page.goto('/'); await authenticate(page, 'Ana');
     await page.getByRole('button', { name: 'Abrir chat', exact: true }).click();
   }
   async function settings() { await page.getByRole('button', { name: 'Configurações de áudio', exact: true }).click(); await page.getByText('Atalhos de teclado', { exact: true }).click(); }

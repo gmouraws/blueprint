@@ -2,8 +2,10 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { AccountLogin } from './account-login';
+import { AccountProfile, loadProfile } from './account-profile';
 import { Brand, Icon } from './icons';
-import { MAX_PARTICIPANTS, normalizeNickname, validNickname, type ConnectionDetails } from '@/lib/room';
+import { MAX_PARTICIPANTS, type ConnectionDetails } from '@/lib/room';
 import type { ConfigurationStatus } from '@/lib/server/config';
 import { createCallRoom, closeCallRoom } from '@/lib/client/call-room';
 import type { Room } from 'livekit-client';
@@ -26,35 +28,31 @@ export default function Entry({ configuration, initialNickname = null }: { confi
   const [call, setCall] = useState<{ room: Room; details?: ConnectionDetails } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const nicknameRef = useRef<HTMLInputElement>(null);
+
   const microphoneCheck = useRef<MicrophoneCheckHandle>(null);
   const callRoom = useRef<Room | null>(null);
   const joining = useRef(false);
   const alive = useRef(false);
-  useEffect(() => {
-    if (authenticatedNickname) return;
-    try { const nickname = normalizeNickname(localStorage.getItem('blueprint.nickname') ?? ''); if (nicknameRef.current && validNickname(nickname)) nicknameRef.current.value = nickname; } catch { /* Storage is optional. */ }
-  }, [call, authenticatedNickname]);
+  const [profileReady, setProfileReady] = useState(false);
+  async function recognized() { try { const profile = await loadProfile(); setAuthenticatedNickname(profile.name); setProfileReady(true); } catch { setAuthenticatedNickname(null); setProfileReady(false); } }
+  useEffect(() => { if (initialNickname) void loadProfile().then(profile => { setAuthenticatedNickname(profile.name); setProfileReady(true); }).catch(() => setAuthenticatedNickname(null)); }, [initialNickname]);
   useEffect(() => { alive.current = true; return () => { alive.current = false; if (callRoom.current) void closeCallRoom(callRoom.current); }; }, []);
   async function join(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (joining.current || !configured) return;
     const form = event.currentTarget;
-    const fields = new FormData(form);
+
     const chatOnly = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'chat';
-    const nickname = authenticatedNickname ?? normalizeNickname(String(fields.get('nickname') ?? ''));
-    if (!validNickname(nickname)) { setError('Use um apelido de 2 a 24 caracteres: letras, números, espaços, ponto, hífen ou sublinhado.'); return; }
-    const password = String(fields.get('password') ?? '');
     microphoneCheck.current?.stop();
     const room = createCallRoom(!chatOnly); callRoom.current = room; joining.current = true;
     setBusy(true); setError('');
     try {
-      if (!authenticatedNickname) {
-        await post('/api/login', { nickname, password, remember: fields.get('remember') === 'on' });
-        if (alive.current) setAuthenticatedNickname(nickname);
-        try { localStorage.setItem('blueprint.nickname', nickname); } catch { /* Storage is optional. */ }
+      let details;
+      if (!chatOnly) {
+        try { details = await post('/api/token', {}); } catch (failure) {
+          if (failure instanceof RequestError && failure.message.includes('transferir') && window.confirm(failure.message)) details = await post('/api/token', {takeover:true}); else throw failure;
+        }
       }
-      const details = chatOnly ? undefined : await post('/api/token', {});
       if (alive.current) setCall({ room, details }); else void closeCallRoom(room);
     } catch (failure) {
       void closeCallRoom(room); callRoom.current = null;
@@ -96,18 +94,15 @@ export default function Entry({ configuration, initialNickname = null }: { confi
             <p>O responsável deve conferir as variáveis e o escopo do ambiente na Vercel. Após salvar, crie um novo deployment e abra o novo Preview. Não compartilhe valores secretos.</p>
           </details>
         </div>}
-        <form onSubmit={join} autoComplete="on" method="post" aria-busy={busy}>
-          <label htmlFor="nickname">Seu apelido</label><input key={authenticatedNickname ?? 'credentials'} defaultValue={authenticatedNickname ?? ''} ref={nicknameRef} id="nickname" name="nickname" autoComplete="username" readOnly={!!authenticatedNickname} maxLength={24} minLength={2} required placeholder="Como você quer aparecer?" disabled={busy || !configured} />
-          {authenticatedNickname ? <p className="remembered-access" role="status">Acesso reconhecido neste dispositivo. Clique para entrar na sala.</p> : <>
-            <label htmlFor="password">Senha da sala</label><input id="password" name="password" type="password" autoComplete="current-password" maxLength={256} required placeholder="A senha compartilhada entre vocês" disabled={busy || !configured} />
-            <label className="checkbox-label remember-access"><input name="remember" type="checkbox" defaultChecked={false} aria-describedby="remember-help" disabled={busy || !configured} />Manter conectado neste dispositivo</label>
-            <p className="entry-note remember-help" id="remember-help">Por 30 dias. Use apenas em um dispositivo de confiança.</p>
-          </>}
-          {error && <p className="error" role="alert">{error}</p>}
-          <button className="primary join-button" disabled={busy || !configured}>{busy ? 'Entrando…' : 'Entrar na sala'}<span aria-hidden="true">→</span></button>
-          <button className="chat-entry" name="destination" value="chat" disabled={busy || !configured}>Abrir chat</button>
-        </form>
-        {authenticatedNickname && <button className="forget-access" disabled={busy} onClick={forget}>Esquecer acesso neste dispositivo</button>}
+        {!authenticatedNickname ? <AccountLogin disabled={!configured} onAuthenticated={()=>void recognized()}/> : <>
+          <p className="remembered-access">Olá, {authenticatedNickname}. Entre quando quiser; o microfone começa desligado.</p>
+          <form onSubmit={join} method="post" aria-busy={busy}>
+            <button className="primary join-button" disabled={busy||!configured||!profileReady}>{busy?'Entrando…':'Entrar na sala'}<span aria-hidden="true">→</span></button>
+            <button className="chat-entry" name="destination" value="chat" disabled={busy||!configured||!profileReady}>Abrir chat</button>
+          </form>
+          <AccountProfile/><button className="forget-access" disabled={busy} onClick={forget}>Esquecer acesso neste dispositivo</button>
+        </>}
+        {error&&<p className="error" role="alert">{error}</p>}
         <MicrophoneCheck ref={microphoneCheck} disabled={busy || !configured} />
         <p className="entry-note">Você entra com o microfone desligado. Permissões de áudio e tela são solicitadas ao ativar cada recurso.</p>
       </section>

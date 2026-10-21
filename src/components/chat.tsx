@@ -1,4 +1,5 @@
 'use client';
+import { Avatar } from './avatar';
 
 import { useRoomContext } from '@livekit/components-react';
 import { ConnectionState, RoomEvent } from 'livekit-client';
@@ -169,7 +170,7 @@ export function Chat({ active, onUnread }: { active: boolean; onUnread: (count: 
     <div className="messages" ref={scroll} onScroll={() => { const element = scroll.current; if (element) nearBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48; }} role="log" aria-label="Mensagens da sala" aria-live={active ? 'polite' : 'off'} tabIndex={0}>
       {hasOlder && <button className="load-older" disabled={older} onClick={loadOlder}>{older ? 'Carregando…' : 'Carregar anteriores'}</button>}
       {!messages.length && !loading && !error && <div className="chat-empty"><span aria-hidden="true">#</span><p>Nenhuma mensagem nos últimos 30 dias.</p></div>}
-      {messages.map(message => <div className="message" key={message.id} data-message-id={message.id}><div className="message-meta"><strong>{message.name}{message.own ? ' (você)' : ''}</strong><time dateTime={message.createdAt}>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(message.createdAt))}</time>{message.own && (!!message.body || !message.image) && <MessageActions message={message} onDelete={removeMessage} />}</div>{message.body && <p>{messageParts(message.body).map((part, index) => part.href ? <a key={index} href={part.href} target="_blank" rel="noopener noreferrer">{part.text}</a> : part.text)}</p>}{message.image && <MessageImage image={message.image}>{message.own && <MessageActions message={message} onDelete={removeMessage} imageOnly />}</MessageImage>}</div>)}
+      {messages.map(message => <div className="message" key={message.id} data-message-id={message.id}><div className="message-meta"><Avatar userId={message.userId} name={message.name}/><strong>{message.name}{message.own ? ' (você)' : ''}</strong><time dateTime={message.createdAt}>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(message.createdAt))}</time>{message.own && (!!message.body || !message.image) && <MessageActions message={message} onDelete={removeMessage} />}</div>{message.body && <p>{messageParts(message.body).map((part, index) => part.href ? <a key={index} href={part.href} target="_blank" rel="noopener noreferrer">{part.text}</a> : part.text)}</p>}{message.image && <MessageImage image={message.image}>{message.own && <MessageActions message={message} onDelete={removeMessage} imageOnly />}</MessageImage>}</div>)}
     </div>
     <form className="chat-form" onSubmit={submit} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }} onDrop={event => { if (!isSending) image.drop(event); }}>
       <ImageComposer image={image} disabled={isSending} />

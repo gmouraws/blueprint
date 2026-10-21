@@ -15,11 +15,11 @@ for (let sample = 0; sample < samples; sample++) wave.writeInt16LE(Math.round(80
 writeFileSync(waveform, wave);
 
 export default defineConfig({
-  testDir: './tests/transport', workers: 1, timeout: 60000, retries: 0,
+  testDir: './tests/transport', outputDir: '.generated/transport-results', workers: 1, timeout: 60000, retries: 0,
   reporter: [['list']],
   use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:3005', trace: 'off', launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-audio-capture=${waveform}`, '--autoplay-policy=user-gesture-required'] } },
-  webServer: { command: 'node node_modules/next/dist/bin/next start --port 3005', url: 'http://localhost:3005', reuseExistingServer: false, env: {
-    APP_ORIGIN: 'http://localhost:3005', ROOM_PASSWORD: 'test-only-password-not-a-secret', SESSION_SECRET: 'test-only-session-signing-key-for-browser-tests',
+  webServer: { command: 'node --import ./tests/browser-database.mjs node_modules/next/dist/bin/next start --port 3005', url: 'http://localhost:3005', reuseExistingServer: false, env: {
+    APP_ORIGIN: 'http://localhost:3005', BETTER_AUTH_SECRET:'test-only-account-signing-key-for-browser-tests', RESEND_API_KEY:'re_test-only-email-service-key', RESEND_FROM:'room@example.test', DATABASE_URL:'postgresql://fixture:fixture@fixture.neon.tech/neondb?sslmode=require', CHAT_ENVIRONMENT:'preview', ROOM_PASSWORD: 'test-only-password-not-a-secret', SESSION_SECRET: 'test-only-session-signing-key-for-browser-tests',
     LIVEKIT_URL: 'wss://fixture.livekit.cloud', LIVEKIT_API_KEY: 'test-api-key', LIVEKIT_API_SECRET: 'test-only-livekit-secret-for-browser-tests', LIVEKIT_ROOM_NAME: 'test-room',
     UPSTASH_REDIS_REST_URL: 'https://fixture.upstash.io', UPSTASH_REDIS_REST_TOKEN: 'test-only-redis-token',
   } },

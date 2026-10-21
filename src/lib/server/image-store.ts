@@ -42,7 +42,7 @@ export async function completeImage(session: Session, id: string) {
   const { sql, environment } = database(); const options = storage(environment);
   const [, rows] = await sql.transaction([
     sql`SELECT blueprint_chat_assert_environment(${environment})`,
-    sql`SELECT * FROM blueprint_chat_attachments WHERE id = ${id} AND sender_id = ${session.identity} AND created_at > now() - interval '1 hour'`,
+    sql`SELECT * FROM blueprint_chat_attachments WHERE id = ${id} AND sender_id = ${session.identity} AND user_id = ${session.identity} AND created_at > now() - interval '1 hour'`,
   ]);
   const row = rows[0] as Attachment | undefined;
   if (!row || ['deleting','attached'].includes(row.state)) throw new InvalidImage();

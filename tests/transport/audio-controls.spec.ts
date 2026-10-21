@@ -8,7 +8,7 @@ test('one dispatcher restores individual states, mutes all playback and works ac
   const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
   const [alice, bob] = await Promise.all(contexts.map(context => context.newPage()));
   try {
-    await alice.addInitScript(() => localStorage.setItem('blueprint.audio-preferences', JSON.stringify({ shortcuts: { microphone: 'Ctrl+Shift+M', listening: 'Ctrl+Shift+Y', all: 'Ctrl+Shift+U' } })));
+    await alice.addInitScript(() => localStorage.setItem(`blueprint.preferences.v2:00000000-0000-4000-8000-000000000001:${/Win/.test(navigator.platform)?'windows':/Mac/.test(navigator.platform)?'mac':'other'}`, JSON.stringify({ shortcuts: { microphone: 'Ctrl+Shift+M', listening: 'Ctrl+Shift+Y', all: 'Ctrl+Shift+U' } })));
     await prepare(alice, 'Ana', room); await join(alice); await prepare(bob, 'Bruno', room); await join(bob);
     await bob.getByRole('button', { name: 'Ativar microfone', exact: true }).click();
     await bob.getByRole('button', { name: 'Compartilhar tela', exact: true }).click();

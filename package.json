@@ -17,7 +17,9 @@
     "test:transport": "playwright test --config playwright.transport.config.ts",
     "db:migrate": "node --conditions=react-server --import tsx scripts/migrate-chat.ts",
     "db:cleanup": "node --conditions=react-server --import tsx scripts/cleanup-chat.ts",
-    "check": "npm run lint && npm run typecheck && npm test"
+    "check": "npm run lint && npm run typecheck && npm test",
+    "db:migrate:accounts": "node --conditions=react-server --import tsx scripts/migrate-accounts.ts",
+    "accounts:bootstrap": "node --conditions=react-server --import tsx scripts/bootstrap-owner.ts"
   },
   "dependencies": {
     "@livekit/components-react": "2.9.24",
@@ -25,10 +27,12 @@
     "@upstash/ratelimit": "2.2.0",
     "@upstash/redis": "1.39.0",
     "@vercel/blob": "2.8.2",
+    "better-auth": "1.7.12",
     "jose": "6.2.13",
     "livekit-client": "2.22.0",
     "livekit-server-sdk": "2.19.1",
     "next": "16.4.0",
+    "pg": "8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "0.0.1",
@@ -41,6 +45,7 @@
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.20.5",
+    "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "eslint": "9.39.5",

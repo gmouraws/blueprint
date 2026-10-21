@@ -11,9 +11,9 @@ export function chatDatabaseConfig(env: Record<string, string | undefined> = pro
   if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname.endsWith('.neon.tech') || !url.username || !url.password || !['require', 'verify-full'].includes(url.searchParams.get('sslmode') ?? '')) throw new Error('Invalid chat database configuration');
   return { url: url.toString(), environment };
 }
-type Row = { id: string; channel: 'geral'; sender_id: string; display_name: string; body: string; created_at: string; attachment_id?: string; width?: number; height?: number };
+type Row = { id: string; channel: 'geral'; sender_id: string; user_id?: string; display_name: string; body: string; created_at: string; attachment_id?: string; width?: number; height?: number };
 function message(row: Row, identity: string): ChatMessage {
-  return { id: String(row.id), channel: row.channel, senderId: row.sender_id, name: row.display_name, body: row.body, createdAt: new Date(row.created_at).toISOString(), own: row.sender_id === identity, ...(row.attachment_id ? { image: { id: row.attachment_id, width: row.width!, height: row.height! } } : {}) };
+  return { id: String(row.id), channel: row.channel, senderId: row.sender_id, name: row.display_name, body: row.body, createdAt: new Date(row.created_at).toISOString(), own: row.user_id === identity, userId: row.user_id ?? null, ...(row.attachment_id ? { image: { id: row.attachment_id, width: row.width!, height: row.height! } } : {}) };
 }
 export function database() {
   const config = chatDatabaseConfig();
@@ -69,5 +69,8 @@ export async function cleanChat() {
   const { sql, environment } = database();
   const { cleanImages } = await import('./image-store');
   await cleanImages();
+  const { cleanAvatars } = await import('./avatar');
+  const { cleanRevokedMedia } = await import('./account-media');
+  await cleanAvatars(); await cleanRevokedMedia();
   await sql.transaction([sql`SELECT blueprint_chat_assert_environment(${environment})`, sql`DELETE FROM blueprint_chat_messages WHERE created_at <= now() - interval '30 days' AND attachment_id IS NULL`, sql`DELETE FROM blueprint_chat_deletions WHERE created_at <= now() - interval '30 days'`]);
 }

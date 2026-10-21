@@ -1,3 +1,4 @@
+import { installAccount, authenticate } from '../browser-account';
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { randomUUID } from 'node:crypto';
@@ -10,12 +11,12 @@ test('chat without voice persists, retries once, paginates, catches up and keeps
   try {
     for (const [tab, name] of [[page, 'Ana'], [other, 'Bruno']] as const) {
       await store.install(tab, name);
-      await tab.route('**/api/login', route => route.fulfill({ json: { nickname: name } }));
+      await installAccount(tab, name );
       await tab.route('**/api/token', route => { tokens++; return route.abort(); });
       await tab.addInitScript(() => { navigator.mediaDevices.getUserMedia = async () => { throw new Error('Chat must not capture'); }; });
     }
     async function openChat(tab = page, name = 'Ana') {
-      await tab.goto('/'); await tab.getByLabel('Seu apelido').fill(name); await tab.getByLabel('Senha da sala').fill('test-only-password');
+      await tab.goto('/'); await authenticate(tab, name);
       await tab.getByRole('button', { name: 'Abrir chat' }).click();
       await expect(tab.getByRole('tab', { name: 'Chat', exact: true })).toHaveAttribute('aria-selected', 'true');
       await expect(tab.getByText('Carregando histórico…')).toHaveCount(0);

@@ -1,3 +1,4 @@
+import { installAccount, authenticate } from '../browser-account';
 import { expect, type Page } from '@playwright/test';
 import { AccessToken, RoomServiceClient, TrackSource, RoomConfiguration } from 'livekit-server-sdk';
 import { createChatFixture } from '../chat-fixture';
@@ -90,7 +91,7 @@ export async function instrument(page: Page) {
 export async function prepare(page: Page, identity: string, room: string) {
   await (await chatStore(room)).install(page, identity);
   await instrument(page);
-  await page.route('**/api/login', route => route.fulfill({ json: { nickname: identity } }));
+  await installAccount(page, identity );
   await page.route('**/api/token', async route => {
     const voiceRoom = route.request().postDataJSON().room ?? 'main';
     const destination = voiceRoom === 'second' ? room + '-second' : room;
@@ -128,8 +129,7 @@ export async function prepare(page: Page, identity: string, room: string) {
   });
   await page.route('**/api/logout', route => route.fulfill({ json: { ok: true } }));
   await page.goto('/');
-  await page.getByLabel('Seu apelido').fill(identity);
-  await page.getByLabel('Senha da sala').fill('browser-fixture-password');
+  await authenticate(page, identity);
 }
 export async function join(page: Page) {
   const entry = page.getByRole('region', { name: 'Entrar na sala', exact: true });

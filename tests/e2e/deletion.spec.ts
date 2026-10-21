@@ -1,3 +1,4 @@
+import { installAccount, authenticate } from '../browser-account';
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { mkdir } from 'node:fs/promises';
@@ -12,8 +13,8 @@ test('chat-only clients reconcile confirmed deletion, image-only removal, failed
   const [owner,reader]=await Promise.all(contexts.map(context=>context.newPage()));
   try {
     for(const [page,name] of [[owner,'Ana'],[reader,'Bruno']] as const){
-      await store.install(page,name);await page.route('**/api/login',route=>route.fulfill({json:{nickname:name}}));
-      await page.goto('/');await page.getByLabel('Seu apelido').fill(name);await page.getByLabel('Senha da sala').fill('test-only-password');await page.getByRole('button',{name:'Abrir chat'}).click();
+      await store.install(page,name);await installAccount(page, name);
+      await page.goto('/');await authenticate(page, name);await page.getByRole('button',{name:'Abrir chat'}).click();
       await expect(page.getByText('Carregando histórico…')).toHaveCount(0);
     }
     const bytes=await sharp({create:{width:64,height:32,channels:3,background:'#a3e1c5'}}).png().toBuffer();
@@ -24,8 +25,8 @@ test('chat-only clients reconcile confirmed deletion, image-only removal, failed
     await expect(reader.getByRole('button',{name:'Excluir mensagem',exact:true})).toHaveCount(0);
     const row=(await store.db.query<{id:string;attachment_id:string}>('SELECT id,attachment_id FROM blueprint_chat_messages')).rows[0];
     const touchContext=await browser.newContext({hasTouch:true,isMobile:true,viewport:{width:375,height:812}});contexts.push(touchContext);
-    const touch=await touchContext.newPage();await store.install(touch,'Ana');await touch.route('**/api/login',route=>route.fulfill({json:{nickname:'Ana'}}));
-    await touch.goto('/');await touch.getByLabel('Seu apelido').fill('Ana');await touch.getByLabel('Senha da sala').fill('test-only-password');await touch.getByRole('button',{name:'Abrir chat',exact:true}).click();
+    const touch=await touchContext.newPage();await store.install(touch,'Ana');await installAccount(touch, 'Ana');
+    await touch.goto('/');await authenticate(touch, 'Ana');await touch.getByRole('button',{name:'Abrir chat',exact:true}).click();
     const touchTrash=touch.getByRole('button',{name:'Excluir imagem',exact:true});await expect(touchTrash).toHaveCSS('opacity','1');
     const size=await touchTrash.boundingBox();expect(size!.width).toBeGreaterThanOrEqual(44);expect(size!.height).toBeGreaterThanOrEqual(44);
     await mkdir('.generated/review/deletion',{recursive:true});await touch.screenshot({path:'.generated/review/deletion/trash-touch.png'});

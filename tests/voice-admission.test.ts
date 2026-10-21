@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { Room, ParticipantInfo, TokenVerifier } from 'livekit-server-sdk';
-import { admissionService, AdmissionBusy, type Admission, type AdmissionBackend } from '../src/lib/server/voice-admission';
+import { admissionService, AdmissionBusy, TakeoverRequired, type Admission, type AdmissionBackend } from '../src/lib/server/voice-admission';
 import { roomService, livekitRoomName, screenRoomName, RoomFullError } from '../src/lib/server/livekit';
 import { fixtureConfig } from './config-fixture';
 
@@ -26,7 +26,7 @@ function fixture() {
   });
   return { state, client, api: admissionService(fixtureConfig, backend, client, () => state.time) };
 }
-const session = () => ({ identity: randomUUID(), nickname: 'Ana' });
+const session = () => ({ identity: randomUUID(), nickname: 'Ana', sessionId: randomUUID(), role: 'member' as const });
 test('combined admission cap includes pending tokens in both rooms and rejects concurrent writes', async () => {
   const { state, api } = fixture();
   const attempts = await Promise.allSettled(Array.from({ length: 9 }, () => api.join(session(), 'main')));
@@ -59,7 +59,8 @@ test('unknown active identities count toward capacity and recovered owner cannot
   const { state, api } = fixture(); const owner = session();
   state.active.set(livekitRoomName(fixtureConfig, 'main'), Array.from({ length: 8 }, (_, i) => new ParticipantInfo({ identity: i === 0 ? owner.identity + ':old' : randomUUID() })));
   await assert.rejects(api.join(session(), 'second'), RoomFullError);
-  await api.join(owner, 'second'); assert.ok(state.revoked.includes(owner.identity + ':old'));
+  await assert.rejects(api.join(owner, 'second'), TakeoverRequired);
+  await api.join(owner, 'second', true); assert.ok(state.revoked.includes(owner.identity + ':old'));
 });
 test('leaving cannot revoke another sender or a newer admission', async () => {
   const { state, api } = fixture(); const owner = session(); const other = session();
@@ -87,4 +88,12 @@ test('failed screen-publisher revocation keeps admission reserved and prevents a
   await assert.rejects(api.leave(owner, first.identity));
   await assert.rejects(api.join(owner, 'second'));
   assert.deepEqual(state.entries.map(entry => entry.identity), [first.identity]);
+});
+
+
+test('another device requires explicit takeover and stale device leave cannot remove the replacement', async()=>{
+  const {api,state}=fixture();const first=session();await api.join(first,'main');
+  const second={...first,sessionId:randomUUID()};await assert.rejects(api.join(second,'second'),TakeoverRequired);
+  const next=await api.join(second,'second',true);assert.equal(state.entries.length,1);assert.equal(state.entries[0].sessionId,second.sessionId);
+  await api.leave(first);assert.equal(state.entries[0].identity,next.identity);
 });

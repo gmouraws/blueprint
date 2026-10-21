@@ -42,7 +42,7 @@ type OutputPicker = MediaDevices & { selectAudioOutput?: () => Promise<MediaDevi
 export function AudioDevices({ room, microphoneBusy, processing }: { room: Room; microphoneBusy: boolean; processing: ReturnType<typeof import('./microphone-processing').useMicrophoneProcessing> }) {
   const { devices, refresh, error } = useAudioDevices();
   const [input, setInput] = useState(() => room.getActiveDevice('audioinput') || readPreferences().microphone);
-  const [output, setOutput] = useState(room.getActiveDevice('audiooutput') || 'default');
+  const [output, setOutput] = useState(room.getActiveDevice('audiooutput') || readPreferences().output);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState('');
   const lock = useRef(false);
@@ -54,7 +54,7 @@ export function AudioDevices({ room, microphoneBusy, processing }: { room: Room;
     alive.current = true;
     const changed = (kind: MediaDeviceKind, id: string) => {
       if (kind === 'audioinput') { setInput(id || 'default'); savePreferences({ microphone: id || 'default' }); }
-      if (kind === 'audiooutput') { setOutput(id || 'default'); void setSoundsOutput(room, id || 'default'); }
+      if (kind === 'audiooutput') { setOutput(id || 'default'); savePreferences({ output: id || 'default' }); void setSoundsOutput(room, id || 'default'); }
     };
     room.on(RoomEvent.LocalTrackPublished, refresh).on(RoomEvent.ActiveDeviceChanged, changed);
     return () => { alive.current = false; room.off(RoomEvent.LocalTrackPublished, refresh).off(RoomEvent.ActiveDeviceChanged, changed); };
@@ -66,7 +66,7 @@ export function AudioDevices({ room, microphoneBusy, processing }: { room: Room;
     try {
       if (!await room.switchActiveDevice(kind, id)) throw new Error('Device unavailable');
       if (!alive.current) return;
-      if (kind === 'audioinput') { setInput(id); savePreferences({ microphone: id }); } else setOutput(id);
+      if (kind === 'audioinput') { setInput(id); savePreferences({ microphone: id }); } else { setOutput(id); savePreferences({ output: id }); }
       if (fallback) setNotice('O dispositivo foi desconectado. Usando o padrão do sistema.');
     } catch { if (alive.current) setNotice('Não foi possível trocar o dispositivo. Selecione o padrão do sistema ou confira as permissões de saída do navegador.'); }
     finally { lock.current = false; if (alive.current) setPending(false); else inputTracks.forEach(track => track?.stop()); }

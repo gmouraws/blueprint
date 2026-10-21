@@ -5,6 +5,8 @@ import { chatDatabaseConfig } from '../src/lib/server/chat-store';
 try {
   const { url, environment } = chatDatabaseConfig();
   const sql = neon(url, { fetchOptions: { signal: AbortSignal.timeout(30000) } });
+  const existing = await sql`SELECT to_regclass('blueprint_user') AS accounts`;
+  if (existing[0]?.accounts) throw new Error('Use account migration runner after cutover');
   const migration = await readFile(new URL('../migrations/001-chat.sql', import.meta.url), 'utf8');
   const images = await readFile(new URL('../migrations/002-images.sql', import.meta.url), 'utf8');
   const deletions = await readFile(new URL('../migrations/003-message-deletion.sql', import.meta.url), 'utf8');

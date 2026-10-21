@@ -9,7 +9,7 @@ const secureUrl = (protocol: string) => z.string().url().refine(value => {
   return !!url && url.protocol === protocol && !url.username && !url.password && !url.search && !url.hash;
 });
 const schema = z.object({
-  ROOM_PASSWORD: z.string().min(16).max(256),
+  ROOM_PASSWORD: z.string().optional(),
   SESSION_SECRET: z.string().min(32).max(256),
   LIVEKIT_URL: secureUrl('wss:').refine(value => parseUrl(value)?.hostname.endsWith('.livekit.cloud') === true),
   LIVEKIT_API_KEY: z.string().min(8),
@@ -25,7 +25,7 @@ const schema = z.object({
 export type Config = z.infer<typeof schema>;
 export type ConfigurationStatus = {
   ready: boolean;
-  issues: { name: keyof Config; status: 'missing' | 'placeholder' | 'invalid' }[];
+  issues: { name: string; status: 'missing' | 'placeholder' | 'invalid' }[];
 };
 const names = Object.keys(schema.shape) as (keyof Config)[];
 const isPlaceholder = (value: string) => /replace-with|your-project|your-database/.test(value);
