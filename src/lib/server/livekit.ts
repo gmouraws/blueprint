@@ -6,6 +6,9 @@ import { MAX_PARTICIPANTS, type VoiceRoomId } from '../room';
 
 // Version the namespace so tokens from old immutable deployments cannot bypass global admission.
 export const livekitRoomName = (config: Config, room: VoiceRoomId) => `${config.LIVEKIT_ROOM_NAME}-v2-${room}`;
+export const screenRoomName = (config: Config, room: VoiceRoomId) => `${livekitRoomName(config, room)}-screens`;
+// Separate transport capacity, never a voice-admission allowance. Screens contain no microphones.
+export const SCREEN_CONNECTION_LIMIT = 16;
 
 export function roomService(config: Config) {
   return new RoomServiceClient(config.LIVEKIT_URL.replace('wss:', 'https:'), config.LIVEKIT_API_KEY, config.LIVEKIT_API_SECRET);
@@ -21,9 +24,19 @@ export async function ensureRoom(config: Config, client: Pick<RoomServiceClient,
 export async function createRoomToken(config: Config, session: Session, voiceRoom: VoiceRoomId = 'main') {
   const token = new AccessToken(config.LIVEKIT_API_KEY, config.LIVEKIT_API_SECRET, { identity: session.identity, name: session.nickname, ttl: 120 });
   token.addGrant({ roomJoin: true, room: livekitRoomName(config, voiceRoom), canSubscribe: true, canPublish: true,
-    canPublishData: true, canPublishSources: [TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO],
+    canPublishData: true, canPublishSources: [TrackSource.MICROPHONE],
     canUpdateOwnMetadata: false, roomAdmin: false, roomCreate: false, roomList: false, roomRecord: false });
   // Admission is enforced by LiveKit, including recreation after automatic deletion.
   token.roomConfig = new RoomConfiguration({ name: livekitRoomName(config, voiceRoom), maxParticipants: MAX_PARTICIPANTS, emptyTimeout: 300, departureTimeout: 30 });
+  return token.toJwt();
+}
+
+export async function createScreenToken(config: Config, session: Session, room: VoiceRoomId, publish: boolean) {
+  const token = new AccessToken(config.LIVEKIT_API_KEY, config.LIVEKIT_API_SECRET, { identity: session.identity, name: session.nickname, ttl: 120 });
+  token.addGrant({ roomJoin: true, room: screenRoomName(config, room), canSubscribe: true, canPublish: publish,
+    canPublishSources: publish ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : [],
+    canPublishData: false, hidden: !publish, canUpdateOwnMetadata: false,
+    roomAdmin: false, roomCreate: false, roomList: false, roomRecord: false });
+  token.roomConfig = new RoomConfiguration({ name: screenRoomName(config, room), maxParticipants: SCREEN_CONNECTION_LIMIT, emptyTimeout: 300, departureTimeout: 30 });
   return token.toJwt();
 }

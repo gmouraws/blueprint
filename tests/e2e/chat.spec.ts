@@ -22,6 +22,18 @@ test('chat without voice persists, retries once, paginates, catches up and keeps
     }
     await openChat();
     const field = page.getByLabel('Mensagem', { exact: true });
+    const oneLine = await field.evaluate(element => element.clientHeight);
+    expect(oneLine).toBeLessThanOrEqual(44);
+    await field.fill(Array(20).fill('A multiline draft').join('\n'));
+    expect(await field.evaluate(element => element.clientHeight)).toBeGreaterThan(oneLine);
+    expect(await field.evaluate(element => element.clientHeight)).toBeLessThanOrEqual(128);
+    await field.fill('');
+    expect(await field.evaluate(element => element.clientHeight)).toBe(oneLine);
+    await expect(page.locator('.image-composer')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Informações do chat' }).click();
+    await expect(page.getByText(/Mensagens visíveis a todos/)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Informações do chat' })).toBeFocused();
     await field.fill('Primeira mensagem'); store.faults.loseNextResponse = true;
     await field.press('Enter'); await expect(page.locator('.chat-form .error')).toContainText('Seu texto foi mantido');
     await expect(field).toHaveValue('Primeira mensagem');

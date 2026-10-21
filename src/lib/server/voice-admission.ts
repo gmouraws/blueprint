@@ -4,7 +4,7 @@ import { Redis } from '@upstash/redis';
 import { TrackSource } from 'livekit-server-sdk';
 import type { Config } from './config';
 import type { Session } from './session';
-import { createRoomToken, ensureRoom, livekitRoomName, roomService, RoomFullError } from './livekit';
+import { createRoomToken, createScreenToken, ensureRoom, livekitRoomName, screenRoomName, roomService, RoomFullError } from './livekit';
 import { MAX_PARTICIPANTS, VOICE_ROOMS, type VoiceRoomId, type VoiceRoster } from '../room';
 
 export type Admission = { identity: string; owner: string; room: VoiceRoomId; issued: number };
@@ -35,7 +35,9 @@ export function admissionService(config: Config, backend = ledger(config), clien
   async function revoke(entry: Admission) {
     // Cloud revokes even absent identities. The future cutoff covers clock skew and refreshed tokens.
     // Identities are never reused, so this cutoff cannot block a later legitimate admission.
-    await client.removeParticipant(names[entry.room], entry.identity, { revokeTokenTs: BigInt(Math.floor(now() / 1000) + 30) });
+    const options = { revokeTokenTs: BigInt(Math.floor(now() / 1000) + 30) };
+    await client.removeParticipant(screenRoomName(config, entry.room), entry.identity + ':screen', options);
+    await client.removeParticipant(names[entry.room], entry.identity, options);
   }
   async function exclusive<T>(work: (entries: Admission[]) => Promise<{ entries: Admission[]; result: T }>) {
     const lock = randomUUID();
@@ -67,7 +69,10 @@ export function admissionService(config: Config, backend = ledger(config), clien
         const identity = `${session.identity}:${randomUUID()}`;
         const entry = { identity, owner: session.identity, room, issued: now() };
         const token = await createRoomToken(config, { ...session, identity }, room);
-        return { entries: [...kept, entry], result: { token, serverUrl: config.LIVEKIT_URL, identity, nickname: session.nickname, voiceRoom: room } };
+        const screenIdentity = identity + ':screen';
+        const screenToken = await createScreenToken(config, { ...session, identity: screenIdentity }, room, true);
+        return { entries: [...kept, entry], result: { token, serverUrl: config.LIVEKIT_URL, identity, nickname: session.nickname, voiceRoom: room,
+          screens: { token: screenToken, serverUrl: config.LIVEKIT_URL, identity: screenIdentity, nickname: session.nickname, voiceRoom: room } } };
       });
     },
     async leave(session: Session, identity?: string) {

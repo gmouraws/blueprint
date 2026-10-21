@@ -4,7 +4,7 @@ import { prepareSounds, closeSounds } from './call-sounds';
 
 // Called synchronously in the join gesture, before authentication awaits.
 export function createCallRoom(prepareAudio = true) {
-  const room = new Room({ adaptiveStream: true, dynacast: true,
+  const room = new Room({ adaptiveStream: { pixelDensity: 'screen' }, dynacast: true,
     audioCaptureDefaults: { deviceId: readPreferences().microphone, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     publishDefaults: { screenShareEncoding: { maxBitrate: 5_000_000, maxFramerate: 30 }, stopMicTrackOnMute: false },
   });

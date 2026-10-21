@@ -7,7 +7,7 @@ import { SignJWT } from 'jose';
 import { handlers, services } from '../src/lib/server/handlers';
 import { type Config, configuration, configurationStatus, allowedOrigins } from '../src/lib/server/config';
 import { cookieOptions, COOKIE_NAME, passwordMatches, signSession, verifySession, SESSION_SECONDS, REMEMBERED_SESSION_SECONDS } from '../src/lib/server/session';
-import { createRoomToken, ensureRoom, livekitRoomName, RoomFullError } from '../src/lib/server/livekit';
+import { createRoomToken, createScreenToken, ensureRoom, livekitRoomName, RoomFullError } from '../src/lib/server/livekit';
 import { LimitError, enforceLimitResults } from '../src/lib/server/rate-limit';
 import { encodeMessage, decodeMessage, normalizeNickname, validNickname } from '../src/lib/room';
 
@@ -17,7 +17,7 @@ const config: Config = {
   UPSTASH_REDIS_REST_URL: 'https://fixture.upstash.io', UPSTASH_REDIS_REST_TOKEN: 'test-only-redis-token',
 };
 const fakeAdmission: typeof services.admissionService = () => ({
-  join: async (session, room) => ({ identity: session.identity, nickname: session.nickname, voiceRoom: room, serverUrl: config.LIVEKIT_URL, token: await createRoomToken(config, session, room) }),
+  join: async (session, room) => ({ identity: session.identity, nickname: session.nickname, voiceRoom: room, serverUrl: config.LIVEKIT_URL, token: await createRoomToken(config, session, room), screens: { identity: session.identity, nickname: session.nickname, voiceRoom: room, serverUrl: config.LIVEKIT_URL, token: await createScreenToken(config, session, room, true) } }),
   leave: async () => {}, roster: async () => ({ main: [], second: [] }),
 });
 const deps = { ...services, getConfig: () => config, rateLimit: async () => {}, admissionService: fakeAdmission };
@@ -204,7 +204,7 @@ test('fixed-room tokens have minimal grants, short TTL and an eight-person recre
   assert.equal(claims.sub, session.identity); assert.equal(claims.name, 'Ana');
   assert.equal(claims.video?.room, livekitRoomName(config, 'main')); assert.equal(claims.video?.roomJoin, true);
   assert.equal(claims.video?.canPublishData, true); assert.equal(claims.video?.canSubscribe, true);
-  assert.deepEqual(claims.video?.canPublishSources, ['microphone', 'screen_share', 'screen_share_audio']);
+  assert.deepEqual(claims.video?.canPublishSources, ['microphone']);
   for (const flag of ['roomAdmin','roomCreate','roomList','roomRecord','canUpdateOwnMetadata'] as const) assert.equal(claims.video?.[flag], false);
   const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString());
   assert.ok(payload.exp - payload.nbf <= 120);

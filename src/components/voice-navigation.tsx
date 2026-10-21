@@ -63,17 +63,19 @@ export function VoiceNavigation({ currentRoom, connected, browsing, busy, onBrow
   }, [currentRoom, connected]);
   return <nav aria-label="Canais" className="voice-navigation">
     <p className="eyebrow">Texto</p><button className="channel-link" aria-current={chatActive ? 'page' : undefined} onClick={onChat}># geral</button>
-    <p className="eyebrow">Voz · até 8 no total</p>
+    <p className="eyebrow" title="Até 8 participantes nas duas salas juntas">Voz<span className="sr-only"> · até 8 participantes no total</span></p>
     {VOICE_ROOMS.map(item => {
       const mine = connected && currentRoom === item.id;
       const members = mine ? participants : roster?.[item.id];
       return <section className={`voice-section ${mine ? 'current-voice' : ''}`} key={item.id} aria-label={item.name}>
-        <button className="voice-disclosure" aria-expanded={expanded[item.id]} aria-controls={`members-${item.id}`} onClick={() => setExpanded(value => ({ ...value, [item.id]: !value[item.id] }))}>
-          <Icon name="chevron" /><span>{item.name}</span><span className="room-count" aria-label={members ? `${members.length} participantes` : 'Contagem indisponível'}>{members?.length ?? '—'}</span>
-          {mine && <span className="sr-only">Sua chamada atual</span>}
-        </button>
+        <div className="voice-room-row">
+          <button className="voice-disclosure icon-button" aria-label={`${expanded[item.id] ? 'Recolher' : 'Expandir'} participantes de ${item.name}`} aria-expanded={expanded[item.id]} aria-controls={`members-${item.id}`} onClick={() => setExpanded(value => ({ ...value, [item.id]: !value[item.id] }))}><Icon name="chevron" /></button>
+          <button className="voice-room-select" aria-label={`Ver ${item.name}`} aria-current={!chatActive && browsing === item.id ? 'page' : undefined} title="Um clique para ver; dois para entrar na voz" onClick={() => { setExpanded(value => ({ ...value, [item.id]: true })); onBrowse(item.id); }} onDoubleClick={() => { if (!busy) onJoin(item.id); }}>
+            <span>{item.name}</span><span className="room-count" aria-label={members ? `${members.length} participantes` : 'Contagem indisponível'}>{members?.length ?? '—'}</span>
+            {mine && <span className="joined-room-marker" role="img" aria-label="Sua chamada atual" title="Sua chamada atual"><Icon name="audio" /></span>}
+          </button>
+        </div>
         <div id={`members-${item.id}`} hidden={!expanded[item.id]}>
-          <div className="voice-actions"><button aria-current={!chatActive && browsing === item.id ? 'page' : undefined} onClick={() => onBrowse(item.id)}>Ver sala</button>{!mine ? <button disabled={busy} onClick={() => onJoin(item.id)} aria-label={`Entrar em ${item.name}`}>{busy ? 'Aguarde…' : 'Entrar'}</button> : <span className="muted">Você está aqui</span>}</div>
           <ul className="participants">{mine ? participants.map(person => <ParticipantRow key={person.identity} participant={person} volume={volumes[volumeIdentity(person.identity)] ?? defaultVolume} onVolume={setting => onVolume(volumeIdentity(person.identity), setting)} />) : roster?.[item.id].map(person => <li className="participant compact-participant other-room-member" key={person.identity}><strong>{person.name}</strong><MicrophoneState muted={person.muted} name={person.name} /></li>)}</ul>
           {members?.length === 0 && <p className="room-empty muted">Ninguém na voz</p>}
         </div>

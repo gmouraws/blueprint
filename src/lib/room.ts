@@ -30,4 +30,4 @@ export function decodeMessage(bytes: Uint8Array): string | null {
   } catch { return null; }
 }
 
-export type ConnectionDetails = { token: string; serverUrl: string; identity: string; nickname: string; voiceRoom?: VoiceRoomId };
+export type ConnectionDetails = { token: string; serverUrl: string; identity: string; nickname: string; voiceRoom?: VoiceRoomId; screens?: ConnectionDetails };
