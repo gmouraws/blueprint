@@ -29,6 +29,11 @@ label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 7px
 .entry-form-section form { margin-top: 24px; } .entry-form-section input { margin-bottom: 18px; }
 .join-button { width: 100%; justify-content: space-between; margin: 4px 0 14px; }
 .entry-note { color: var(--color-muted); font-size: 12px; line-height: 1.65; }
+.windows-download { margin-block:16px; padding-top:12px; border-top:1px solid var(--line); font-size:12px; min-width:0; }
+.windows-download > a:first-child { display:inline-flex; align-items:center; min-height:44px; font-size:14px; }
+.windows-download details { margin-top:8px; }
+.windows-download summary { cursor:pointer; min-height:44px; display:flex; align-items:center; }
+.windows-download code { display:block; overflow-wrap:anywhere; }
 .entry-form-section .remember-access { margin: 0; font-size: 13px; }
 .entry-form-section .remember-access input { margin: 0; padding: 0; flex: none; }
 .remember-help { margin: 0 0 16px 28px; }
