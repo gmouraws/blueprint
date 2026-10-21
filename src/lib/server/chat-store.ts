@@ -68,9 +68,9 @@ export async function saveChat(session: Session, body: string, requestId: string
 export async function cleanChat() {
   const { sql, environment } = database();
   const { cleanImages } = await import('./image-store');
-  await cleanImages();
   const { cleanAvatars } = await import('./avatar');
   const { cleanRevokedMedia } = await import('./account-media');
-  await cleanAvatars(); await cleanRevokedMedia();
+  // Media revocation must not wait for successful object-storage maintenance.
+  await cleanRevokedMedia(); await cleanImages(); await cleanAvatars();
   await sql.transaction([sql`SELECT blueprint_chat_assert_environment(${environment})`, sql`DELETE FROM blueprint_chat_messages WHERE created_at <= now() - interval '30 days' AND attachment_id IS NULL`, sql`DELETE FROM blueprint_chat_deletions WHERE created_at <= now() - interval '30 days'`]);
 }

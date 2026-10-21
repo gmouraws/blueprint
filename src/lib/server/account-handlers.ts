@@ -28,7 +28,7 @@ export async function accountHandler(request: NextRequest) {
     const session = await verifySession(request.cookies.get(COOKIE_NAME)?.value, config);
     if (!session) {
       if (request.cookies.has(COOKIE_NAME)) {
-        await accountServices.rateLimit(config, 'login', request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown');
+        await accountServices.rateLimit(config, 'login', process.env.VERCEL === '1' ? request.headers.get('x-vercel-forwarded-for') ?? 'unknown' : 'local');
         await cleanRevokedMedia();
       }
       return json({ error: 'Sua sessão expirou. Entre novamente; seu rascunho continua nesta página.' }, 401);

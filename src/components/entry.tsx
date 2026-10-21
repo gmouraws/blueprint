@@ -7,6 +7,7 @@ import { AccountProfile, loadProfile } from './account-profile';
 import { Brand, Icon } from './icons';
 import { MAX_PARTICIPANTS, type ConnectionDetails } from '@/lib/room';
 import type { ConfigurationStatus } from '@/lib/server/config';
+import { configurePreferences } from '@/lib/client/preferences';
 import { createCallRoom, closeCallRoom } from '@/lib/client/call-room';
 import type { Room } from 'livekit-client';
 import { MicrophoneCheck, type MicrophoneCheckHandle } from './microphone';
@@ -40,7 +41,6 @@ export default function Entry({ configuration, initialNickname = null }: { confi
   async function join(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (joining.current || !configured) return;
-    const form = event.currentTarget;
 
     const chatOnly = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'chat';
     microphoneCheck.current?.stop();
@@ -56,8 +56,6 @@ export default function Entry({ configuration, initialNickname = null }: { confi
       if (alive.current) setCall({ room, details }); else void closeCallRoom(room);
     } catch (failure) {
       void closeCallRoom(room); callRoom.current = null;
-      const passwordInput = form.elements.namedItem('password');
-      if (passwordInput instanceof HTMLInputElement) passwordInput.value = '';
       if (alive.current) {
         if (failure instanceof RequestError && failure.status === 401) setAuthenticatedNickname(null);
         setError(failure instanceof Error && failure.name !== 'TimeoutError' ? failure.message : 'A conexão demorou demais. Tente novamente.');
@@ -74,6 +72,7 @@ export default function Entry({ configuration, initialNickname = null }: { confi
     joining.current = true; setBusy(true); setError(''); microphoneCheck.current?.stop();
     try {
       await post('/api/logout', {});
+      configurePreferences('', {}); setProfileReady(false);
       if (alive.current) setAuthenticatedNickname(null);
     }
     catch { if (alive.current) setError('Não foi possível esquecer o acesso. Confira sua conexão e tente novamente.'); }
@@ -103,7 +102,7 @@ export default function Entry({ configuration, initialNickname = null }: { confi
           <AccountProfile/><button className="forget-access" disabled={busy} onClick={forget}>Esquecer acesso neste dispositivo</button>
         </>}
         {error&&<p className="error" role="alert">{error}</p>}
-        <MicrophoneCheck ref={microphoneCheck} disabled={busy || !configured} />
+        <MicrophoneCheck key={authenticatedNickname ?? 'guest'} ref={microphoneCheck} disabled={busy || !configured} />
         <p className="entry-note">Você entra com o microfone desligado. Permissões de áudio e tela são solicitadas ao ativar cada recurso.</p>
       </section>
     </div>
