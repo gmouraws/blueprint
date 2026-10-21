@@ -53,3 +53,14 @@ test('Discord is opt-in, exact-host only, scoped viewer capability, mention-free
   const url = new URL(invitationUrl(fixtureConfig.APP_ORIGIN, secret, 'watch'));
   assert.ok(!url.search.includes(secret)); assert.equal(url.hash, `#invite=${secret}`);
 });
+
+
+test('persistent management is owner-only and returns copy links without cache only on explicit operations',async()=>{
+ const body={action:'persistent',operation:'copy'};
+ assert.equal((await streamHandler(request(body,`${STREAM_COOKIE}=${secret}`),true,deps())).status,401);
+ for(const role of ['member','owner'] as const){
+  let called=0;const authorized={...deps(),verifySession:async()=>({identity:'test-account',nickname:'Test',sessionId:'test-session',role}),streamService:()=>({...service(),persistent:async()=>{called++;return {active:true,cleanupPending:false,links:{share:'s'.repeat(43),watch:'w'.repeat(43)}};}})};
+  const response=await streamHandler(request(body),true,authorized);assert.equal(response.status,role==='owner'?200:403);assert.equal(called,role==='owner'?1:0);
+  if(role==='owner'){assert.equal(response.headers.get('cache-control'),'no-store');const result=await response.json();assert.ok(result.urls.share.includes('intent=share#invite='));assert.ok(result.urls.watch.includes('intent=watch#invite='));}
+ }
+});

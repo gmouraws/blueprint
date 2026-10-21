@@ -23,6 +23,7 @@ jobs:
       - name: Build and verify server-only secret isolation
         run: npm run build
         env:
+          DISCORD_BOT_TOKEN: ci-canary-discord-registration-not-a-real-secret
           DISCORD_STREAM_WEBHOOK_URL: ci-canary-discord-webhook-not-a-real-secret
           BETTER_AUTH_SECRET: ci-canary-account-secret-not-a-real-secret
           RESEND_API_KEY: ci-canary-email-key-not-a-real-secret

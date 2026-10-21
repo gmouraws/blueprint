@@ -1,5 +1,5 @@
 import 'server-only';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { Redis } from '@upstash/redis';
 import { AccessToken, RoomConfiguration, TrackSource } from 'livekit-server-sdk';
 import type { Config } from './config';
@@ -10,9 +10,9 @@ export const credential = () => randomBytes(32).toString('base64url');
 export const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 export const validCredential = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
 export const streamRoom = (config: Config) => `${config.LIVEKIT_ROOM_NAME}-guest-stream-v1`;
-type Invitation = { id: string; hash: string; role: 'watch' | 'share'; expires: number; revoked?: boolean; parent?: string };
+type Invitation = { id: string; hash: string; role: 'watch' | 'share'; expires: number | null; revoked?: boolean; parent?: string; persistent?: true };
 type Guest = { hash: string; invite: string; expires: number; label: number; identity?: string; issued?: number; attempt?: string; announcement?: 'claimed' | 'sent' | 'failed' };
-export type StreamState = { invitations: Invitation[]; guests: Guest[]; sequence: number; handoffs?: { hash: string; invite: string; expires: number }[] };
+export type StreamState = { invitations: Invitation[]; guests: Guest[]; sequence: number; persistentId?: string; handoffs?: { hash: string; invite: string; expires: number }[] };
 export interface StreamStore {
   lock(owner: string): Promise<boolean>;
   read(): Promise<StreamState>;
@@ -33,7 +33,16 @@ export function streamStore(config: Config): StreamStore {
 }
 export function streamService(config: Config, store = streamStore(config), media = roomService(config), now = Date.now) {
   const room = streamRoom(config);
-  const validInvite = (state: StreamState, invite?: Invitation): boolean => !!invite && !invite.revoked && invite.expires > now() && (!invite.parent || state.invitations.some(parent => parent.id === invite.parent && !parent.revoked && parent.expires > now()));
+  // Deliberately reproducible only for new owner-managed persistent links. Old random secrets remain unrecoverable.
+  const persistentSecret = (invite: Invitation) => createHmac('sha256', config.SESSION_SECRET).update(`blueprint:stream:persistent:v1:${room}:${invite.id}:${invite.role}`).digest('base64url');
+  const validLifetime = (invite: Invitation) => invite.persistent === true && invite.expires === null ? invite.hash === digest(persistentSecret(invite)) : typeof invite.expires === 'number' && invite.expires > now();
+  const validInvite = (state: StreamState, invite?: Invitation): boolean => !!invite && !invite.revoked && validLifetime(invite) && (!invite.parent || state.invitations.some(parent => parent.id === invite.parent && !parent.revoked && validLifetime(parent)));
+  const persistentPair = (state: StreamState) => {
+    const share = state.invitations.find(item => item.id === state.persistentId && item.persistent && item.role === 'share');
+    const watch = share && state.invitations.find(item => item.parent === share.id && item.persistent && item.role === 'watch');
+    return share && watch && validInvite(state, share) && validInvite(state, watch) ? { share, watch } : null;
+  };
+  const pairSecrets = (pair: NonNullable<ReturnType<typeof persistentPair>>) => ({ share: persistentSecret(pair.share), watch: persistentSecret(pair.watch) });
   const invitation = (state: StreamState, guest: Guest) => state.invitations.find(item => item.id === guest.invite);
   function session(state: StreamState, secret: string) {
     const guest = validCredential(secret) ? state.guests.find(item => item.hash === digest(secret)) : undefined;
@@ -75,6 +84,31 @@ export function streamService(config: Config, store = streamStore(config), media
   }
   return {
     cleanup: () => exclusive(cleanup),
+    // Read-only: commands reuse the configured pair and never mint permanent invitations.
+    configuredLinks: async () => { const pair = persistentPair(await store.read()); return pair ? pairSecrets(pair) : null; },
+    persistent: async (action: 'status' | 'create' | 'copy' | 'rotate' | 'revoke') => {
+      if (action === 'rotate' || action === 'revoke') {
+        // Commit revocation before a replacement can exist. Provider failure keeps cleanup retryable.
+        const pending = await exclusive(async state => {
+          const previous = state.invitations.find(item => item.id === state.persistentId);
+          if (previous) previous.revoked = true;
+          return cleanup(state);
+        });
+        if (action === 'revoke' || pending) return { active: false, cleanupPending: pending, links: undefined };
+      }
+      return exclusive(async state => {
+        const cleanupPending = await cleanup(state);
+        let pair = persistentPair(state);
+        if (!pair && (action === 'create' || action === 'rotate') && !cleanupPending) {
+          if (state.invitations.length > 30) throw new StreamError(409, 'Revogue convites antigos antes de criar outro.');
+          const share: Invitation = { id: randomUUID(), role: 'share', expires: null, persistent: true, hash: '' };
+          const watch: Invitation = { id: randomUUID(), role: 'watch', expires: null, persistent: true, parent: share.id, hash: '' };
+          share.hash = digest(persistentSecret(share)); watch.hash = digest(persistentSecret(watch));
+          state.invitations.push(share, watch); state.persistentId = share.id; pair = { share, watch };
+        }
+        return { active: !!pair, cleanupPending, links: pair && action !== 'status' ? pairSecrets(pair) : undefined };
+      });
+    },
     manage: (action: 'list' | 'create' | 'revoke', input?: { role?: Invitation['role']; hours?: number; id?: string }) => exclusive(async state => {
       if (action === 'revoke') {
         const invite = state.invitations.find(item => item.id === input?.id);
@@ -82,7 +116,7 @@ export function streamService(config: Config, store = streamStore(config), media
       }
       const cleanupPending = await cleanup(state);
       const created = action === 'create' ? newInvite(state, input!.role!, now() + input!.hours! * 3600000) : undefined;
-      return { created, cleanupPending, invitations: state.invitations.filter(item => !item.parent).map(({ id, role, expires, revoked }) => ({ id, role, expires, revoked: !!revoked })) };
+      return { created, cleanupPending, invitations: state.invitations.filter(item => !item.parent && !item.persistent).map(({ id, role, expires, revoked }) => ({ id, role, expires, revoked: !!revoked })) };
     }),
     exchange: (secret: string, existing?: string) => exclusive(async state => {
       await cleanup(state);
@@ -94,7 +128,7 @@ export function streamService(config: Config, store = streamStore(config), media
       if (previous && previous.invite === invite.id && previous.expires > now()) return { secret: existing!, expires: previous.expires, role: invite.role };
       if (previous) { await revoke(previous); state.guests = state.guests.filter(item => item !== previous); }
       if (state.guests.length >= 128) throw new StreamError(429, 'Muitas entradas recentes. Aguarde e tente novamente.');
-      const next = credential(); const expires = Math.min(invite.expires, now() + 12 * 3600000);
+      const next = credential(); const expires = Math.min(invite.expires ?? Infinity, now() + 12 * 3600000);
       state.guests.push({ hash: digest(next), invite: invite.id, expires, label: ++state.sequence });
       return { secret: next, expires, role: invite.role };
     }),
