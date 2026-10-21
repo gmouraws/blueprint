@@ -3,7 +3,7 @@ import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { Room, ParticipantInfo, TokenVerifier } from 'livekit-server-sdk';
 import { admissionService, AdmissionBusy, type Admission, type AdmissionBackend } from '../src/lib/server/voice-admission';
-import { roomService, livekitRoomName, RoomFullError } from '../src/lib/server/livekit';
+import { roomService, livekitRoomName, screenRoomName, RoomFullError } from '../src/lib/server/livekit';
 import { fixtureConfig } from './config-fixture';
 
 
@@ -24,7 +24,7 @@ function fixture() {
       state.revoked.push(identity); state.active.set(name, (state.active.get(name) ?? []).filter(person => person.identity !== identity));
     },
   });
-  return { state, api: admissionService(fixtureConfig, backend, client, () => state.time) };
+  return { state, client, api: admissionService(fixtureConfig, backend, client, () => state.time) };
 }
 const session = () => ({ identity: randomUUID(), nickname: 'Ana' });
 test('combined admission cap includes pending tokens in both rooms and rejects concurrent writes', async () => {
@@ -39,7 +39,7 @@ test('combined admission cap includes pending tokens in both rooms and rejects c
 test('switch revokes previous identities before issuing a scoped fresh identity; stale reservations are revoked', async () => {
   const { state, api } = fixture(); const owner = session();
   const first = await api.join(owner, 'main'); const next = await api.join(owner, 'second');
-  assert.deepEqual(state.revoked, [first.identity]); assert.notEqual(next.identity, first.identity);
+  assert.deepEqual(state.revoked, [first.identity + ':screen', first.identity]); assert.notEqual(next.identity, first.identity);
   const claims = await new TokenVerifier(fixtureConfig.LIVEKIT_API_KEY, fixtureConfig.LIVEKIT_API_SECRET).verify(next.token);
   assert.equal(claims.video?.room, livekitRoomName(fixtureConfig, 'second'));
   assert.equal(state.entries.length, 1);
@@ -66,4 +66,25 @@ test('leaving cannot revoke another sender or a newer admission', async () => {
   const mine = await api.join(owner, 'main'); const theirs = await api.join(other, 'second');
   await api.leave(owner, theirs.identity); assert.equal(state.entries.length, 2);
   await api.leave(owner, mine.identity); assert.deepEqual(state.entries.map(item => item.identity), [theirs.identity]);
+});
+
+test('screen observers never consume voice slots; leaving revokes both the voice and screen publisher', async () => {
+  const { state, api } = fixture(); const owner = session();
+  state.active.set(screenRoomName(fixtureConfig, 'second'), Array.from({ length: 16 }, (_, i) => new ParticipantInfo({ identity: `observer-${i}` })));
+  const mine = await api.join(owner, 'main');
+  for (let i = 1; i < 8; i++) await api.join(session(), i % 2 ? 'main' : 'second');
+  assert.equal(state.entries.length, 8);
+  await assert.rejects(api.join(session(), 'main'), RoomFullError);
+  await api.leave(owner, mine.identity);
+  assert.deepEqual(state.revoked, [mine.identity + ':screen', mine.identity]);
+  assert.equal(state.entries.length, 7);
+});
+
+test('failed screen-publisher revocation keeps admission reserved and prevents a replacement token', async () => {
+  const { state, client, api } = fixture(); const owner = session();
+  const first = await api.join(owner, 'main');
+  client.removeParticipant = async () => { throw new Error('provider unavailable'); };
+  await assert.rejects(api.leave(owner, first.identity));
+  await assert.rejects(api.join(owner, 'second'));
+  assert.deepEqual(state.entries.map(entry => entry.identity), [first.identity]);
 });

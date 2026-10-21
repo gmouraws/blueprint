@@ -80,9 +80,22 @@ export async function prepare(page: Page, identity: string, room: string) {
     const voiceRoom = route.request().postDataJSON().room ?? 'main';
     const destination = voiceRoom === 'second' ? room + '-second' : room;
     const token = new AccessToken(key, secret, { identity, name: identity, ttl: 300 });
-    token.addGrant({ roomJoin: true, room: destination, canSubscribe: true, canPublish: true, canPublishData: true, canPublishSources: [TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO], canUpdateOwnMetadata: false });
+    token.addGrant({ roomJoin: true, room: destination, canSubscribe: true, canPublish: true, canPublishData: true, canPublishSources: [TrackSource.MICROPHONE], canUpdateOwnMetadata: false });
     token.roomConfig = new RoomConfiguration({ name: destination, maxParticipants: 8 });
-    await route.fulfill({ json: { nickname: identity, identity, voiceRoom, token: await token.toJwt(), serverUrl: 'ws://127.0.0.1:7880' } });
+    const screens = new AccessToken(key, secret, { identity, name: identity, ttl: 300 });
+    screens.addGrant({ roomJoin: true, room: destination + '-screens', canSubscribe: true, canPublish: true, canPublishData: false, canPublishSources: [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO], canUpdateOwnMetadata: false });
+    screens.roomConfig = new RoomConfiguration({ name: destination + '-screens', maxParticipants: 16 });
+    await route.fulfill({ json: { nickname: identity, identity, voiceRoom, token: await token.toJwt(), serverUrl: 'ws://127.0.0.1:7880', screens: { nickname: identity, identity, voiceRoom, token: await screens.toJwt(), serverUrl: 'ws://127.0.0.1:7880' } } });
+  });
+  let viewRequest = 0;
+  await page.route('**/api/view', async route => {
+    const voiceRoom = route.request().postDataJSON().room;
+    const destination = (voiceRoom === 'second' ? room + '-second' : room) + '-screens';
+    const observer = `${identity}:view:${++viewRequest}`;
+    const token = new AccessToken(key, secret, { identity: observer, name: identity, ttl: 300 });
+    token.addGrant({ roomJoin: true, room: destination, canSubscribe: true, canPublish: false, canPublishData: false, hidden: true, canUpdateOwnMetadata: false });
+    token.roomConfig = new RoomConfiguration({ name: destination, maxParticipants: 16 });
+    await route.fulfill({ json: { nickname: identity, identity: observer, voiceRoom, token: await token.toJwt(), serverUrl: 'ws://127.0.0.1:7880' } });
   });
   await page.route('**/api/voice', async route => {
     const rooms = await service.listRooms([room, room + '-second']);
@@ -90,6 +103,14 @@ export async function prepare(page: Page, identity: string, room: string) {
     await route.fulfill({ json: { rooms: { main: await roster(room), second: await roster(room + '-second') } } });
   });
   await page.route('**/api/voice/leave', route => route.fulfill({json:{ok:true}}));
+  await page.route('**/api/view/leave', async route => {
+    const body = route.request().postDataJSON();
+    const name = (body.room === 'second' ? room + '-second' : room) + '-screens';
+    // The loopback server has no Cloud token revocation. Remove only the test observer.
+    const exists = (await service.listRooms([name])).some(item => item.name === name);
+    if (exists && (await service.listParticipants(name)).some(person => person.identity === body.identity)) await service.removeParticipant(name, body.identity);
+    await route.fulfill({ json: { ok: true } });
+  });
   await page.route('**/api/logout', route => route.fulfill({ json: { ok: true } }));
   await page.goto('/');
   await page.getByLabel('Seu apelido').fill(identity);

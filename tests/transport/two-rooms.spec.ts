@@ -14,8 +14,7 @@ test('room disclosure is view-only; switching isolates media, preserves shared c
     await expect.poll(tones).toBe(2);
     const before=await alice.evaluate(()=>(window as unknown as {mediaProbe:{peers:unknown[]}}).mediaProbe.peers.length);
     const second=alice.getByRole('region',{name:'Sala 2',exact:true});
-    await second.getByRole('button',{name:/Sala 2/}).click();
-    await second.getByRole('button',{name:'Ver sala',exact:true}).click();
+    await second.getByRole('button',{name:'Expandir participantes de Sala 2',exact:true}).click();
     expect((await service.listParticipants(room)).length).toBe(2);
     expect(await tones()).toBe(2);
     expect(await alice.evaluate(()=>(window as unknown as {mediaProbe:{peers:unknown[]}}).mediaProbe.peers.length)).toBe(before);
@@ -23,7 +22,7 @@ test('room disclosure is view-only; switching isolates media, preserves shared c
     await expect.poll(()=>energy(bob)).toBeGreaterThan(0);
     await alice.getByRole('tab',{name:'Chat',exact:true}).click();
     await alice.getByLabel('Mensagem',{exact:true}).fill('Draft survives switching');
-    await second.getByRole('button',{name:'Entrar em Sala 2',exact:true}).click();
+    await second.getByRole('button',{name:'Ver Sala 2',exact:true}).dblclick();
     await expect(alice.getByText('Conectado',{exact:true})).toBeVisible();
     await expect.poll(()=>service.listParticipants(room)).toHaveLength(1);
     await expect.poll(()=>service.listParticipants(room+'-second')).toHaveLength(1);
@@ -31,6 +30,7 @@ test('room disclosure is view-only; switching isolates media, preserves shared c
     await expect(alice.getByRole('button',{name:'Ativar microfone',exact:true})).toBeVisible();
     await expect(bob.locator('audio[data-audio-owner="Alice"]')).toHaveCount(0);
     await expect.poll(tones).toBe(3);
+    await alice.getByRole('tab',{name:'Chat',exact:true}).click();
     await expect(alice.getByLabel('Mensagem',{exact:true})).toHaveValue('Draft survives switching');
     await alice.getByLabel('Mensagem',{exact:true}).press('Enter');
     await bob.getByRole('tab',{name:'Chat',exact:true}).click();
@@ -74,7 +74,7 @@ test('mini-player retains one video/audio path, hides without disconnect and cle
   expect(await viewer.evaluate(()=>(window as unknown as {mediaProbe:{peers:unknown[]}}).mediaProbe.peers.length)).toBe(peers);
   const measured=await viewer.evaluate(async()=>{ const probe=(window as unknown as {mediaProbe:{peers:RTCPeerConnection[]}}).mediaProbe; const values:object[]=[];for(const peer of probe.peers)(await peer.getStats()).forEach(s=>{if(s.type==='inbound-rtp'&&s.kind==='video')values.push({width:s.frameWidth,height:s.frameHeight,framesPerSecond:s.framesPerSecond,framesDecoded:s.framesDecoded});});return values;});
   expect(measured.length).toBeGreaterThan(0);await mkdir('.generated/review/two-rooms',{recursive:true});await writeFile('.generated/review/two-rooms/received-video.json',JSON.stringify(measured));await testInfo.attach('received-moving-canvas',{body:JSON.stringify(measured),contentType:'application/json'});
-  const second=viewer.getByRole('region',{name:'Sala 2',exact:true});await second.getByRole('button',{name:/Sala 2/}).click();await second.getByRole('button',{name:'Entrar em Sala 2',exact:true}).click();
+  const second=viewer.getByRole('region',{name:'Sala 2',exact:true});await second.getByRole('button',{name:'Ver Sala 2',exact:true}).click();await second.getByRole('button',{name:'Ver Sala 2',exact:true}).dblclick();
   await expect(viewer.getByText('Conectado',{exact:true})).toBeVisible();await expect(viewer.locator('video,audio')).toHaveCount(0);
  } finally {await Promise.all(contexts.map(c=>c.close()));for(const name of [room,room+'-second']) await service.deleteRoom(name).catch(()=>{});}
 });

@@ -8,10 +8,11 @@ import { ScreenMeasurements } from './screen-quality';
 import { VolumeControl, type VolumeSetting } from './incoming-audio';
 import { CallAudioControls, type CallAudioControlsProps } from './call-audio-controls';
 
-export function ScreenViewer({ current, screens, mini, hasAudio, setting, onSetting, onSelect, onExpand, onHide, onNotice, audioControls }: {
+export function ScreenViewer({ current, screens, mini, hasAudio, setting, onSetting, onSelect, onExpand, onHide, onNotice, audioControls, listening }: {
   current: TrackReference; screens: TrackReference[]; mini: boolean; hasAudio: boolean;
   setting: VolumeSetting; onSetting: (setting: VolumeSetting) => void; onSelect: (sid: string) => void;
   onExpand: () => void; onHide: () => void; onNotice: (notice: string) => void; audioControls: CallAudioControlsProps;
+  listening?: { enabled: boolean; toggle: () => void };
 }) {
   const viewer = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -37,6 +38,7 @@ export function ScreenViewer({ current, screens, mini, hasAudio, setting, onSett
     <VideoTrack trackRef={current} muted playsInline className="shared-video" />
     <div className="viewer-toolbar">
       <select aria-label="Escolher tela compartilhada" value={current.publication.trackSid} onChange={event => onSelect(event.target.value)}>{screens.map(track => <option value={track.publication.trackSid} key={track.publication.trackSid}>{track.participant.name || 'Participante'}{track.participant.isLocal ? ' (você)' : ''}</option>)}</select>
+      {listening && hasAudio && <button className="icon-button" aria-label={listening.enabled ? 'Parar de ouvir esta tela' : 'Ouvir áudio desta tela'} title={listening.enabled ? 'Parar de ouvir esta tela' : 'Ouvir áudio desta tela (desligado por padrão)'} aria-pressed={listening.enabled} onClick={listening.toggle}><Icon name={listening.enabled ? 'audio' : 'audioOff'} /></button>}
       {mini && <button className="icon-button" onClick={onExpand} title="Voltar à sala" aria-label="Expandir tela e voltar à sala"><Icon name="expand" /></button>}
       <ControlMenu label="Opções de visualização" className="viewer-options">
         <p className="menu-title">Exibição</p>

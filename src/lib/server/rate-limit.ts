@@ -10,13 +10,13 @@ export function enforceLimitResults(results: { success: boolean; reset: number; 
   const denied = results.find(result => !result.success);
   if (denied) throw new LimitError(429, Math.max(1, Math.ceil((denied.reset - Date.now()) / 1000)));
 }
-export async function rateLimit(config: Config, kind: 'login' | 'token' | 'chat-write' | 'chat-read' | 'voice-read' | 'image-write' | 'image-read', identifier: string) {
+export async function rateLimit(config: Config, kind: 'login' | 'token' | 'view-token' | 'view-leave' | 'chat-write' | 'chat-read' | 'voice-read' | 'image-write' | 'image-read', identifier: string) {
   const redis = new Redis({ url: config.UPSTASH_REDIS_REST_URL, token: config.UPSTASH_REDIS_REST_TOKEN, retry: { retries: 0 } });
   const hashed = createHmac('sha256', config.SESSION_SECRET).update(identifier).digest('hex');
   const prefix = `blueprint:${config.LIVEKIT_ROOM_NAME}:${kind}`;
   const options = { redis, analytics: false, timeout: 3000, ephemeralCache: false as const };
   try {
-    const local = new Ratelimit({ ...options, prefix, limiter: kind === 'login' ? Ratelimit.slidingWindow(10, '10 m') : Ratelimit.slidingWindow(kind === 'chat-write' ? 30 : ['chat-read', 'voice-read', 'image-read'].includes(kind) ? 90 : 12, '1 m') });
+    const local = new Ratelimit({ ...options, prefix, limiter: kind === 'login' ? Ratelimit.slidingWindow(10, '10 m') : Ratelimit.slidingWindow(kind === 'view-leave' ? 60 : ['chat-write', 'view-token'].includes(kind) ? 30 : ['chat-read', 'voice-read', 'image-read'].includes(kind) ? 90 : 12, '1 m') });
     const checks = [local.limit(hashed)];
     if (kind === 'login') checks.push(new Ratelimit({ ...options, prefix: `${prefix}:global`, limiter: Ratelimit.slidingWindow(60, '10 m') }).limit('all'));
     const results = await Promise.all(checks);

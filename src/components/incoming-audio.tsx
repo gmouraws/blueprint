@@ -17,9 +17,9 @@ export function ParticipantQuality({ participant }: { participant: Participant }
   const labels: Record<string, string> = { excellent: 'Conexão excelente', good: 'Conexão boa', poor: 'Conexão instável', lost: 'Conexão perdida', unknown: 'Qualidade ainda não informada' };
   return <span className="participant-state">{labels[quality] ?? labels.unknown}</span>;
 }
-export function IncomingAudio({ volumes, screenIdentity, screenSetting, globalMuted }: { volumes: Record<string, VolumeSetting>; screenIdentity?: string; screenSetting: VolumeSetting; globalMuted: boolean }) {
+export function IncomingAudio({ volumes, screenIdentity, screenSetting, globalMuted, screenOnly = false }: { volumes: Record<string, VolumeSetting>; screenIdentity?: string; screenSetting: VolumeSetting; globalMuted: boolean; screenOnly?: boolean }) {
   const tracks = useTracks([Track.Source.Microphone, Track.Source.ScreenShareAudio], { onlySubscribed: true });
-  const audible = tracks.filter(ref => !ref.participant.isLocal && (ref.source === Track.Source.Microphone || ref.participant.identity === screenIdentity));
+  const audible = tracks.filter(ref => !ref.participant.isLocal && (ref.source === Track.Source.Microphone ? !screenOnly : ref.participant.identity === screenIdentity));
   return <div className="incoming-audio" hidden>{audible.map(ref => {
     const setting = ref.source === Track.Source.Microphone ? volumes[volumeIdentity(ref.participant.identity)] ?? defaultVolume : screenSetting;
     return <AudioTrack key={`${ref.participant.identity}:${ref.publication.trackSid}`} trackRef={ref} volume={incomingVolume(globalMuted, setting.muted, setting.volume)} data-audio-kind={ref.source} data-audio-owner={ref.participant.identity} />;

@@ -1,6 +1,27 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test('viewing authorization fails safely without joining voice; disclosure and keyboard selection remain separate', async ({ page, request, baseURL }) => {
+  const denied = await request.post('/api/view', { headers: { origin: baseURL! }, data: { room: 'second' } });
+  expect(denied.status()).toBe(401);
+  let voiceRequests = 0; const viewed: string[] = [];
+  await page.route('**/api/login', route => route.fulfill({ json: { nickname: 'Ana' } }));
+  await page.route('**/api/token', route => { voiceRequests++; return route.abort(); });
+  await page.route('**/api/voice', route => route.fulfill({ json: { rooms: { main: [], second: [] } } }));
+  await page.route('**/api/chat**', route => route.fulfill({ json: { messages: [], hasMore: false, serverTime: new Date().toISOString() } }));
+  await page.route('**/api/view', route => { viewed.push(route.request().postDataJSON().room); return route.fulfill({ status: 503, json: { error: 'Visualização indisponível. Tente novamente.' } }); });
+  await page.goto('/'); await page.getByLabel('Seu apelido').fill('Ana'); await page.getByLabel('Senha da sala').fill('fixture-password');
+  await page.getByRole('button', { name: 'Abrir chat sem entrar na voz' }).click();
+  await page.getByRole('button', { name: 'Expandir participantes de Sala 2' }).click();
+  expect(viewed).toEqual([]);
+  await page.getByRole('button', { name: 'Ver Sala 2', exact: true }).focus(); await page.keyboard.press('Enter');
+  await expect(page.locator('main').getByRole('alert')).toContainText('Visualização indisponível');
+  await expect(page.getByRole('button', { name: 'Entrar na voz de Sala 2' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Ativar microfone', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Tentar visualização novamente' }).click();
+  await expect.poll(() => viewed.length).toBe(2); expect(viewed).toEqual(['second', 'second']); expect(voiceRequests).toBe(0);
+});
+
 test('entry is Portuguese, accessible, private and responsive', async ({ page, request }) => {
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR');

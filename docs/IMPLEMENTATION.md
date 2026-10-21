@@ -75,3 +75,7 @@ To inspect the former site without changing production: create a separate local 
 ## Two-room/image Preview extension
 
 The media names now append `-v2-main` and `-v2-second` to LIVEKIT_ROOM_NAME. Keep Preview and Production bases distinct. Redis also stores the persistent admission ledger; do not clear it to bypass capacity. See ADR-013 and CHAT-STORAGE.md for private Blob configuration and migration 002. Both migrations and Preview-only storage must be verified before testing images. The existing daily production cleanup is not a Preview scheduler; invoke the authenticated cleanup endpoint or CLI against Preview for retention maintenance. This extension is not approved for production deployment.
+
+## Cross-room screen viewing (Preview only)
+
+ADR-014 adds the internal `-screens` transports to each existing v2 voice room. No configuration values, database migrations, Vercel settings or paid resources change. The eight-person voice cap and Redis ledger remain intact. Screen transports have their own bounded 16-connection cap. Preview participants must reload/rejoin together to move their screen publication to the new transport; older clients remain compatible for voice/chat but their screens are not in the new viewer.

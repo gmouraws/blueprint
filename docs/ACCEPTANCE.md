@@ -31,3 +31,12 @@ Automated tests do not establish real-device, multi-network or provider-quota be
 - Confirm one local join/switch/leave tone, remote tones only for the current room, no initial-snapshot/reconnect duplicates, and preference/global-mute suppression.
 - Send JPEG/PNG/WebP by paste, file picker and drop; remove the preview, retry failures, reload and enlarge the image. Reject malformed/oversized/unauthorized/expired uploads or retrieval. Confirm links open safely and other content remains plain text.
 - Watch a moving stream while chatting. Hide/restore/expand the mini-player without duplicate audio or a second connection. Switching voice rooms clears the previous stream. Check measured quality; do not infer 60 fps from the requested preset.
+
+## Cross-room viewing Preview acceptance
+
+- Reload/rejoin the current Preview on all test clients; older clients publish into the previous screen transport.
+- With a presenter and active microphone in each room, single-click either room and watch its screen while your original voice call remains unchanged. Double-click and the selected-room header join button must switch safely, microphone-off. Collapse/expand must do neither.
+- Open chat without voice, then select either room with the keyboard. Watch without microphone capture or appearing in the voice roster.
+- Other-room screen audio starts off. Explicit listening enables only that screen; global mute and output selection still govern all playback, while participant and screen volumes remain independent.
+- Repeatedly select rooms, switch voice, hide/restore the mini-player, stop a stream and interrupt/recover networking. Check no duplicate sound, microphone leakage, stale player or lingering observer.
+- Fill the combined eight voice slots while viewers are present; reject the ninth voice admission. Confirm Cloud revokes both publisher identities when switching/leaving, including absent pending tokens.
