@@ -1,5 +1,7 @@
 # Windows test application
 
+Version 0.1.4 adds searchable/refreshed capture sources and experimental application-only audio (ADR 020). The owner subsequently authorized Production publication for manual acceptance. No hosted media integration change is needed; switch the download only after the published asset is verified. See WINDOWS-APPLICATION-AUDIO.md for runtime requirements and measured versus manual verification.
+
 ## Build and profiles
 
 Accounts dependency: PR #15 merged in main (b0477d7), OTP verified; no pending Resend dependency. This branch does not alter or merge that work.

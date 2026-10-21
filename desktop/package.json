@@ -1,6 +1,6 @@
 {
   "name": "blueprint-room-desktop",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Blueprint Room Windows test client",
   "author": "Blueprint",
@@ -35,7 +35,8 @@
       "picker-preload.cjs",
       "picker.html",
       "picker.css",
-      "picker.js"
+      "picker.js",
+      "process-audio.mjs"
     ],
     "win": {
       "target": [
@@ -56,6 +57,12 @@
       "createDesktopShortcut": true
     },
     "artifactName": "Blueprint-Room-Preview-${version}-x64-setup.${ext}",
-    "npmRebuild": false
+    "npmRebuild": false,
+    "extraResources": [
+      {
+        "from": "native/dist/process-audio.exe",
+        "to": "process-audio.exe"
+      }
+    ]
   }
 }

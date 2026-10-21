@@ -1,3 +1,4 @@
+import './native/build.mjs';
 import { readFile, writeFile, copyFile, mkdir, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { build, Platform, Arch } from 'electron-builder';
