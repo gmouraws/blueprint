@@ -90,3 +90,23 @@ test('announcement requires real screen publication and is deduplicated across r
   assert.ok(await api.announce(person.secret, randomUUID(), true));
   const viewer = await guest('watch'); await api.join(viewer.secret); await assert.rejects(api.announce(viewer.secret, randomUUID(), true));
 });
+
+
+test('desktop handoff is single-use, short-lived and preserves parent role/revocation without an admission', async () => {
+  const { api, state, guest } = fixture();
+  const person = await guest('watch');
+  const ticket = await api.handoff(person.secret);
+  assert.equal(ticket.credential.length, 43);
+  assert.ok(!JSON.stringify(state.data).includes(ticket.credential));
+  assert.equal(state.data.guests.filter(g => g.identity).length, 0);
+  const native = await api.exchange(ticket.credential);
+  assert.equal((await api.status(native.secret)).role, 'watch');
+  await assert.rejects(api.exchange(ticket.credential));
+  const expired = await api.handoff(person.secret); state.now += 60001;
+  await assert.rejects(api.exchange(expired.credential));
+  const revoked = await api.handoff(person.secret);
+  await api.manage('revoke', { id: person.link.id });
+  await assert.rejects(api.exchange(revoked.credential));
+  await assert.rejects(api.status(native.secret));
+  await assert.rejects(api.handoff(person.secret));
+});

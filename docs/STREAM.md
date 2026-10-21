@@ -1,6 +1,6 @@
 # Guest transmission operations
 
-The approved `/stream` experiment is separate from member rooms/chat. It uses existing LiveKit and Upstash configuration and an environment-specific namespace; no Neon migration, new infrastructure, paid service or Windows installer is needed.
+The approved `/stream` experiment is separate from member rooms/chat. It uses existing LiveKit and Upstash configuration and an environment-specific namespace; no Neon migration, new infrastructure or paid service is needed. Windows 0.1.5 adds the isolated native handoff described in ADR 022.
 
 ## Owner workflow
 
@@ -11,7 +11,7 @@ The approved `/stream` experiment is separate from member rooms/chat. It uses ex
 
 Eight connections maximum in this streaming space; publisher + viewer uses one connection. Multiple tabs sharing a guest cookie replace the earlier connection. Different browsers/devices consume separate slots. Leaving stops tracks and releases the connection; a still-valid browser session can reopen. Member APIs never accept the guest cookie.
 
-## Optional Discord (not configured/enabled by this release)
+## Optional Discord
 
 This implementation uses an incoming channel webhook, not Discord Interactions. It does not read an Application ID or Public Key and has no Interactions Endpoint URL. Leave that field empty in the Developer Portal; do not configure `/stream` or `/api/stream` as an interactions endpoint. The owner-created Discord application can remain unused until a separately approved command integration. Do not add unused application identifier variables to Vercel.
 
@@ -23,11 +23,11 @@ The server checks actual screen publication before sending a neutral announcemen
 
 Automated checks cover capability hashes/expiry/revocation/derived invites, strict owner access, scoped cookies, source grants, eight-person concurrency, stale connection cleanup, lost locks, provider failures, no microphone capture, fragment removal, responsive accessibility and announcement deduplication. The transport fixture uses real local LiveKit with synthetic canvas/audio; it does not prove physical audibility or hosted Cloud revocation.
 
-Browser screen audio depends on the source/browser. System audio can include Discord; this flow must not claim process isolation. Native application-only capture remains available in the authenticated Windows rooms, not guest links. No native deep link is advertised until a validated handoff is implemented.
+Browser screen audio depends on the source/browser. System audio can include Discord; this flow must not claim process isolation. Windows 0.1.5 also supports guest links: click **Abrir no aplicativo** after opening the private invitation. A one-use 60-second code opens a separate transmission window; **Continuar no navegador** remains available. Install the Production client first. Native application audio is experimental, explicitly selected, and requires Windows build 20348 or later. System audio can include unrelated applications; no audio mode is selected automatically.
 
 Expiry blocks HTTP/token issuance immediately. Active clients check every 15 seconds and stop locally; the server reconciles expired media then and in the existing daily cleanup. Exact background disconnect timing is not guaranteed during an outage or with no active requests. Failed provider cleanup is retained for retry. See ADR 021.
 
-Before broad use, test two real browsers: watch/share links, ninth admission, selected audio, browser picker cancellation/stop, room re-entry, expiry/revocation while connected, and Cloud rejection of revoked credentials. Check Chrome/Edge screen-audio scope with Discord separately. Real Discord delivery is intentionally untested until authorized.
+Before broad use, test two real browsers: watch/share links, ninth admission, selected audio, browser picker cancellation/stop, room re-entry, expiry/revocation while connected, and Cloud rejection of revoked credentials. Check Chrome/Edge screen-audio scope with Discord separately. The owner authorized Production announcements after configuring the webhook. Real channel delivery has not been exercised by the desktop test fixtures.
 
 ## Recovery
 

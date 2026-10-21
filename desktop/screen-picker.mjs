@@ -4,19 +4,20 @@ import path from 'node:path';
 const here=path.dirname(fileURLToPath(import.meta.url));
 const pickerUrl=pathToFileURL(path.join(here,'picker.html')).href;
 export function createScreenPicker(parent, options={}) {
+  const prefix=options.guest?'stream-picker':'picker';
   let active,generation=0;
   const enumerate=()=>desktopCapturer.getSources({types:['screen','window'],thumbnailSize:{width:320,height:180},fetchWindowIcons:false});
   const describe=sources=>sources.map(source=>({id:source.id,name:source.name,kind:source.id.startsWith('screen:')?'screen':'window',thumbnail:source.thumbnail.isEmpty?.()?null:source.thumbnail.toDataURL()}));
   const permitted=event=>active && event.sender===active.window.webContents && event.senderFrame===active.window.webContents.mainFrame && event.senderFrame.url===pickerUrl;
   const listing=()=>({sources:active.sources,audio:active.audio,applicationAudio:active.audio&&options.applicationAudio===true});
-  ipcMain.handle('picker:list',event=>{if(!permitted(event))throw Error('Invalid picker');return listing();});
-  ipcMain.handle('picker:refresh',async event=>{
+  ipcMain.handle(`${prefix}:list`,event=>{if(!permitted(event))throw Error('Invalid picker');return listing();});
+  ipcMain.handle(`${prefix}:refresh`,async event=>{
     if(!permitted(event)||active.pending||active.refreshing)throw Error('Invalid picker');
     const current=active;current.refreshing=true;
     try{const sources=await enumerate();if(active!==current)throw Error('Closed picker');current.sources=describe(sources);return listing();}finally{current.refreshing=false;}
   });
-  ipcMain.handle('picker:cancel',event=>{if(permitted(event))active.finish(null);});
-  ipcMain.handle('picker:choose',async(event,value)=>{
+  ipcMain.handle(`${prefix}:cancel`,event=>{if(permitted(event))active.finish(null);});
+  ipcMain.handle(`${prefix}:choose`,async(event,value)=>{
     if(!permitted(event)||active.pending||active.refreshing||!value||typeof value.id!=='string'||!['none','system','application'].includes(value.audio)||!active.sources.some(source=>source.id===value.id))return {error:'Seleção inválida.'};
     if(value.audio!=='none'&&!active.audio||value.audio==='application'&&(!options.applicationAudio||!/^window:\d+:\d+$/.test(value.id)))return {error:'Áudio do aplicativo indisponível para esta fonte.'};
     const current=active;current.pending=true;
@@ -31,6 +32,7 @@ export function createScreenPicker(parent, options={}) {
     }catch{options.cancelAudio?.();if(active===current)current.pending=false;return {error:value.audio==='application'?'Não foi possível capturar este aplicativo. Nenhum áudio do sistema foi ativado. Escolha outra fonte ou Sem áudio.':'Não foi possível selecionar a fonte. Tente novamente ou cancele.'};}
   });
   return {
+    dispose(){generation++;active?.finish(null);for(const action of ['list','refresh','cancel','choose'])ipcMain.removeHandler(`${prefix}:${action}`);},
     cancel(){generation++;active?.finish(null);},
     async choose(audioRequested){
       if(active)return null;
@@ -39,7 +41,7 @@ export function createScreenPicker(parent, options={}) {
       try {sources=await enumerate();}catch{return null;}
       if(active||parent.isDestroyed()||attempt!==generation)return null;
       return new Promise(resolve=>{
-        const window=new BrowserWindow({parent,modal:true,width:780,height:620,minWidth:520,minHeight:460,title:'Compartilhar tela',backgroundColor:'#10151b',autoHideMenuBar:true,webPreferences:{preload:path.join(here,'picker-preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,partition:'blueprint-picker'}});
+        const window=new BrowserWindow({parent,modal:true,width:780,height:620,minWidth:520,minHeight:460,title:'Compartilhar tela',backgroundColor:'#10151b',autoHideMenuBar:true,webPreferences:{preload:path.join(here,'picker-preload.cjs'),additionalArguments:options.guest?['--blueprint-stream-picker']:[],nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,partition:'blueprint-picker'}});
         let finished=false;const timer=setTimeout(()=>finish(null),120000);
         window.webContents.session.setPermissionCheckHandler(()=>false);
         window.webContents.session.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));

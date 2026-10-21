@@ -6,6 +6,8 @@ import { trusted, external, validState, inactive, accelerator, actions } from '.
 import { failurePage } from './startup.mjs';
 import { createScreenPicker } from './screen-picker.mjs';
 import { createProcessAudio } from './process-audio.mjs';
+import { streamLinkFromArgs } from './stream-links.mjs';
+import { createStreamWindow } from './stream-window.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const processAudio=createProcessAudio(path.join(app.isPackaged?process.resourcesPath:path.join(here,'native/dist'),'process-audio.exe'));
 const profile = JSON.parse(readFileSync(path.join(here, 'profile.json'), 'utf8'));
@@ -15,6 +17,8 @@ app.setPath('userData', path.join(app.getPath('appData'), `Blueprint Room-${prof
 app.setAppUserModelId(`br.app.blueprint.room.${profile.name}`);
 app.enableSandbox();
 let applicationSelection=false;
+let streamWindow;
+let pendingStream=streamLinkFromArgs(process.argv,profile.name);
 let win, tray, picker, watchdog, webReady=false, lastSync=0, quitting = false, inputBlocked = false, recording = false, state = { ...inactive }, lastEvent = 0, registrationKey = '';
 const prefsPath = path.join(app.getPath('userData'), 'desktop.json');
 let preferences = { closeExplained: false };
@@ -28,6 +32,7 @@ function sendAction(action, fromShortcut = false) {
 function updateTray() {
   tray?.setContextMenu(Menu.buildFromTemplate([
     { label: 'Abrir Blueprint Room', click: restore }, { type: 'separator' },
+    ...(streamWindow?.exists()?[{label:'Abrir transmissão',click:()=>streamWindow.restore()}]:[]),
     { label: !webReady ? 'Aguardando integração da página' : state.available ? 'Chamada conectada' : 'Controles indisponíveis fora da chamada ou durante reconexão', enabled:false },
     { label: 'Silenciar microfone', type: 'checkbox', checked: !state.microphone, enabled: state.available && !recording, click: () => sendAction('microphone') },
     { label: 'Silenciar áudio recebido', type: 'checkbox', checked: state.muted, enabled: state.available && !recording, click: () => sendAction('listening') },
@@ -69,10 +74,11 @@ function loadApplication() {
 }
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  app.on('second-instance', restore);
-  app.on('before-quit', () => { quitting = true; clearTimeout(loadTimer);clearInterval(watchdog);picker?.cancel();processAudio.stop(); state = { ...inactive }; globalShortcut.unregisterAll(); tray?.destroy(); if (win && !win.isDestroyed()) win.destroy(); });
+  app.on('second-instance', (_event,args) => { const link=streamLinkFromArgs(args,profile.name);if(link){if(streamWindow)void streamWindow.open(link);else pendingStream=link;}else restore(); });
+  app.on('before-quit', () => { quitting = true; clearTimeout(loadTimer);clearInterval(watchdog);streamWindow?.destroy();picker?.cancel();processAudio.stop(); state = { ...inactive }; globalShortcut.unregisterAll(); tray?.destroy(); if (win && !win.isDestroyed()) win.destroy(); });
   app.on('will-quit', () => globalShortcut.unregisterAll());
   app.whenReady().then(() => {
+    streamWindow=createStreamWindow({profile,here,helper:path.join(app.isPackaged?process.resourcesPath:path.join(here,'native/dist'),'process-audio.exe'),version:app.getVersion(),onChange:updateTray,onHide:()=>tray?.displayBalloon({title:'Transmissão na bandeja',content:'Use Abrir transmissão para voltar ou Sair do aplicativo para encerrar a mídia.'})});
     const ses = session.fromPartition(`persist:blueprint-${profile.name}`);
     ses.setUserAgent(ses.getUserAgent()+` BlueprintRoom/${app.getVersion()}`);
     win = new BrowserWindow({ width: 1180, height: 800, minWidth: 375, minHeight: 560, title: `Blueprint Room${profile.name === 'preview' ? ' · Preview' : ''}`, icon: path.join(here, 'icon.png'), backgroundColor: '#10151b', webPreferences: { session: ses, preload: path.join(here, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false } });
@@ -119,5 +125,6 @@ else {
     ipcMain.handle('room:settings', event => { if (!sender(event)) throw new Error('Invalid origin');webReady=true;updateTray(); return { startup: app.getLoginItemSettings().openAtLogin, profile: profile.name, version: app.getVersion() }; });
     ipcMain.handle('room:startup', (event, enabled) => { if (!sender(event) || typeof enabled !== 'boolean' || !app.isPackaged) throw new Error('Invalid request'); app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath }); return app.getLoginItemSettings().openAtLogin; });
     loadApplication();
+    if(pendingStream){const link=pendingStream;pendingStream=undefined;win.hide();void streamWindow.open(link);}
   });
 }

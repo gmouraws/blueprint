@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import * as policy from './policy.mjs';
 import { failurePage } from './startup.mjs';
+import { streamLinkFromArgs } from './stream-links.mjs';
 
 async function harness() {
  const registered = new Map(), ipc = new Map(), sent = [], permission = {}, windows = [];
@@ -17,7 +18,7 @@ async function harness() {
  class Tray extends EventEmitter {setContextMenu(menu){this.menu=menu;}setToolTip(){}destroy(){this.dead=true;}displayBalloon(){this.balloon=true;}}
  const ses={getUserAgent:()=>"test",setUserAgent:()=>{},setPermissionCheckHandler:fn=>permission.check=fn,setPermissionRequestHandler:fn=>permission.request=fn,setDisplayMediaRequestHandler:fn=>permission.display=fn};
  const context = { ...policy, app, BrowserWindow:Window,Tray,Menu:{buildFromTemplate:x=>x,setApplicationMenu:()=>{}},dialog:{showMessageBox:async()=>({response:0})},globalShortcut:{register:(key,fn)=>{if(key==='F9')return false;registered.set(key,fn);return true;},unregisterAll:()=>registered.clear()},ipcMain:{handle:(key,fn)=>ipc.set(key,fn),on:(key,fn)=>ipc.set(key,fn)},session:{fromPartition:()=>ses},desktopCapturer:{getSources:async()=>[]},shell:{openExternal:()=>{}},nativeImage:{createFromPath:()=>({resize:()=>({})})},readFileSync:()=>JSON.stringify({name:'preview',origin}),writeFileSync:()=>{},fileURLToPath:()=>'/test/main.mjs',path:{dirname:()=>'/test',join:(...args)=>args.join('/')},process:{platform:'win32',execPath:'/test/app.exe'},console,URL,Date,JSON };
- Object.assign(context, { failurePage, createProcessAudio:()=>({supported:false,stop:()=>{},claim:()=>null,pull:()=>null,release:()=>{}}), createScreenPicker:()=>({cancel:()=>{},choose:async()=>null}), setTimeout: () => 1, clearTimeout: () => {}, setInterval:()=>1,clearInterval:()=>{} });
+ Object.assign(context, { streamLinkFromArgs, createStreamWindow:()=>({exists:()=>false,destroy:()=>{},open:async()=>{}}), failurePage, createProcessAudio:()=>({supported:false,stop:()=>{},claim:()=>null,pull:()=>null,release:()=>{}}), createScreenPicker:()=>({cancel:()=>{},choose:async()=>null}), setTimeout: () => 1, clearTimeout: () => {}, setInterval:()=>1,clearInterval:()=>{} });
  let source=readFileSync(new URL('./main.mjs',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('import.meta.url',"'file:///test/main.mjs'");
  source+='\nglobalThis.inspect = () => ({win,tray,state});';
  vm.runInNewContext(source,context); await Promise.resolve();

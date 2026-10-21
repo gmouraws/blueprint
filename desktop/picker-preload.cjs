@@ -1,7 +1,8 @@
 const {contextBridge,ipcRenderer}=require('electron');
+const prefix=process.argv.includes('--blueprint-stream-picker')?'stream-picker':'picker';
 contextBridge.exposeInMainWorld('screenPicker',{
-  sources:()=>ipcRenderer.invoke('picker:list'),
-  refresh:()=>ipcRenderer.invoke('picker:refresh'),
-  choose:(id,audio)=>ipcRenderer.invoke('picker:choose',{id,audio}),
-  cancel:()=>ipcRenderer.invoke('picker:cancel'),
+  sources:()=>ipcRenderer.invoke(`${prefix}:list`),
+  refresh:()=>ipcRenderer.invoke(`${prefix}:refresh`),
+  choose:(id,audio)=>ipcRenderer.invoke(`${prefix}:choose`,{id,audio}),
+  cancel:()=>ipcRenderer.invoke(`${prefix}:cancel`),
 });

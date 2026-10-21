@@ -1,4 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const guestStream=process.argv.includes('--blueprint-stream-window');
+if(guestStream)contextBridge.exposeInMainWorld('blueprintStreamDesktop',{
+  version:1,
+  consumeInvite:()=>ipcRenderer.invoke('stream:invite'),
+  configure:value=>ipcRenderer.invoke('stream:configure',value),
+});
 const subscribe = (channel, callback) => { const listener = (_event, value) => callback(value); ipcRenderer.on(channel, listener); return () => ipcRenderer.removeListener(channel, listener); };
 contextBridge.exposeInMainWorld('blueprintDesktop', {
   configure: state => ipcRenderer.invoke('room:configure', state),
@@ -16,10 +22,11 @@ document.addEventListener('focusin', inputState); document.addEventListener('foc
 // Installed in the main world before the hosted application obtains getDisplayMedia.
 // The hosted SDK receives a normal video + ScreenShareAudio MediaStream; no web deploy.
 function installCapture(contextBridge, ipcRenderer) {
+  const prefix=guestStream?'stream-capture':'capture';
   contextBridge.exposeInMainWorld('blueprintCapture', {
-    claim:()=>ipcRenderer.invoke('capture:claim'),
-    pull:id=>ipcRenderer.invoke('capture:pull',id),
-    stop:id=>ipcRenderer.invoke('capture:stop',id),
+    claim:()=>ipcRenderer.invoke(`${prefix}:claim`),
+    pull:id=>ipcRenderer.invoke(`${prefix}:pull`,id),
+    stop:id=>ipcRenderer.invoke(`${prefix}:stop`,id),
   });
   contextBridge.executeInMainWorld({func:()=>{
     if(!navigator.mediaDevices?.getDisplayMedia)return;

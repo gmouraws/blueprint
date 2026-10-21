@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {AccessToken} from 'livekit-server-sdk';
 import {randomUUID} from 'node:crypto';
 const root=path.resolve(import.meta.dirname,'..'),out=path.join(root,'.generated/native-test');mkdirSync(out,{recursive:true});
+const guestMode=process.argv.includes('--guest');
 const children=[];let electron;
 const room='native-test-'+randomUUID();
 const tokens=await Promise.all(['publisher','receiver'].map(async identity=>{const t=new AccessToken('blueprint-test','local-test-secret-not-a-production-credential',{identity});t.addGrant({roomJoin:true,room,canPublish:true,canSubscribe:true});return t.toJwt();}));
@@ -31,11 +32,39 @@ ipcMain.handle('capture:claim',e=>allowed(e)?audio.claim():null);ipcMain.handle(
 session.defaultSession.setDisplayMediaRequestHandler(async(request,callback)=>{const selected=await picker.choose(request.audioRequested);if(selected){const {applicationAudio,...streams}=selected;callback(streams);}else callback({});});
 app.on('before-quit',()=>{audio.stop();picker.cancel();});await w.loadURL(${JSON.stringify(origin)});});
 `);
+if(guestMode) writeFileSync(path.join(out,'main.mjs'),`
+import {app,session,net} from 'electron';
+import {createStreamWindow} from ${JSON.stringify(pathToFileURL(path.join(root,'desktop/stream-window.mjs')).href)};
+app.setPath('userData',${JSON.stringify(path.join(out,'guest-profile'))});
+app.whenReady().then(async()=>{
+ const ses=session.fromPartition('blueprint-stream-production');
+ globalThis.permissionDiagnostics=[];
+ for(const method of ['setPermissionCheckHandler','setPermissionRequestHandler','setDisplayMediaRequestHandler']){const original=ses[method].bind(ses);ses[method]=handler=>original((...args)=>{globalThis.permissionDiagnostics.push({method,permission:typeof args[1]==='string'?args[1]:undefined,gesture:args[0]?.userGesture});return handler(...args);});}
+
+ ses.protocol.handle('https',request=>net.fetch(${JSON.stringify(origin)}+new URL(request.url).pathname));
+ const guest=createStreamWindow({profile:{name:'production',origin:'https://stream.blueprint.test'},here:${JSON.stringify(path.join(root,'desktop'))},helper:${JSON.stringify(path.join(root,'desktop/native/dist/process-audio.exe'))},version:'0.1.5'});
+ app.on('before-quit',()=>guest.destroy());
+ await guest.open({intent:'share',credential:'test-fixture-only'});
+});
+`);
 try{
   const selected=await fixture(440,18,true);await fixture(880,1);
   electron=await _electron.launch({executablePath:path.join(root,'desktop/node_modules/electron/dist/electron.exe'),args:[path.join(out,'main.mjs')]});
-  const page=await electron.firstWindow();await page.locator('#start').click();
-  const picker=await electron.waitForEvent('window');await picker.waitForLoadState();
+  const page=await electron.firstWindow();
+  if(guestMode){
+    const safety=await page.evaluate(async()=>{
+      const bridge=window.blueprintStreamDesktop;
+      const ticket=await bridge.consumeInvite();const second=await bridge.consumeInvite();
+      let microphone='unexpected';try{const media=await navigator.mediaDevices.getUserMedia({audio:true});media.getTracks().forEach(t=>t.stop());}catch(e){microphone=e.name;}
+      const expires=Date.now()+120000;await bridge.configure({available:true,expires});setInterval(()=>bridge.configure({available:true,expires}),5000);
+      return {bridge:bridge.version,oneUse:ticket==='test-fixture-only'&&second===null,microphone};
+    });
+    assert.equal(safety.oneUse,true);assert.equal(safety.microphone,'NotAllowedError');console.log(JSON.stringify({guestSafety:safety}));
+  }
+  const pendingPicker=electron.waitForEvent('window');
+  await page.locator('#start').click();
+  if(guestMode){await new Promise(r=>setTimeout(r,1000));console.log(JSON.stringify({capture:await page.evaluate(()=>window.captureResult),permissions:await electron.evaluate(()=>globalThis.permissionDiagnostics)}));}
+  const picker=await pendingPicker;await picker.waitForLoadState();
   await picker.getByRole('tab',{name:'Janelas',exact:true}).click();
   const counts=await picker.evaluate(async()=>{const {sources}=await window.screenPicker.sources();return {apiWindows:sources.filter(s=>s.kind==='window').length,rendered:document.querySelectorAll('.source').length,fixtures:sources.filter(s=>s.name.startsWith('Blueprint capture fixture')).length};});
   assert.equal(counts.apiWindows,counts.rendered);assert.ok(counts.fixtures>=18);console.log(JSON.stringify({realEnumeration:counts}));
