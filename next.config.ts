@@ -9,6 +9,9 @@ const config: NextConfig = {
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), display-capture=(self), fullscreen=(self), geolocation=()' },
       { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'" },
       { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+    ] }, { source: '/stream', headers: [
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), display-capture=(self), fullscreen=(self), geolocation=()' },
+      { key: 'Cache-Control', value: 'no-store' },
     ] }];
   },
 };

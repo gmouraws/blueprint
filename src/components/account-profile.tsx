@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { configurePreferences, canImportPreferences, importPreferences, readPreferences } from '@/lib/client/preferences';
 import type { AccountPreferences } from '@/lib/account-preferences';
 import { AccountShortcutSettings } from './account-shortcuts';
+import { StreamInvitations } from './stream-invitations';
 
 export type Profile = { id:string; name:string; role:'owner'|'member'; avatar_id:string|null; preferences:AccountPreferences; preference_version:number;
   members?:{id:string;name:string;email:string;role:string;status:string}[]; invitations?:{id:string;email:string;expires_at:string;accepted_at:string|null;revoked_at:string|null}[]; cleanupPending?:boolean };
@@ -32,6 +33,7 @@ export function AccountProfile() {
         {canImportPreferences()&&<button disabled={busy} onClick={()=>{importPreferences();setNotice('Preferências antigas importadas somente neste dispositivo.');}}>Importar preferências antigas neste dispositivo</button>}
         <button onClick={()=>{const local=readPreferences();setPreferences({...preferences,sounds:local.sounds,screenVolume:local.screenVolume});setNotice('Confira e salve os padrões. Dispositivos de áudio não serão enviados.');}}>Copiar escolhas locais para revisão</button>
       </details>
+      {profile.role==='owner'&&<StreamInvitations/>}
       {profile.role==='owner'&&<details><summary>Gerenciar acesso</summary><label>E-mail do convite<input type="email" value={email} onChange={event=>setEmail(event.target.value)}/></label><button disabled={busy} onClick={()=>void action({action:'invite',email})}>Autorizar convite por 7 dias</button><p className="muted">O convidado acessa a sala e solicita seu código. Este botão não envia e-mail.</p>
         <ul>{profile.invitations?.map(invite=><li key={invite.id}>{invite.email} · {invite.accepted_at?'aceito':invite.revoked_at?'revogado':new Date(invite.expires_at)<new Date()?'expirado':'pendente'}{!invite.accepted_at&&!invite.revoked_at&&<button disabled={busy} onClick={()=>void action({action:'revoke-invite',id:invite.id})}>Revogar convite</button>}</li>)}</ul>
         <ul>{profile.members?.map(member=><li key={member.id}>{member.name} · {member.email} · {member.role==='owner'?'responsável':member.status==='active'?'ativo':'desativado'}<button disabled={busy||member.role==='owner'} onClick={()=>void action({action:member.status==='active'?'disable':'reactivate',id:member.id})}>{member.status==='active'?'Desativar':'Reativar'}</button><button disabled={busy} onClick={()=>void action({action:'revoke',id:member.id})}>Revogar sessões</button></li>)}</ul>

@@ -56,6 +56,8 @@ If provenance is uncertain, do not use or publish the information.
 6. Preserve accessibility, keyboard controls, and smaller-screen usability.
 7. Preserve the previous website through Git history and a recorded recovery SHA.
 
+The owner also approved a separate `/stream` experiment for guests holding expiring private invitations (ADR 021). It preserves the member rooms and uses a separate eight-person screen-only space. Invitation capabilities may appear only in the link fragment until exchanged for a restricted guest session; never put them in URL paths/queries, logs, analytics or member credentials.
+
 ## Languages
 
 - All application UI is Brazilian Portuguese.
