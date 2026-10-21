@@ -1,5 +1,27 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+
+test('Windows tries handoff once before media; blocked opening keeps explicit browser/download choices',async({page,baseURL})=>{
+ const origin='https://www.blueprint.app.br';const capability='p'.repeat(43);let handoffs=0,joins=0;
+ await page.addInitScript(()=>Object.defineProperty(navigator,'platform',{value:'Win32'}));
+ // Serve the local build under the approved origin. No production API or OS protocol is contacted.
+ await page.route(origin+'/**',async route=>{
+  const url=new URL(route.request().url());
+  if(url.pathname==='/api/stream'){
+   const body=route.request().postDataJSON();expect(page.url()).not.toContain(capability);
+   if(body.action==='exchange')return route.fulfill({json:{role:'share'}});
+   if(body.action==='handoff'){handoffs++;return route.fulfill({json:{credential:'invalid-test-ticket-prevents-os-launch'}});}
+   if(body.action==='join'){joins++;return route.fulfill({status:409,json:{error:'Espaço cheio de teste.'}});}
+   return route.fulfill({json:{ok:true}});
+  }
+  const response=await route.fetch({url:baseURL+url.pathname+url.search});await route.fulfill({response});
+ });
+ await page.goto(origin+'/stream?intent=share#invite='+capability);
+ await expect(page.getByRole('status')).toContainText('abertura automática');expect(handoffs).toBe(1);expect(joins).toBe(0);
+ await expect(page.getByRole('button',{name:'Abrir no aplicativo'})).toBeVisible();await expect(page.getByRole('link',{name:'Baixar para Windows',exact:true})).toBeVisible();
+ await page.waitForTimeout(1000);expect(handoffs).toBe(1);expect(joins).toBe(0);
+ await page.getByRole('button',{name:'Continuar no navegador',exact:true}).click();await expect(page.getByRole('status')).toContainText('Espaço cheio de teste');expect(joins).toBe(1);expect(handoffs).toBe(1);
+});
 test('guest invitation is stripped before exchange; no nickname, profile or microphone requests', async ({ page }) => {
   const capability = 'x'.repeat(43); let microphone = 0; let exchange = 0; let joins = 0;
   await page.exposeFunction('microphoneAttempt', () => { microphone++; });

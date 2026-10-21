@@ -6,6 +6,8 @@ import { COOKIE_NAME, verifySession } from './session';
 import { json, readBody } from './handlers';
 import { rateLimit, LimitError } from './rate-limit';
 import { STREAM_COOKIE, StreamError, streamService, validCredential } from './stream-space';
+import { invitationUrl } from './stream-discord';
+export { invitationUrl, discordTarget } from './stream-discord';
 
 export const streamServices = { getConfig, verifySession, rateLimit, streamService, fetch: globalThis.fetch };
 const input = z.discriminatedUnion('action', [
@@ -20,11 +22,6 @@ const management = z.discriminatedUnion('action', [
   z.object({ action: z.literal('create'), role: z.enum(['share', 'watch']), hours: z.union([z.literal(1), z.literal(24), z.literal(168)]) }).strict(),
   z.object({ action: z.literal('revoke'), id: z.uuid() }).strict(),
 ]);
-export function discordTarget(env: Record<string, string | undefined> = process.env) {
-  if (env.DISCORD_STREAM_ANNOUNCEMENTS_ENABLED !== 'true') return null;
-  try { const url = new URL(env.DISCORD_STREAM_WEBHOOK_URL ?? ''); return url.protocol === 'https:' && url.hostname === 'discord.com' && /^\/api(?:\/v10)?\/webhooks\/\d+\/[A-Za-z0-9_-]+$/.test(url.pathname) && !url.username && !url.password && !url.search && !url.hash ? url.href : null; } catch { return null; }
-}
-export function invitationUrl(origin: string, secret: string, role: 'share' | 'watch') { return `${origin}/stream?intent=${role}#invite=${secret}`; }
 export async function streamHandler(request: NextRequest, owner = false, deps = streamServices) {
   try {
     const config = deps.getConfig();
@@ -65,16 +62,9 @@ export async function streamHandler(request: NextRequest, owner = false, deps = 
       return json(await service.leave(secret, parsed.data.connectionId));
     }
     if (parsed.data.action === 'announce') {
-      const target = discordTarget();
-      const announcement = await service.announce(secret, parsed.data.attempt, !!target);
-      if (announcement && target) {
-        // Claim before sending: ambiguous network failures are never retried into duplicate posts.
-        try {
-          const response = await deps.fetch(target, { method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ content: `Transmissão ${announcement.label} começou. [Assistir](${invitationUrl(config.APP_ORIGIN, announcement.viewer.secret, 'watch')})`, allowed_mentions: { parse: [] }, flags: 4 }) });
-          if (!response.ok) return json({ ok: true, announcement: 'failed' });
-        } catch { return json({ ok: true, announcement: 'failed' }); }
-      }
-      return json({ ok: true, announcement: target ? 'checked' : 'disabled' });
+      await service.status(secret);
+      // Actual publication and notification delivery are reconciled independently by the route/events.
+      return json({ ok: true, announcement: 'checked' });
     }
     return json(await service[parsed.data.action](secret));
   } catch (error) {

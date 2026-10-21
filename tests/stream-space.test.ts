@@ -32,8 +32,9 @@ test('guest credentials are random hashed capabilities; expiration and revocatio
   await assert.rejects(api.exchange(credential()));
   const joined = await api.join(one.secret);
   state.people.push(new ParticipantInfo({ identity: `stream:${joined.connectionId}`, tracks: [new TrackInfo({ source: TrackSource.SCREEN_SHARE })] }));
-  const announcement = await api.announce(one.secret, randomUUID(), true); assert.ok(announcement);
-  const viewer = await api.exchange(announcement.viewer.secret); await api.join(viewer.secret);
+  const snapshot = await api.publicationSnapshot(); assert.equal(snapshot[0].key, digest(one.secret)); assert.equal(snapshot[0].authorized, true); assert.equal(snapshot[0].legacy, false);
+  const announcement = await api.announcementViewer(digest(one.secret));
+  const viewer = await api.exchange(announcement.secret); await api.join(viewer.secret);
   await api.manage('revoke', { id: one.link.id });
   await assert.rejects(api.status(one.secret)); await assert.rejects(api.status(viewer.secret)); await assert.rejects(api.exchange(one.link.secret));
   assert.equal(state.revoked.length, 2);
@@ -76,22 +77,6 @@ test('stale reservations, unknown peers, lock fencing and provider failure canno
   await assert.rejects(api.status(next.secret)); assert.ok(state.data.guests.some(g => g.hash === digest(next.secret)));
   state.outage = false; assert.equal(await api.cleanup(), false);
 });
-test('announcement requires real screen publication and is deduplicated across replacement/reconnect; default is disabled', async () => {
-  const { api, state, guest } = fixture(); const person = await guest(); const joined = await api.join(person.secret); const attempt = randomUUID();
-  assert.equal(await api.announce(person.secret, attempt, true), null);
-  state.people = [new ParticipantInfo({ identity: `stream:${joined.connectionId}`, tracks: [new TrackInfo({ sid: 'video-1', source: TrackSource.SCREEN_SHARE })] })];
-  assert.equal(await api.announce(person.secret, attempt, false), null);
-  const result = await api.announce(person.secret, attempt, true); assert.equal(result?.viewer.role, 'watch');
-  state.people[0].tracks[0].sid = 'replacement';
-  assert.equal(await api.announce(person.secret, attempt, true), null);
-  assert.equal(await api.announce(person.secret, randomUUID(), true), null);
-  state.people[0].tracks = []; await api.stopped(person.secret);
-  state.people[0].tracks = [new TrackInfo({ source: TrackSource.SCREEN_SHARE })];
-  assert.ok(await api.announce(person.secret, randomUUID(), true));
-  const viewer = await guest('watch'); await api.join(viewer.secret); await assert.rejects(api.announce(viewer.secret, randomUUID(), true));
-});
-
-
 test('desktop handoff is single-use, short-lived and preserves parent role/revocation without an admission', async () => {
   const { api, state, guest } = fixture();
   const person = await guest('watch');
@@ -128,8 +113,8 @@ test('persistent pair is explicit, reproducible only server-side, role-separated
   const joined = await api.join(share.secret);const claims = await new TokenVerifier(fixtureConfig.LIVEKIT_API_KEY,fixtureConfig.LIVEKIT_API_SECRET).verify(joined.token);
   assert.ok(claims.exp! <= Math.floor(Date.now()/1000)+120);assert.ok(claims.exp! > Math.floor(Date.now()/1000));assert.deepEqual(claims.video?.canPublishSources,['screen_share','screen_share_audio']);
   state.people=[new ParticipantInfo({identity:`stream:${joined.connectionId}`,tracks:[new TrackInfo({source:TrackSource.SCREEN_SHARE})]})];
-  const announcement=await api.announce(share.secret,randomUUID(),true);assert.equal(announcement!.viewer.role,'watch');assert.notEqual(announcement!.viewer.secret,links.share);
-  const viewer=await api.exchange(announcement!.viewer.secret);await api.join(viewer.secret);
+  const announcement=await api.announcementViewer(digest(share.secret));assert.equal(announcement.role,'watch');assert.notEqual(announcement.secret,links.share);
+  const viewer=await api.exchange(announcement.secret);await api.join(viewer.secret);
   await api.persistent('revoke');assert.equal(await api.configuredLinks(),null);
   await assert.rejects(api.exchange(links.share));await assert.rejects(api.exchange(links.watch));await assert.rejects(api.status(viewer.secret));assert.ok(state.revoked.length>=2);
 });

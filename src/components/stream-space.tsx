@@ -9,6 +9,8 @@ import { ScreenViewer } from './screen-viewer';
 import { IncomingAudio, type VolumeSetting } from './incoming-audio';
 import { SCREEN_QUALITIES, type ScreenQuality } from './screen-quality';
 import type {} from '@/lib/desktop';
+import { WindowsDownload } from './windows-download';
+import { streamDesktopScheme, streamDesktopUrl } from '@/lib/client/stream-desktop';
 
 class StreamRequestError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 async function post(body: object, keepalive = false) {
@@ -24,6 +26,8 @@ export default function StreamSpace() {
   const previous = useRef(Promise.resolve());
   const invite = useRef<string | null>(null);
   const [openingApp, setOpeningApp] = useState(false);
+  const [appChoice, setAppChoice] = useState(false);
+  const automaticAttempted = useRef(false), browserChosen = useRef(false), intendedAction = useRef('watch');
   useEffect(() => {
     if (left) return;
     let cancelled = false; let connectionId = ''; let expiry = 0; let pollBusy = false;
@@ -40,6 +44,7 @@ export default function StreamSpace() {
         const nativeStream = window.blueprintStreamDesktop?.version === 1;
         if (nativeStream) { const received = await window.blueprintStreamDesktop!.consumeInvite(); if (received) invite.current = received; }
         const intent = new URLSearchParams(location.search).get('intent') === 'share' ? 'share' : 'watch';
+        intendedAction.current = intent;
         // Strip the capability before any media, provider or guest-session request.
         history.replaceState(null, '', `/stream?intent=${intent}`);
         const desktop = !!window.blueprintDesktop;
@@ -47,6 +52,18 @@ export default function StreamSpace() {
         setNotice('Validando convite…');
         if (invite.current) { await post({ action: 'exchange', credential: invite.current }); invite.current = null; }
         if (cancelled) return;
+        if (!desktop && !nativeStream && /Win/i.test(navigator.platform) && !browserChosen.current && desktopScheme()) {
+          setAppChoice(true);
+          if (!automaticAttempted.current) {
+            automaticAttempted.current = true; setOpeningApp(true);
+            try {
+              const handoff = await post({ action: 'handoff' });
+              if (!cancelled) { setNotice('Confirme a abertura no Windows. Não é possível detectar se o aplicativo está instalado. Você pode tentar novamente ou continuar no navegador.'); launchDesktop(handoff.credential, intent); }
+            } catch { if (!cancelled) setNotice('A abertura automática não foi concluída. Use Abrir no aplicativo ou continue no navegador.'); }
+            finally { setOpeningApp(false); }
+          }
+          return;
+        }
         const result = await post({ action: 'join' }); connectionId = result.connectionId; expiry = result.expires;
         if (cancelled) return;
         setConnection({ room, share: result.role === 'share', intent, desktop, expires: expiry });
@@ -87,29 +104,36 @@ export default function StreamSpace() {
   async function leave() { setLeft(true); await lifetime.current(); setConnection(null); setNotice('Você saiu do espaço.'); }
   async function openApp() {
     if (openingApp || window.blueprintDesktop) return;
-    const profiles: Record<string, string> = { 'https://www.blueprint.app.br': 'blueprint-room', 'https://blueprint-git-codex-windows-room-gmouraws-8238s-projects.vercel.app': 'blueprint-room-preview' };
-    const scheme = profiles[location.origin];
+    const scheme = desktopScheme();
     if (!scheme) { setNotice('A abertura no aplicativo está disponível pelo convite no domínio de Production. Continue no navegador neste Preview.'); return; }
     setOpeningApp(true);
     try {
       const result = await post({ action: 'handoff' });
       if (!/^[A-Za-z0-9_-]{43}$/.test(result.credential)) throw Error('invalid');
-      const intent = connection?.intent === 'share' ? 'share' : 'watch';
+      const intent = intendedAction.current;
       await leave();
-      setNotice('Confirme a abertura no Windows. Se o aplicativo não abrir, instale a versão 0.1.5 ou continue no navegador.');
-      // This is an OS protocol handoff, never a Next.js route.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      location.assign(`${scheme}://stream?intent=${intent}#invite=${result.credential}`);
+      setAppChoice(true); automaticAttempted.current = true;
+      setNotice('Confirme a abertura no Windows. Não é possível detectar se o aplicativo está instalado. Continue no navegador se preferir.');
+      launchDesktop(result.credential, intent);
     } catch { setNotice('Não foi possível abrir no aplicativo. Continue no navegador ou tente novamente.'); }
     finally { setOpeningApp(false); }
   }
   return <main className="stream-space"><header className="stream-header"><Brand/><span className="muted">Transmissão privada · até 8 pessoas</span>{!left && <button onClick={() => void leave()}>Sair</button>}</header>
-    {connection && !connection.desktop && !left && <div className="stream-actions"><button disabled={openingApp} onClick={() => void openApp()}>Abrir no aplicativo</button><span className="muted">Ou continue no navegador. Windows 0.1.5 ou posterior.</span></div>}
+    {(appChoice || (connection && !connection.desktop && !left)) && <div className="stream-actions"><button disabled={openingApp} onClick={() => void openApp()}>Abrir no aplicativo</button>{appChoice && <button onClick={() => { browserChosen.current = true; setAppChoice(false); setLeft(false); setRetry(value => value + 1); }}>Continuar no navegador</button>}<span className="muted">Windows 0.1.5 ou posterior. A seleção e confirmação da tela continuam obrigatórias.</span></div>}
+    {appChoice && <WindowsDownload/>}
     {notice && <p role="status">{notice}</p>}
     {connection && !left && <RoomContext.Provider value={connection.room}><StreamContent {...connection} onNotice={setNotice}/></RoomContext.Provider>}
-    {notice && <button onClick={() => { setLeft(false); setRetry(value => value + 1); }}>{left ? 'Continuar no navegador' : 'Reabrir espaço'}</button>}
+    {notice && !appChoice && <button onClick={() => { browserChosen.current = true; setLeft(false); setRetry(value => value + 1); }}>{left ? 'Continuar no navegador' : 'Reabrir espaço'}</button>}
     <p className="stream-disclosure">Somente telas e o áudio escolhido por quem transmite. Nenhum microfone ou chat. Os rótulos de visitantes não verificam identidades.</p>
   </main>;
+}
+function desktopScheme() {
+  return streamDesktopScheme(location.origin);
+}
+function launchDesktop(credential: unknown, intent: string) {
+  const url = streamDesktopUrl(location.origin, credential, intent);
+  // Only the server's one-use 60-second ticket enters the OS protocol, never the invitation.
+  location.assign(url);
 }
 function StreamContent({ room, share, intent, desktop, expires, onNotice }: { room: Room; share: boolean; intent: string; desktop: boolean; expires: number; onNotice: (value: string) => void }) {
   const screens = useTracks([Track.Source.ScreenShare], { onlySubscribed: true });

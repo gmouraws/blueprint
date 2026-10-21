@@ -83,6 +83,19 @@ export function streamService(config: Config, store = streamStore(config), media
     return { id: invite.id, secret, expires, role };
   }
   return {
+    publicationSnapshot: async () => {
+      const people = await active(); const state = await store.read();
+      return people.filter(person => person.tracks.some(track => track.source === TrackSource.SCREEN_SHARE)).map(person => {
+        const guest = state.guests.find(item => item.identity === person.identity);
+        return { key: guest?.hash ?? person.identity, label: guest?.label ?? 0, identity: person.identity, authorized: !!guest && guest.expires > now() && validInvite(state, invitation(state, guest)) && invitation(state, guest)?.role === 'share', legacy: !!guest?.announcement };
+      });
+    },
+    announcementViewer: (key: string) => exclusive(async state => {
+      await cleanup(state);
+      const guest = state.guests.find(item => item.hash === key);
+      if (!guest || guest.expires <= now() || !validInvite(state, invitation(state, guest)) || invitation(state, guest)?.role !== 'share') throw new StreamError(401, 'Transmissão indisponível.');
+      return newInvite(state, 'watch', Math.min(guest.expires, now() + 3600000), guest.invite);
+    }),
     cleanup: () => exclusive(cleanup),
     // Read-only: commands reuse the configured pair and never mint permanent invitations.
     configuredLinks: async () => { const pair = persistentPair(await store.read()); return pair ? pairSecrets(pair) : null; },
@@ -164,18 +177,6 @@ export function streamService(config: Config, store = streamStore(config), media
     }),
     status: (secret: string) => exclusive(async state => { const cleanupPending = await cleanup(state); const guest = session(state, secret); return { expires: guest.expires, role: invitation(state, guest)!.role, cleanupPending }; }),
     leave: (secret: string, connectionId: string) => exclusive(async state => { const guest = validCredential(secret) ? state.guests.find(item => item.hash === digest(secret)) : undefined; if (guest?.identity === `stream:${connectionId}`) await revoke(guest); return { ok: true }; }),
-    // A client attempt ID groups track replacement/reconnects. Actual provider publication is required.
-    announce: (secret: string, attempt: string, enabled: boolean) => exclusive(async state => {
-      const guest = session(state, secret);
-      if (invitation(state, guest)!.role !== 'share' || !guest.identity) throw new StreamError(403, 'Transmissão não autorizada.');
-      if (!enabled) return null;
-      if (guest.announcement || guest.attempt === attempt) return null;
-      const participant = (await active()).find(item => item.identity === guest.identity);
-      if (!participant?.tracks.some(track => track.source === TrackSource.SCREEN_SHARE)) return null;
-      guest.attempt = attempt; guest.announcement = 'claimed';
-      const viewer = newInvite(state, 'watch', Math.min(guest.expires, now() + 3600000), guest.invite);
-      return { viewer, label: guest.label };
-    }),
     stopped: (secret: string) => exclusive(async state => {
       const guest = session(state, secret);
       const participant = (await active()).find(item => item.identity === guest.identity);
