@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 const appPaths = JSON.parse(readFileSync('.next/server/app-paths-manifest.json', 'utf8'));
 const prerender = JSON.parse(readFileSync('.next/prerender-manifest.json', 'utf8'));
 assert.ok(!Object.hasOwn(prerender.routes, '/'), 'Entry configuration must be evaluated at request time, not prerendered');
-for (const route of ['/stream/page', '/api/stream/route', '/api/stream/manage/route', '/api/discord/interactions/route']) assert.ok(appPaths[route], `Missing stream route: ${route}`);
+for (const route of ['/stream/page', '/api/stream/route', '/api/stream/manage/route', '/api/stream/events/route', '/api/discord/interactions/route']) assert.ok(appPaths[route], `Missing stream route: ${route}`);
 assert.ok(!Object.hasOwn(prerender.routes, '/stream'), 'Guest access must not be prerendered');
 for (const route of ['/page', '/api/account/route', '/api/account/code/route', '/api/account/verify/route', '/api/account/avatar/route', '/api/login/route', '/api/token/route', '/api/view/route', '/api/view/leave/route', '/api/logout/route', '/api/chat/route', '/api/chat/cleanup/route', '/api/voice/route', '/api/voice/leave/route', '/api/attachments/route', '/api/attachments/[id]/route', '/robots.txt/route']) assert.ok(appPaths[route], `Missing route: ${route}`);
 assert.ok(!Object.keys(appPaths).some(route => /\/(?:pt|about|privacy|builds|notes|experiments|sitemap\.xml)(?:\/|$)/.test(route)), 'Obsolete public route emitted');

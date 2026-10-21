@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { getConfig, type Config } from './config';
 import { rateLimit } from './rate-limit';
 import { streamService } from './stream-space';
-import { invitationUrl } from './stream-handlers';
+import { invitationUrl } from './stream-discord';
 
 const snowflake = z.string().regex(/^\d{17,20}$/);
 const command = z.object({ id: snowflake, application_id: snowflake, type: z.literal(2), guild_id: snowflake, channel_id: snowflake, token: z.string().regex(/^[A-Za-z0-9_.-]{10,512}$/), member: z.object({ user: z.object({ id: snowflake }) }), data: z.object({ name: z.literal('blueprint'), type: z.literal(1) }) });
@@ -61,7 +61,7 @@ export async function discordHandler(request: Request, schedule: (work: () => Pr
       if (!await deps.claim(runtime, interaction.id)) return;
       const links = await deps.streamService(runtime).configuredLinks();
       if (links && runtime.APP_ORIGIN.startsWith('https://')) {
-        content = 'Escolha como abrir o espaço no navegador. O link é privado: quem o receber terá acesso. A captura só começa após sua confirmação.';
+        content = 'No Windows, tentaremos abrir o aplicativo. Você também pode continuar no navegador. O link é privado; a captura só começa após selecionar e confirmar a tela.';
         components = [{ type: 1, components: [{ type: 2, style: 5, label: 'Transmitir', url: invitationUrl(runtime.APP_ORIGIN, links.share, 'share') }, { type: 2, style: 5, label: 'Assistir', url: invitationUrl(runtime.APP_ORIGIN, links.watch, 'watch') }] }];
       }
     } catch { content = 'Transmissão indisponível ou limite temporário atingido. Tente novamente em instantes.'; }

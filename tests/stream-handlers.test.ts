@@ -42,10 +42,10 @@ test('Discord is opt-in, exact-host only, scoped viewer capability, mention-free
   try {
     process.env.DISCORD_STREAM_ANNOUNCEMENTS_ENABLED = 'true'; process.env.DISCORD_STREAM_WEBHOOK_URL = 'https://discord.com/api/webhooks/123/test-only';
     const mock = deps();
-    mock.streamService = () => ({ ...service(), announce: async (_secret: string, _attempt: string, enabled: boolean) => { assert.equal(enabled, true); return { viewer: { id: randomUUID(), secret: credential(), role: 'watch' as const, expires: Date.now() + 10000 }, label: 1 }; } });
+    mock.streamService = () => ({ ...service(), status: async () => ({role:'share' as const, expires:Date.now()+10000,cleanupPending:false}) });
     mock.fetch = async (_url, init) => { sent++; const body = JSON.parse(String(init?.body)); assert.deepEqual(body.allowed_mentions, { parse: [] }); assert.match(body.content, /intent=watch#invite=/); assert.ok(!body.content.includes(secret)); return new Response('', { status: 503 }); };
     const response = await streamHandler(request({ action: 'announce', attempt: randomUUID() }, `${STREAM_COOKIE}=${secret}`), false, mock);
-    assert.equal(response.status, 200); assert.equal((await response.json()).announcement, 'failed'); assert.equal(sent, 1);
+    assert.equal(response.status, 200); assert.equal((await response.json()).announcement, 'checked'); assert.equal(sent, 0);
   } finally {
     if (prior.enabled === undefined) delete process.env.DISCORD_STREAM_ANNOUNCEMENTS_ENABLED; else process.env.DISCORD_STREAM_ANNOUNCEMENTS_ENABLED = prior.enabled;
     if (prior.url === undefined) delete process.env.DISCORD_STREAM_WEBHOOK_URL; else process.env.DISCORD_STREAM_WEBHOOK_URL = prior.url;
