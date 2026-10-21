@@ -4,7 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { fixtureConfig as config } from './config-fixture';
 import { imageHandlers, imageServices } from '../src/lib/server/image-handlers';
-import { COOKIE_NAME, signSession } from '../src/lib/server/session';
+import { signSession } from './account-fixture';
+import { COOKIE_NAME } from '../src/lib/server/session';
 import { LimitError } from '../src/lib/server/rate-limit';
 const id = randomUUID();
 function request(token?: string, body?: object, origin = config.APP_ORIGIN) {
@@ -20,7 +21,7 @@ test('image endpoints require a valid session and exact origin before touching s
     assert.equal((await api(request(value,{action:'complete',id}))).status,401);
   }
   assert.equal((await api(request(token,undefined,'https://untrusted.test'),id)).status,403);
-  assert.equal((await imageHandlers({...deps,getConfig:()=>({...config,ROOM_PASSWORD:'rotated-long-shared-password'})})(request(token),id)).status,401);
+
   assert.equal(touched,false);
 });
 test('image routes bound input, rate-limit writes and never expose provider errors',async()=>{

@@ -35,7 +35,7 @@ test('native processing updates the microphone without republishing, persists th
     await expect(page.getByText('Reconectando…',{exact:true})).toBeVisible({timeout:20000});await context.setOffline(false);
     await expect(page.getByText('Conectado',{exact:true})).toBeVisible({timeout:20000});
     await page.getByRole('button',{name:'Configurações de áudio',exact:true}).click();await expect(preference).not.toBeChecked();
-    expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('blueprint.audio-preferences')!).noiseSuppression)).toBe(false);
+    expect(await page.evaluate(()=>JSON.parse(localStorage.getItem(`blueprint.preferences.v2:00000000-0000-4000-8000-000000000001:${/Win/.test(navigator.platform)?'windows':/Mac/.test(navigator.platform)?'mac':'other'}`)!).noiseSuppression)).toBe(false);
     await page.keyboard.press('Escape');await page.getByRole('button',{name:'Sair da sala',exact:true}).click();await expect.poll(()=>liveTracks(page)).toBe(0);
     await join(page);await page.getByRole('button',{name:'Configurações de áudio',exact:true}).click();await expect(preference).not.toBeChecked();
     expect(await liveTracks(page)).toBe(0);

@@ -42,7 +42,7 @@ label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 7px
 .configuration-notice li span { display: block; font-size: 12px; }
 .notice,.error { font-size: 13px; border: 1px solid #66573a; color: #f3d9a5; background: #302b21; border-radius: 8px; padding: 13px 15px; } .notice { margin-top: 20px; } .notice p { margin-top: 6px; } .error { border-color: #76505b; color: #ffcad0; background: #34232b; margin-bottom: 16px; }
 .room-shell { height: 100dvh; min-height: 0; display: flex; flex-direction: column; }
-.room-header { display: flex; align-items: center; gap: 24px; padding: 8px 20px; border-bottom: 1px solid var(--line); flex: none; }
+.room-header { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 8px 20px; border-bottom: 1px solid var(--line); flex: none; }
 .room-header .brand { font-size: 18px; }
 .room-header > .small-label { margin-left: auto; }
 .connection { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-muted); }
@@ -278,4 +278,21 @@ button.listening-muted { border-color: #d9ba78; color: #f3d9a5; background: #302
   .content-delete { opacity: 0; }
   .message:hover .message-actions .content-delete,.message:focus-within .message-actions .content-delete,
   .message-image:hover .content-delete,.message-image:focus-within .content-delete { opacity: 1; }
+}
+.profile-dialog { position: fixed; inset: 5vh auto auto 50%; transform: translateX(-50%); width: min(92vw,520px); max-height: 90dvh; overflow: auto; z-index: 100; padding: 20px; background: #181f28; color: #edf1f5; border: 1px solid #303b48; border-radius: 10px; }
+.profile-dialog::backdrop { background: #0009; }
+.profile-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.profile-dialog label { display:block; margin-top:12px; }
+.profile-dialog input:not([type=checkbox]),.profile-dialog select { width:100%; }
+.profile-dialog details { margin-top:16px; border-top:1px solid #303b48; padding-top:12px; }
+.profile-dialog li { overflow-wrap:anywhere; margin-block:8px; }
+.avatar { display:inline-flex; width:24px; height:24px; flex:0 0 24px; align-items:center; justify-content:center; border-radius:50%; overflow:hidden; background:#303b48; color:#edf1f5; font-size:10px; }
+.avatar img { width:24px; height:24px; object-fit:cover; }
+
+@media (max-width: 640px) {
+  .room-header { display:grid; grid-template-columns:auto minmax(0,1fr) 44px; gap:8px; }
+  .room-header .brand { grid-column:1; grid-row:1; }
+  .room-header .connection { grid-column:2; grid-row:1; }
+  .room-header .profile-trigger { grid-column:3; grid-row:1; width:44px; padding:10px; }
+  .room-header .profile-trigger span { display:none; }
 }

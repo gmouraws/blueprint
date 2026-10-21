@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from 'react';
 import { Track, type Participant } from 'livekit-client';
 import { useIsMuted, useIsSpeaking, useParticipants } from '@livekit/components-react';
 import { VOICE_ROOMS, type VoiceRoomId, type VoiceRoster } from '@/lib/room';
+import { Avatar } from './avatar';
 import { Icon } from './icons';
 import { defaultVolume, ParticipantQuality, VolumeControl, volumeIdentity, type VolumeSetting } from './incoming-audio';
 
@@ -19,7 +20,7 @@ function ParticipantRow({ participant, volume, onVolume }: { participant: Partic
   const [position, setPosition] = useState({ top: 0, left: 0 });
   return <li className="participant compact-participant">
     <span className={`speaking-dot ${speaking ? 'is-speaking' : ''}`} role="img" aria-label={speaking ? `${name} está falando` : `${name} não está falando`} title={speaking ? 'Falando' : 'Em silêncio'} />
-    <strong>{name}{participant.isLocal && <span className="muted"> · você</span>}</strong>
+    <Avatar userId={participant.identity.split(':')[0]} name={name}/><strong>{name}{participant.isLocal && <span className="muted"> · você</span>}</strong>
     <MicrophoneState muted={muted} name={name} />
     {!participant.isLocal && volume.muted && <span className="listener-muted" role="img" aria-label={`${name} silenciado apenas para você`} title="Silenciado apenas para você"><Icon name="audioOff" /></span>}
     <button className="icon-button participant-options" popoverTarget={id} aria-label={`Opções de ${name}`} title={`Opções de ${name}`} onClick={event => {
@@ -76,7 +77,7 @@ export function VoiceNavigation({ currentRoom, connected, browsing, busy, onBrow
           </button>
         </div>
         <div id={`members-${item.id}`} hidden={!expanded[item.id]}>
-          <ul className="participants">{mine ? participants.map(person => <ParticipantRow key={person.identity} participant={person} volume={volumes[volumeIdentity(person.identity)] ?? defaultVolume} onVolume={setting => onVolume(volumeIdentity(person.identity), setting)} />) : roster?.[item.id].map(person => <li className="participant compact-participant other-room-member" key={person.identity}><strong>{person.name}</strong><MicrophoneState muted={person.muted} name={person.name} /></li>)}</ul>
+          <ul className="participants">{mine ? participants.map(person => <ParticipantRow key={person.identity} participant={person} volume={volumes[volumeIdentity(person.identity)] ?? defaultVolume} onVolume={setting => onVolume(volumeIdentity(person.identity), setting)} />) : roster?.[item.id].map(person => <li className="participant compact-participant other-room-member" key={person.identity}><Avatar userId={person.identity.split(':')[0]} name={person.name}/><strong>{person.name}</strong><MicrophoneState muted={person.muted} name={person.name} /></li>)}</ul>
           {members?.length === 0 && <p className="room-empty muted">Ninguém na voz</p>}
         </div>
       </section>;

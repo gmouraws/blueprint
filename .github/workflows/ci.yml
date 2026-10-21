@@ -23,7 +23,8 @@ jobs:
       - name: Build and verify server-only secret isolation
         run: npm run build
         env:
-          ROOM_PASSWORD: ci-canary-password-not-a-real-secret
+          BETTER_AUTH_SECRET: ci-canary-account-secret-not-a-real-secret
+          RESEND_API_KEY: ci-canary-email-key-not-a-real-secret
           SESSION_SECRET: ci-canary-signing-key-not-a-real-secret
           LIVEKIT_API_KEY: ci-canary-api-key
           LIVEKIT_API_SECRET: ci-canary-livekit-secret-not-a-real-secret

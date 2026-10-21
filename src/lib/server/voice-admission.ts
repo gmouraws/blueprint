@@ -7,7 +7,8 @@ import type { Session } from './session';
 import { createRoomToken, createScreenToken, ensureRoom, livekitRoomName, screenRoomName, roomService, RoomFullError } from './livekit';
 import { MAX_PARTICIPANTS, VOICE_ROOMS, type VoiceRoomId, type VoiceRoster } from '../room';
 
-export type Admission = { identity: string; owner: string; room: VoiceRoomId; issued: number };
+export type Admission = { identity: string; owner: string; sessionId?: string; room: VoiceRoomId; issued: number };
+export class TakeoverRequired extends Error {}
 export class AdmissionBusy extends Error {}
 export type AdmissionBackend = {
   lock: (owner: string) => Promise<boolean>;
@@ -50,9 +51,10 @@ export function admissionService(config: Config, backend = ledger(config), clien
     } finally { await backend.unlock(lock); }
   }
   return {
-    async join(session: Session, room: VoiceRoomId) {
+    async join(session: Session, room: VoiceRoomId, takeover = false) {
       return exclusive(async entries => {
         const active = await participants();
+        if (!takeover && entries.some(entry => entry.owner === session.identity && entry.sessionId !== session.sessionId && (active[entry.room].some(person => person.identity === entry.identity) || now() - entry.issued < 150000))) throw new TakeoverRequired();
         const kept: Admission[] = [];
         for (const entry of entries) {
           const present = active[entry.room].some(person => person.identity === entry.identity);
@@ -63,11 +65,12 @@ export function admissionService(config: Config, backend = ledger(config), clien
         const known = new Set(entries.map(entry => entry.identity));
         const unknown = VOICE_ROOMS.flatMap(item => active[item.id].filter(person => !known.has(person.identity)).map(person => ({ identity: person.identity, room: item.id })));
         const recovered = unknown.filter(person => person.identity.startsWith(session.identity + ':'));
+        if (recovered.length && !takeover) throw new TakeoverRequired();
         for (const person of recovered) await revoke({ ...person, owner: session.identity, issued: now() });
         if (kept.length + unknown.length - recovered.length >= MAX_PARTICIPANTS) throw new RoomFullError();
         await ensureRoom(config, client, room);
         const identity = `${session.identity}:${randomUUID()}`;
-        const entry = { identity, owner: session.identity, room, issued: now() };
+        const entry = { identity, owner: session.identity, sessionId: session.sessionId, room, issued: now() };
         const token = await createRoomToken(config, { ...session, identity }, room);
         const screenIdentity = identity + ':screen';
         const screenToken = await createScreenToken(config, { ...session, identity: screenIdentity }, room, true);
@@ -77,7 +80,7 @@ export function admissionService(config: Config, backend = ledger(config), clien
     },
     async leave(session: Session, identity?: string) {
       return exclusive(async entries => {
-        const mine = entries.filter(entry => entry.owner === session.identity && (!identity || identity === entry.identity));
+        const mine = entries.filter(entry => entry.owner === session.identity && entry.sessionId === session.sessionId && (!identity || identity === entry.identity));
         for (const entry of mine) await revoke(entry);
         return { entries: entries.filter(entry => !mine.includes(entry)), result: undefined };
       });

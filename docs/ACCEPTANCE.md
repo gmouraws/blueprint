@@ -57,3 +57,7 @@ Automated tests do not establish real-device, multi-network or provider-quota be
 - Configure, clear/reset and reload shortcuts; try duplicates/reserved bindings, typing fields, contenteditable, IME and held keys. Nothing should activate when another application has focus.
 - Use two physical devices to hear microphone, screen and tone suppression/restoration. Synthetic local transport tests are not proof of audibility or Cloud behavior.
 - Reach the image trash icon by hover, keyboard and touch. Cancel then delete a disposable owned image: preserve its text and other messages/images. Other senders have no trash control; ordinary message deletion is unchanged.
+
+## Invite-only accounts (Preview only)
+
+Follow [ACCOUNTS.md](ACCOUNTS.md) for the acceptance sequence and Production cutover restrictions. Controlled Better Auth/PostgreSQL tests cover invitation/OTP/session/ownership guards; browser fixtures exercise UI without a hidden application bypass. Verify real email delivery only to an authorized recipient, Cloud revocation/token cutoff, cross-device takeover and physical audio separately. Never treat an installer, mock authentication or local LiveKit revocation as proof of hosted authentication/media security.

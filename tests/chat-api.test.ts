@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { NextRequest } from 'next/server';
 import { chatHandlers, chatServices, cleanupHandler } from '../src/lib/server/chat-handlers';
-import { COOKIE_NAME, signSession } from '../src/lib/server/session';
+import { signSession } from './account-fixture';
+import { COOKIE_NAME } from '../src/lib/server/session';
 import { LimitError } from '../src/lib/server/rate-limit';
 import { ChatConflict, ChatUnavailable } from '../src/lib/server/chat-store';
 
@@ -33,19 +34,13 @@ test('delete authenticates, rate limits, rejects ownership spoofing and distingu
   const blocked=chatHandlers({...deps,rateLimit:async()=>{throw new LimitError(429);},deleteChat:async()=>{throw new Error('must not execute');}});
   assert.equal((await blocked.DELETE(request('DELETE',token,body))).status,429);
 });
-test('chat rejects absent, altered, expired and password-rotated sessions before storage', async context => {
-  let touches = 0;
-  const api = chatHandlers({ ...deps, rateLimit: async () => { touches++; }, readChat: async () => { touches++; throw new Error('unreachable'); }, saveChat: async () => { touches++; throw new Error('unreachable'); } });
-  const { token } = await signSession('Ana', config, true);
-  for (const value of [undefined, token + 'x']) for (const method of ['GET', 'POST', 'DELETE'] as const) assert.equal((await api[method](request(method, value))).status, 401);
-  const rotated = chatHandlers({ ...deps, getConfig: () => ({ ...config, ROOM_PASSWORD: 'rotated-password-for-tests' }), readChat: async () => { touches++; throw new Error(); } });
-  assert.equal((await rotated.GET(request('GET', token))).status, 401);
-  assert.equal((await rotated.DELETE(request('DELETE', token))).status, 401);
-  context.mock.timers.enable({ apis: ['Date'], now: Date.now() + 2592000001 });
-  assert.equal((await api.POST(request('POST', token))).status, 401);
-  assert.equal((await api.DELETE(request('DELETE', token))).status, 401);
-  assert.equal(touches, 0);
+test('chat rejects absent and altered account cookies before storage', async () => {
+  const { token } = await signSession('Ana', config);
+  let touched = false; const api = chatHandlers({...deps, readChat: async()=>{touched=true;throw new Error();}});
+  for (const value of [undefined, token+'x', 'legacy.jwt.cookie']) assert.equal((await api.GET(request('GET',value))).status,401);
+  assert.equal(touched,false);
 });
+
 test('chat derives identity/name on server, rejects spoofed fields and persists before acknowledgement', async () => {
   const { token, session } = await signSession('Ana', config);
   const requestId = randomUUID(); let saved = false;

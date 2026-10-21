@@ -1,3 +1,4 @@
+import { installAccount, authenticate } from '../browser-account';
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -5,12 +6,12 @@ test('viewing authorization fails safely without joining voice; disclosure and k
   const denied = await request.post('/api/view', { headers: { origin: baseURL! }, data: { room: 'second' } });
   expect(denied.status()).toBe(401);
   let voiceRequests = 0; const viewed: string[] = [];
-  await page.route('**/api/login', route => route.fulfill({ json: { nickname: 'Ana' } }));
+  await installAccount(page, 'Ana' );
   await page.route('**/api/token', route => { voiceRequests++; return route.abort(); });
   await page.route('**/api/voice', route => route.fulfill({ json: { rooms: { main: [], second: [] } } }));
   await page.route('**/api/chat**', route => route.fulfill({ json: { messages: [], hasMore: false, serverTime: new Date().toISOString() } }));
   await page.route('**/api/view', route => { viewed.push(route.request().postDataJSON().room); return route.fulfill({ status: 503, json: { error: 'Visualização indisponível. Tente novamente.' } }); });
-  await page.goto('/'); await page.getByLabel('Seu apelido').fill('Ana'); await page.getByLabel('Senha da sala').fill('fixture-password');
+  await page.goto('/'); await authenticate(page, 'Ana');
   await page.getByRole('button', { name: 'Abrir chat' }).click();
   await page.getByRole('button', { name: 'Expandir participantes de Sala 2' }).click();
   expect(viewed).toEqual([]);
@@ -28,7 +29,7 @@ test('entry is Portuguese, accessible, private and responsive', async ({ page, r
   await expect(page.getByText('Até 8 pessoas · Voz, chat e compartilhamento de tela', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Entrar na sala', level: 1 })).toBeVisible();
   await expect(page.getByText(/Boa companhia|Uma tela em comum|Entre, a sala é nossa|Feito para estar junto/)).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Entrar na sala' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Receber código' })).toBeEnabled();
   for (const width of [1440, 1024, 768, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -49,8 +50,8 @@ test('runtime configuration diagnoses missing and invalid fields without leaking
   const origin = `http://localhost:${Number(process.env.PLAYWRIGHT_PORT ?? '3001') + 2}`;
   await page.goto(origin);
   await expect(page.getByText('Configuração necessária', { exact: true })).toBeVisible();
-  for (const label of ['Seu apelido', 'Senha da sala']) await expect(page.getByLabel(label)).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Entrar na sala' })).toBeDisabled();
+  for (const label of ['E-mail']) await expect(page.getByLabel(label)).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Receber código' })).toBeDisabled();
   await page.getByText('Ver diagnóstico da configuração', { exact: true }).click();
   const issues = page.locator('.configuration-notice li');
   await expect(issues).toHaveCount(3);
@@ -70,50 +71,26 @@ test('runtime configuration diagnoses missing and invalid fields without leaking
   }
 });
 
-test('authentication errors clear password and show useful feedback without a fake call', async ({ page }) => {
-  await page.route('**/api/login', route => route.fulfill({ status: 401, json: { error: 'Senha incorreta.' } }));
-  await page.goto('/');
-  await page.getByLabel('Seu apelido').fill('João');
-  await page.getByLabel('Senha da sala').fill('incorrect-test-password');
-  await page.getByRole('button', { name: 'Entrar na sala' }).click();
-  await expect(page.locator('main').getByRole('alert')).toHaveText('Senha incorreta.');
-  await expect(page.getByLabel('Senha da sala')).toHaveValue('');
-  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('incorrect-test-password');
-  await expect(page.getByRole('button', { name: 'Compartilhar tela' })).toHaveCount(0);
-});
-
 test('room full response is visible and nickname persists without password', async ({ page }) => {
-  await page.route('**/api/login', route => route.fulfill({ json: { nickname: 'Ana' } }));
+  await installAccount(page, 'Ana' );
   await page.route('**/api/token', route => route.fulfill({ status: 409, json: { error: 'A sala está cheia: 8 pessoas já estão conectadas.' } }));
   await page.goto('/');
-  await page.getByLabel('Seu apelido').fill('Ana');
-  await page.getByLabel('Senha da sala').fill('test-only-password');
+  await authenticate(page, 'Ana');
   await page.getByRole('button', { name: 'Entrar na sala' }).click();
   await expect(page.locator('main').getByRole('alert')).toHaveText('A sala está cheia: 8 pessoas já estão conectadas.');
   await page.reload();
-  await expect(page.getByLabel('Seu apelido')).toHaveValue('Ana');
-  await expect(page.getByLabel('Senha da sala')).toHaveValue('');
-});
-
-test('network failure uses Portuguese feedback and clears the password', async ({ page }) => {
-  await page.route('**/api/login', route => route.abort('internetdisconnected'));
-  await page.goto('/');
-  await page.getByLabel('Seu apelido').fill('Ana');
-  await page.getByLabel('Senha da sala').fill('test-only-password');
-  await page.getByRole('button', { name: 'Entrar na sala' }).click();
-  await expect(page.locator('main').getByRole('alert')).toHaveText('Não foi possível acessar a sala. Confira sua conexão e tente novamente.');
-  await expect(page.getByLabel('Senha da sala')).toHaveValue('');
+  await expect(page.getByLabel('E-mail',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Senha da sala')).toHaveCount(0);
 });
 
 test('actual room layout handles failed connection and exposes accessible controls', async ({ page }) => {
   // UI-only network fixtures. These do not simulate a successful media connection.
-  await page.route('**/api/login', route => route.fulfill({ json: { nickname: 'Ana' } }));
+  await installAccount(page, 'Ana' );
   await page.route('**/api/token', route => route.fulfill({ json: { nickname: 'Ana', identity: 'fixture', serverUrl: 'ws://127.0.0.1:9', token: 'unusable-fixture-token' } }));
   let logoutCalls = 0;
   await page.route('**/api/logout', route => { logoutCalls++; return route.fulfill({ json: { ok: true } }); });
   await page.goto('/');
-  await page.getByLabel('Seu apelido').fill('Ana');
-  await page.getByLabel('Senha da sala').fill('test-only-password');
+  await authenticate(page, 'Ana');
   await page.getByRole('button', { name: 'Entrar na sala' }).click();
   await expect(page.getByRole('heading', { name: 'Sala principal' })).toBeVisible();
   await expect(page.getByTitle('Até 8 participantes nas duas salas juntas')).toContainText('Voz');
@@ -134,7 +111,7 @@ test('actual room layout handles failed connection and exposes accessible contro
   await expect(page.getByLabel('Senha da sala')).toHaveCount(0);
   expect(logoutCalls).toBe(0);
   await page.getByRole('button', { name: 'Esquecer acesso neste dispositivo' }).click();
-  await expect(page.getByLabel('Senha da sala')).toBeVisible();
+  await expect(page.getByLabel('E-mail',{exact:true})).toBeVisible();
   expect(logoutCalls).toBe(1);
 });
 

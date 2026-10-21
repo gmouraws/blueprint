@@ -1,3 +1,4 @@
+import { installAccount, authenticate } from '../browser-account';
 import {test,expect} from '@playwright/test';
 import { createRequire } from 'node:module';
 const sharp: typeof import('sharp').default = createRequire(import.meta.url)('sharp');
@@ -7,8 +8,8 @@ test('image paste/removal, attachment retry, safe links, viewer and reload use s
  const store=await createChatFixture();
  const bytes=await sharp({create:{width:64,height:32,channels:3,background:'#a3e1c5'}}).png().toBuffer();
  try {
-  await store.install(page,'Ana'); await page.route('**/api/login',route=>route.fulfill({json:{nickname:'Ana'}}));
-  const open=async()=>{await page.goto('/');await page.getByLabel('Seu apelido').fill('Ana');await page.getByLabel('Senha da sala').fill('test-only-password');await page.getByRole('button',{name:'Abrir chat'}).click();await expect(page.getByText('Carregando histórico…')).toHaveCount(0);};
+  await store.install(page,'Ana'); await installAccount(page, 'Ana');
+  const open=async()=>{await page.goto('/');await authenticate(page, 'Ana');await page.getByRole('button',{name:'Abrir chat'}).click();await expect(page.getByText('Carregando histórico…')).toHaveCount(0);};
   await open();
   const field=page.getByLabel('Mensagem',{exact:true});
   await field.fill('https://example.test/docs <script>plain</script>');

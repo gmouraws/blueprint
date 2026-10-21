@@ -1,5 +1,7 @@
 # Setup, preview and recovery
 
+> Account Preview: the shared-password setup below describes the Production baseline. Follow [ACCOUNTS.md](ACCOUNTS.md) for this branch’s additional configuration, migration, owner bootstrap and cutover.
+
 ## Local environment
 
 Use the repository's Node 22 baseline (22.17+); npm ci installs the pinned lockfile. livekit-client 2.22.0 is pinned because 2.23.0 introduces a dependency requiring Node 22.22, above the existing local baseline. No dependency downgrade changes media architecture.

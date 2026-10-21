@@ -6,6 +6,7 @@ import { microphoneProcessing } from './microphone-processing';
 // Called synchronously in the join gesture, before authentication awaits.
 export function createCallRoom(prepareAudio = true) {
   const room = new Room({ adaptiveStream: { pixelDensity: 'screen' }, dynacast: true,
+    audioOutput: { deviceId: readPreferences().output },
     audioCaptureDefaults: { deviceId: readPreferences().microphone, ...microphoneProcessing(readPreferences().noiseSuppression, navigator.mediaDevices?.getSupportedConstraints() ?? {}) },
     publishDefaults: { screenShareEncoding: { maxBitrate: 5_000_000, maxFramerate: 30 }, stopMicTrackOnMute: false },
   });

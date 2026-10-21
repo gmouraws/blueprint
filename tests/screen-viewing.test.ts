@@ -5,7 +5,8 @@ import { TokenVerifier, RoomConfiguration, ServerError } from 'livekit-server-sd
 import { viewHandler } from '../src/lib/server/view-handler';
 import { createScreenToken, createRoomToken, screenRoomName, livekitRoomName, SCREEN_CONNECTION_LIMIT, roomService } from '../src/lib/server/livekit';
 import { randomUUID } from 'node:crypto';
-import { COOKIE_NAME, signSession } from '../src/lib/server/session';
+import { signSession } from './account-fixture';
+import { COOKIE_NAME } from '../src/lib/server/session';
 import { LimitError } from '../src/lib/server/rate-limit';
 import { fixtureConfig as config } from './config-fixture';
 
@@ -20,8 +21,7 @@ test('viewing requires current authentication, an exact origin and an allowliste
   for (const cookie of [undefined, 'invalid']) assert.equal((await viewHandler(request({ room: 'second' }, cookie), deps)).status, 401);
   assert.equal((await viewHandler(request({ room: 'second' }, token, 'https://unrelated.test'), deps)).status, 403);
   for (const body of [{ room: 'other' }, { room: 'second', publish: true }, { room: 'main', identity: 'someone' }, {}]) assert.equal((await viewHandler(request(body, token), deps)).status, 400);
-  const changedPassword = { ...deps, getConfig: () => ({ ...config, ROOM_PASSWORD: 'changed-password-invalidates-sessions' }) };
-  assert.equal((await viewHandler(request({ room: 'second' }, token), changedPassword)).status, 401);
+
 });
 
 test('view grants are hidden, read-only, short-lived and scoped only to the chosen screen transport', async () => {
@@ -69,7 +69,7 @@ test('view cleanup is authenticated and cannot revoke voice publishers or anothe
   const cleanup = { ...deps, roomService: () => Object.assign(roomService(config), { removeParticipant: async (room: string, identity: string, options?: { revokeTokenTs?: bigint }) => {
     assert.equal(room, screenRoomName(config, 'second')); assert.ok(options?.revokeTokenTs); removed.push(identity);
   } }) };
-  const identity = session.identity + ':view:' + randomUUID();
+  const identity = (await (await viewHandler(request({ room: 'second' }, token), deps)).json()).identity;
   assert.equal((await viewHandler(request({ room: 'second', identity }), cleanup, true)).status, 401);
   for (const invalid of [randomUUID() + ':view:' + randomUUID(), session.identity + ':screen', session.identity + ':view:invalid']) assert.equal((await viewHandler(request({ room: 'second', identity: invalid }, token), cleanup, true)).status, 400);
   assert.equal((await viewHandler(request({ room: 'second', identity }, token), cleanup, true)).status, 200);
@@ -77,8 +77,8 @@ test('view cleanup is authenticated and cannot revoke voice publishers or anothe
 });
 
 test('viewer cleanup is idempotent for an absent participant but does not hide provider failures', async () => {
-  const { token, session } = await signSession('Ana', config);
-  const identity = session.identity + ':view:' + randomUUID();
+  const { token } = await signSession('Ana', config);
+  const identity = (await (await viewHandler(request({ room: 'second' }, token), deps)).json()).identity;
   for (const [code, expected] of [['not_found', 200], ['permission_denied', 503], ['unavailable', 503]] as const) {
     const cleanup = { ...deps, roomService: () => Object.assign(roomService(config), { removeParticipant: async () => { throw new ServerError('Provider error', 'Safe test fixture', 404, code); } }) };
     assert.equal((await viewHandler(request({ room: 'second', identity }, token), cleanup, true)).status, expected);

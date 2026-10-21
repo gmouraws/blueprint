@@ -1,12 +1,11 @@
+import { signSession } from './account-fixture';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { NextRequest } from 'next/server';
 import { TokenVerifier, RoomConfiguration, Room } from 'livekit-server-sdk';
-import { createHmac } from 'node:crypto';
-import { SignJWT } from 'jose';
 import { handlers, services } from '../src/lib/server/handlers';
 import { type Config, configuration, configurationStatus, allowedOrigins } from '../src/lib/server/config';
-import { cookieOptions, COOKIE_NAME, passwordMatches, signSession, verifySession, SESSION_SECONDS, REMEMBERED_SESSION_SECONDS } from '../src/lib/server/session';
+import { COOKIE_NAME } from '../src/lib/server/session';
 import { createRoomToken, createScreenToken, ensureRoom, livekitRoomName, RoomFullError } from '../src/lib/server/livekit';
 import { LimitError, enforceLimitResults } from '../src/lib/server/rate-limit';
 import { encodeMessage, decodeMessage, normalizeNickname, validNickname } from '../src/lib/room';
@@ -17,7 +16,7 @@ const config: Config = {
   UPSTASH_REDIS_REST_URL: 'https://fixture.upstash.io', UPSTASH_REDIS_REST_TOKEN: 'test-only-redis-token',
 };
 const fakeAdmission: typeof services.admissionService = () => ({
-  join: async (session, room) => ({ identity: session.identity, nickname: session.nickname, voiceRoom: room, serverUrl: config.LIVEKIT_URL, token: await createRoomToken(config, session, room), screens: { identity: session.identity, nickname: session.nickname, voiceRoom: room, serverUrl: config.LIVEKIT_URL, token: await createScreenToken(config, session, room, true) } }),
+  join: async (session, room) => ({ identity: session.identity, nickname: session.nickname, voiceRoom: room, serverUrl: config.LIVEKIT_URL, token: await createRoomToken(config, session, room), screens: { identity: session.identity + ':screen', nickname: session.nickname, voiceRoom: room, serverUrl: config.LIVEKIT_URL, token: await createScreenToken(config, session, room, true) } }),
   leave: async () => {}, roster: async () => ({ main: [], second: [] }),
 });
 const deps = { ...services, getConfig: () => config, rateLimit: async () => {}, admissionService: fakeAdmission };
@@ -41,13 +40,12 @@ test('configuration diagnostics contain only known variable names and safe categ
   const values = { ...config, LIVEKIT_API_SECRET: undefined, ROOM_PASSWORD: 'short-canary', SESSION_SECRET: 'replace-with-session-canary' };
   const status = configurationStatus(values);
   assert.deepEqual(status, { ready: false, issues: [
-    { name: 'ROOM_PASSWORD', status: 'invalid' },
     { name: 'SESSION_SECRET', status: 'placeholder' },
     { name: 'LIVEKIT_API_SECRET', status: 'missing' },
   ] });
   for (const value of Object.values(values).filter((value): value is string => !!value)) assert.ok(!JSON.stringify(status).includes(value));
   assert.deepEqual(configurationStatus(config), { ready: true, issues: [] });
-  assert.equal(configurationStatus({}).issues.length, 9);
+  assert.equal(configurationStatus({}).issues.length, 8);
 });
 test('origin validation remains exact and trusted Preview aliases are accepted independently', async () => {
   for (const APP_ORIGIN of ['https://room.example.test/', 'https://room.example.test/path', 'http://room.example.test', 'https://user:password@room.example.test']) {
@@ -72,106 +70,10 @@ test('nickname normalization preserves Portuguese and rejects markup/control cha
   assert.equal(normalizeNickname('  João   Silva  '), 'João Silva');
   for (const invalid of ['a', '<script>', 'Ana\u202e', 'a'.repeat(25)]) assert.equal(validNickname(invalid), false);
 });
-test('invalid password is rejected and never creates a session cookie', async () => {
-  assert.equal(passwordMatches('wrong', config), false);
-  const response = await handlers(deps).login(request({ nickname: 'João', password: 'wrong' }));
-  assert.equal(response.status, 401); assert.equal(response.headers.get('set-cookie'), null);
-  assert.equal(response.headers.get('cache-control'), 'no-store');
-});
-test('successful login sets a signed HttpOnly Secure SameSite session with server identity', async () => {
-  const response = await handlers(deps).login(request({ nickname: 'João', password: config.ROOM_PASSWORD }));
-  assert.equal(response.status, 200);
-  const cookie = response.headers.get('set-cookie')!;
-  assert.match(cookie, /HttpOnly/); assert.match(cookie, /Secure/); assert.match(cookie, /SameSite=strict/i);
-  const session = await verifySession(response.cookies.get(COOKIE_NAME)?.value, config);
-  assert.ok(session); assert.equal(session.nickname, 'João'); assert.match(session.identity, /^[a-f\d-]{36}$/);
-  assert.doesNotMatch(cookie, /Max-Age|Expires/i);
-  assert.equal(cookieOptions(config).maxAge, undefined);
-});
-test('remembered login is opt-in, lasts exactly 30 days and remains protected', async () => {
-  for (const remember of [false, true]) {
-    const response = await handlers(deps).login(request({ nickname: 'Ana', password: config.ROOM_PASSWORD, remember }));
-    assert.equal(response.status, 200);
-    const token = response.cookies.get(COOKIE_NAME)!.value;
-    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
-    assert.equal(payload.remember, remember);
-    assert.equal(payload.exp - payload.iat, remember ? REMEMBERED_SESSION_SECONDS : SESSION_SECONDS);
-    const cookie = response.headers.get('set-cookie')!;
-    for (const flag of [/HttpOnly/, /Secure/, /SameSite=strict/i, /Path=\//]) assert.match(cookie, flag);
-    if (remember) assert.match(cookie, /Max-Age=2592000/); else assert.doesNotMatch(cookie, /Max-Age|Expires/i);
-    assert.deepEqual(await response.json(), { nickname: 'Ana' });
-  }
-  assert.equal((await handlers(deps).login(request({ nickname: 'Ana', password: config.ROOM_PASSWORD, remember: 'true' }))).status, 400);
-});
-test('both session modes expire at the server boundary, even if the browser retains the cookie', async context => {
-  const now = Date.now();
-  context.mock.timers.enable({ apis: ['Date'], now });
-  for (const remember of [false, true]) {
-    context.mock.timers.setTime(now);
-    const { token } = await signSession('Ana', config, remember);
-    const duration = remember ? REMEMBERED_SESSION_SECONDS : SESSION_SECONDS;
-    context.mock.timers.tick((duration - 1) * 1000);
-    assert.ok(await verifySession(token, config));
-    context.mock.timers.tick(1000);
-    assert.equal(await verifySession(token, config), null);
-    assert.equal((await handlers(deps).token(request({}, token))).status, 401);
-  }
-});
-test('session verifier rejects invalid claims and excessive lifetimes in either mode', async () => {
-  const now = Math.floor(Date.now() / 1000);
-  const key = createHmac('sha256', config.SESSION_SECRET).update(config.ROOM_PASSWORD).digest();
-  const claims = { nickname: 'Ana', sub: '00000000-0000-0000-0000-000000000000', iss: 'blueprint-room', aud: config.LIVEKIT_ROOM_NAME, iat: now, exp: now + SESSION_SECONDS };
-  for (const changes of [
-    { exp: undefined }, { iat: undefined }, { iat: now + 30 }, { remember: 'true' },
-    { remember: false, exp: now + SESSION_SECONDS + 1 }, { remember: true, exp: now + REMEMBERED_SESSION_SECONDS + 1 },
-    { exp: now + SESSION_SECONDS + 0.5 }, { aud: 'another-room' }, { nickname: '<script>' },
-  ]) {
-    const token = await new SignJWT({ ...claims, ...changes }).setProtectedHeader({ alg: 'HS256' }).sign(key);
-    assert.equal(await verifySession(token, config), null);
-  }
-  const legacy = await new SignJWT(claims).setProtectedHeader({ alg: 'HS256' }).sign(key);
-  assert.ok(await verifySession(legacy, config));
-});
-test('unsigned, altered, expired and password-rotated sessions are rejected', async () => {
-  const { token } = await signSession('Ana', config);
-  assert.ok(await verifySession(token, config));
-  assert.equal(await verifySession(token + 'x', config), null);
-  assert.equal(await verifySession(token, { ...config, ROOM_PASSWORD: 'new-long-shared-password' }), null);
-  const expired = await new SignJWT({ nickname: 'Ana' }).setProtectedHeader({ alg: 'HS256' }).setSubject('00000000-0000-0000-0000-000000000000').setIssuer('blueprint-room').setAudience(config.LIVEKIT_ROOM_NAME).setIssuedAt(1).setExpirationTime(2).sign(createHmac('sha256', config.SESSION_SECRET).update(config.ROOM_PASSWORD).digest());
-  assert.equal(await verifySession(expired, config), null);
-});
 test('unauthorized token requests cannot call LiveKit', async () => {
   let touched = false;
   const api = handlers({ ...deps, ensureRoom: async () => { touched = true; } });
   assert.equal((await api.token(request({}))).status, 401); assert.equal(touched, false);
-});
-test('password or signing-secret changes deny both session modes before rate limiting or LiveKit', async () => {
-  for (const remember of [false, true]) {
-    const { token } = await signSession('Ana', config, remember);
-    for (const change of [{ ROOM_PASSWORD: 'a-new-shared-password' }, { SESSION_SECRET: 'a-new-signing-secret-long-enough-for-tests' }]) {
-      let touched = false;
-      const api = handlers({ ...deps, getConfig: () => ({ ...config, ...change }), rateLimit: async () => { touched = true; }, ensureRoom: async () => { touched = true; } });
-      assert.equal((await api.token(request({}, token))).status, 401);
-      assert.equal(touched, false);
-    }
-  }
-});
-test('forgetting access deletes the cookie, even if expired or participant removal fails', async () => {
-  const { token, session } = await signSession('Ana', config, true);
-  let removals = 0;
-  const api = handlers({ ...deps, admissionService: () => ({ ...fakeAdmission(config), leave: async value => {
-    assert.equal(value.identity, session.identity); removals++; throw new Error('offline');
-  } }) });
-  assert.equal((await api.logout(request({}, token, 'https://attacker.test'))).status, 403);
-  for (const value of [token, 'invalid-session', undefined]) {
-    const response = await api.logout(request({}, value));
-    assert.equal(response.status, 200);
-    assert.equal(response.headers.get('cache-control'), 'no-store');
-    assert.match(response.headers.get('set-cookie')!, /Max-Age=0/);
-    assert.equal(response.cookies.get(COOKIE_NAME)?.value, '');
-  }
-  assert.equal(removals, 1);
-  assert.equal((await api.token(request({}))).status, 401);
 });
 test('remembered sessions keep token rate limits and fail-closed dependency protection', async () => {
   const { token, session } = await signSession('Ana', config, true);
@@ -186,16 +88,10 @@ test('remembered sessions keep token rate limits and fail-closed dependency prot
 });
 test('cross-origin requests and unexpected endpoint inputs are rejected', async () => {
   assert.equal((await handlers(deps).login(request({}, undefined, 'https://attacker.test'))).status, 403);
-  assert.equal((await handlers(deps).login(request({ nickname: 'Ana', password: config.ROOM_PASSWORD, identity: 'chosen' }))).status, 400);
-  assert.equal((await handlers(deps).login(request({ nickname: 'Ana', password: 'x'.repeat(5000) }))).status, 400);
+  assert.equal((await handlers(deps).login(request({ nickname: 'Ana', password: config.ROOM_PASSWORD, identity: 'chosen' }))).status, 410);
+  assert.equal((await handlers(deps).login(request({ nickname: 'Ana', password: 'x'.repeat(5000) }))).status, 410);
   const { token } = await signSession('Ana', config);
   assert.equal((await handlers(deps).token(request({ room: 'arbitrary' }, token))).status, 400);
-});
-test('rate limits and unavailable protection fail closed before password validation', async () => {
-  for (const status of [429, 503]) {
-    const response = await handlers({ ...deps, rateLimit: async () => { throw new LimitError(status); } }).login(request({ nickname: 'Ana', password: config.ROOM_PASSWORD }));
-    assert.equal(response.status, status); assert.equal(response.cookies.get(COOKIE_NAME), undefined);
-  }
 });
 test('fixed-room tokens have minimal grants, short TTL and an eight-person recreation cap', async () => {
   const { session } = await signSession('Ana', config);
