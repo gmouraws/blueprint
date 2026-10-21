@@ -33,7 +33,7 @@ export function createScreenPicker(parent) {
         window.webContents.session.setPermissionCheckHandler(()=>false);
         window.webContents.session.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));
         function finish(value){if(finished)return;finished=true;clearTimeout(timer);active=undefined;sources=[];if(!window.isDestroyed())window.destroy();resolve(value);}
-        active={window,finish,pending:false,audio:audioRequested&&process.platform==='win32',sources:sources.map(source=>({id:source.id,name:source.name,kind:source.id.startsWith('screen:')?'screen':'window',thumbnail:source.thumbnail.toDataURL()}))};
+        active={window,finish,pending:false,audio:audioRequested&&process.platform==='win32',sources:sources.map(source=>({id:source.id,name:source.name,kind:source.id.startsWith('screen:')?'screen':'window',thumbnail:source.thumbnail.isEmpty?.() ? null : source.thumbnail.toDataURL()}))};
         window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
         window.webContents.on('will-navigate',event=>event.preventDefault());
         window.webContents.on('will-attach-webview',event=>event.preventDefault());

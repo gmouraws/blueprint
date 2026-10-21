@@ -1,0 +1,13 @@
+# Application-only audio assessment
+
+Status: deferred; a separate native implementation decision is required. Version 0.1.3 keeps optional, unchecked **system audio**, not application-only audio. No silent fallback is implemented.
+
+The installed Electron 45.0.0 declarations and [official display-media API](https://www.electronjs.org/docs/latest/api/session#sessetdisplaymediarequesthandlerhandler-opts) accept Windows system loopback or a WebFrameMain owned by Electron. The latter cannot capture an arbitrary external game process. Selecting a window limits video, not system audio. System loopback may include Blueprint's received call audio.
+
+## Proposed follow-up (not implemented)
+
+- Use a small owned C++ helper around WASAPI process-loopback, without a driver. Microsoft's [application-loopback sample](https://learn.microsoft.com/en-us/samples/microsoft/windows-classic-samples/applicationloopbackaudio-sample/) documents process-tree inclusion and a minimum Windows build of 20348. Require that capability at runtime; do not promise support on all Windows 10 releases. Windows 11 must still be tested.
+- Resolve the selected HWND to its PID in trusted native code with GetWindowThreadProcessId, validate the window remains alive, and include its child processes. Never accept arbitrary renderer-supplied PIDs. Separate launchers/audio services, elevated/protected games and shared browser processes can defeat the expected boundary; reject ambiguous targets or explain the limitation.
+- Proposed integration: bounded PCM transport from the helper through narrowly scoped IPC to an AudioWorklet, resampling/backpressure and clock handling, then a MediaStreamAudioDestinationNode track published through LiveKit as ScreenShareAudio. Keep microphone publication independent. Stop the helper and track on stop, room switch, process exit or application exit; never write recordings or substitute system loopback.
+- Package a reviewed x64 helper with the installer, built with a pinned Windows SDK/MSVC toolchain. Maintain process validation, crash cleanup, audio timing and OS compatibility separately from Electron updates. Prefer an original implementation against documented APIs; if sample/third-party code is reused, review its exact license and include required notices before adopting it. No dependency or license commitment is made here.
+- Acceptance requires two distinct audio-producing applications, receiver-side confirmation that only the selected target is audible, a simultaneous Blueprint call to exclude feedback, independent microphone toggling, and cleanup after target termination. None of those application-only tests has been performed because this capture mode does not exist yet.

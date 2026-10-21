@@ -16,7 +16,7 @@ test('microphone processing requests only supported controls and reports actual 
 
 test('saved audio preferences are bounded, allowlisted and resilient to invalid data', () => {
   for (const input of [null, [], 'text', 12, { microphone: '', sounds: 'yes', screenVolume: NaN }]) assert.deepEqual(validatePreferences(input), defaultPreferences);
-  assert.deepEqual(validatePreferences({ microphone: 'usb-device', sounds: false, screenVolume: 203, token: 'discarded', password: 'discarded' }), { microphone: 'usb-device', output: 'default', sounds: false, screenVolume: 100, noiseSuppression: true, shortcuts: { microphone: '', listening: '', all: '' } });
+  assert.deepEqual(validatePreferences({ microphone: 'usb-device', sounds: false, screenVolume: 203, token: 'discarded', password: 'discarded' }), { microphone: 'usb-device', output: 'default', sounds: false, screenSounds: true, confirmationSounds: true, screenVolume: 100, noiseSuppression: true, shortcuts: { microphone: '', listening: '', all: '' } });
   assert.equal(validatePreferences({ microphone: 'x'.repeat(257), screenVolume: -3 }).microphone, 'default');
   assert.equal(validatePreferences({ screenVolume: -3 }).screenVolume, 0);
 });

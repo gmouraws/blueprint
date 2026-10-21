@@ -33,7 +33,7 @@ export const service = new RoomServiceClient('http://127.0.0.1:7880', key, secre
 export async function instrument(page: Page) {
   await page.addInitScript(() => {
     const probe = {
-      captures: 0, enumerations: 0, tones: 0, failData: false, blockAudio: false, pendingCapture: false,
+      captures: 0, enumerations: 0, tones: 0, screenTones: 0, confirmationTones: 0, failData: false, blockAudio: false, pendingCapture: false,
       failCapture: '', devices: null as MediaDeviceInfo[] | null, screenWidth: 640, screenHeight: 360,
       releaseCapture: undefined as (() => void) | undefined,
       streams: [] as MediaStream[], peers: [] as RTCPeerConnection[], contexts: [] as AudioContext[],
@@ -61,7 +61,12 @@ export async function instrument(page: Page) {
     const play = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function () { return probe.blockAudio ? Promise.reject(new DOMException('Controlled autoplay block', 'NotAllowedError')) : play.call(this); };
     const oscillator = Context.prototype.createOscillator;
-    Context.prototype.createOscillator = function () { const node = oscillator.call(this); const start = node.start.bind(node); node.start = (...args) => { probe.tones++; start(...args); }; return node; };
+    Context.prototype.createOscillator = function () {
+      const node = oscillator.call(this); const start = node.start.bind(node); const set = node.frequency.setValueAtTime.bind(node.frequency);
+      let initial: number | undefined;
+      node.frequency.setValueAtTime = (value,time) => { initial ??= value; return set(value,time); };
+      node.start = (...args) => { if(initial===760)probe.screenTones++;else if(initial===280||initial===360)probe.confirmationTones++;else probe.tones++; start(...args); }; return node;
+    };
     const send = RTCDataChannel.prototype.send;
     RTCDataChannel.prototype.send = function (...args) { if (probe.failData) throw new Error('Controlled data transport failure'); return Reflect.apply(send, this, args); };
     navigator.mediaDevices.getDisplayMedia = async constraints => {

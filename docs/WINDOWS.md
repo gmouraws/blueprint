@@ -12,7 +12,7 @@ Startup failures (network, timeout, renderer, preload, blocked redirect) replace
 
 The Production 0.1.1 packaged executable opened the real HTTPS entry page in an automated Windows smoke test with the preload bridge present, sandbox/context isolation enabled and Node integration disabled. An injected DNS failure displayed recovery and Retry returned to the entry page. This did not install through NSIS, authenticate, or test physical devices/global keys. The earlier blank-window cause was not reproduced and remains unconfirmed.
 
-Electron and electron-builder are build-only dependencies in their own lockfile. Only the explicit shell files are packaged; no Next.js server, environment files or production dependencies. The existing SVG is rasterized into PNG/ICO during build. `desktop/dist/SHA256SUMS-preview.txt` accompanies the unsigned NSIS installer. `desktop/dist` and generated assets are ignored by Git. Windows CI builds/uploads review artifacts without publishing releases or deploying Vercel.
+Electron and electron-builder are build-only dependencies in their own lockfile. Only the explicit shell files are packaged; no Next.js server, environment files or production dependencies. The existing SVG is rasterized into PNG/ICO during build. `desktop/dist/SHA256SUMS-preview.txt` accompanies the unsigned NSIS installer. `desktop/dist` and generated assets are ignored by Git. Windows PR CI builds review artifacts. The separate, owner-authorized 0.1.3 release workflow publishes only after Quality passes on main; it does not deploy Vercel.
 
 ## Security and lifecycle
 
@@ -26,7 +26,11 @@ Screen selection is explicit. Optional Windows loopback can include audio from o
 
 ## Publication gate
 
-Keep `src/lib/windows-release.ts` null. After real Windows acceptance and owner approval, create a production-profile build, verify its hash/profile, upload installer plus SHA256SUMS-production.txt to a reviewed release in gmouraws/blueprint, and publish only when authorized. Then fill the approved production manifest with version, exact stable HTTPS assets and hash in a separate reviewed change. Draft/expiring CI assets are never exposed by the UI. A draft prerelease may hold review notes without exposing a live download.
+The owner authorized publishing the completed 0.1.3 Windows test release and enabling its download. This supersedes the earlier private/manual-acceptance gate. `.github/workflows/windows-release.yml` is restricted to the successful main Quality push and specifically version 0.1.3; it never replaces existing assets. Future versions require another reviewed release decision. The normal Vercel Git integration deploys the web commit independently.
+
+Keep `src/lib/windows-release.ts` null until the actual production-profile installer and checksum have been published and downloaded/hash-verified. Then enable the exact stable assets in a small reviewed manifest change. Never expose draft/expiring CI artifacts or a Preview build. Physical Windows/multi-user acceptance remains explicitly unverified unless recorded. See WINDOWS-APPLICATION-AUDIO.md for the deferred process-audio proposal.
+
+Version 0.1.3 fixes picker row compression with fixed-ratio thumbnail frames, separate name rows and a scrolling grid. Settings have one bounded scroller with inline shortcut editing. Screen-start notifications observe the joined room's screen publisher metadata (not the browsed room), snapshot on connection/reconnection, and coalesce immediate 500 ms unpublish/republish replacements. Screen notifications respect deafen and their local/account-isolated saved preference. Short explicit-action confirmations use the same audio context/output but remain audible while deafened; they can be disabled separately. Neither notification starts media capture or opens a stream.
 
 ## Acceptance (must record actual results)
 

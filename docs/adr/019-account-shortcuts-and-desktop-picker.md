@@ -1,6 +1,6 @@
 # ADR 019: Account-authoritative shortcuts and desktop source selection
 
-Status: approved for implementation and a minimal web Production release supporting private Windows testing. Desktop installer/public download remain private and unreleased.
+Status: approved. The owner subsequently authorized the complete desktop/web release and a public unsigned Windows test download (0.1.3). See WINDOWS.md for publication gates.
 
 The installed 0.1.1 Production shell contains its preload bridge, but the observed running window still displayed the old focus-only shortcut help and no desktop settings while the canonical deployment already contained the newer web bridge. An open hosted page does not update when the server deploys. Do not force-reload an active call. Detect missing integration and explain how to leave/reopen safely.
 

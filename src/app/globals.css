@@ -301,3 +301,20 @@ button.listening-muted { border-color: #d9ba78; color: #f3d9a5; background: #302
 .shortcut-row small { display: block; overflow-wrap: anywhere; }
 .shortcut-recording { border-left: 2px solid var(--accent); padding-left: 10px; }
 .shortcut-recording > div { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* One bounded settings scroller; controls remain outside its viewport. */
+.control-menu.call-settings { width:min(440px,calc(100vw - 24px)); max-height:calc(100dvh - 110px); padding:16px; scrollbar-gutter:stable; scrollbar-width:thin; scrollbar-color:#556273 var(--color-surface); }
+.settings-section + .settings-section { border-top:1px solid var(--line); padding-top:16px; margin-top:16px; }
+.settings-section h3 { margin:0 0 12px; font-size:14px; }
+.settings-section > * + * { margin-top:12px; }
+.shortcut-item { margin:12px 0; min-width:0; }
+.shortcut-row { align-items:center; margin:0; justify-content:space-between; }
+.shortcut-row button { flex:none; }
+.shortcut-recording { margin-top:10px; padding:10px; background:var(--color-bg); border:1px solid var(--line); border-radius:6px; }
+.shortcut-recording > button { width:100%; white-space:normal; overflow-wrap:anywhere; }
+.shortcut-actions { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+.shortcut-actions button { flex:1 1 85px; }
+.settings-actions { margin:16px 0; padding-top:12px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px; }
+.call-settings :focus-visible { scroll-margin:12px; }
+.call-controls .call-settings button { white-space:normal; }
+@media(max-width:420px) { .control-menu.call-settings { padding:12px; } .shortcut-row { gap:8px; } .shortcut-row button { max-width:48%; white-space:normal; } }

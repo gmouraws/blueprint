@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Room } from 'livekit-client';
-import { closeSounds, playMembershipTone, prepareSounds, setSoundPolicy } from '../src/lib/client/call-sounds';
+import { closeSounds, playMembershipTone, playScreenTone, playConfirmationTone, prepareSounds, setSoundPolicy } from '../src/lib/client/call-sounds';
 
 test('deafen cancels a currently scheduled tone and suppresses new tones without changing the saved preference', async context => {
   let started=0, zeroed=0, cancelled=0, closed=0;
@@ -20,6 +20,10 @@ test('deafen cancels a currently scheduled tone and suppresses new tones without
   const playing=playMembershipTone(room,true);const before=zeroed;
   setSoundPolicy(room,{enabled:true,muted:true});assert.equal(cancelled,1);assert.equal(zeroed,before+1);
   await playMembershipTone(room,false);assert.equal(started,1);
-  setSoundPolicy(room,{enabled:true,muted:false});const restored=playMembershipTone(room,false);assert.equal(started,2);
+  await playScreenTone(room);assert.equal(started,1);
+  await playConfirmationTone(room,true);assert.equal(started,2);
+  setSoundPolicy(room,{enabled:false,muted:false});await playScreenTone(room);assert.equal(started,3);
+  await playMembershipTone(room,false);assert.equal(started,3);
+  setSoundPolicy(room,{enabled:true,muted:false});const restored=playMembershipTone(room,false);assert.equal(started,4);
   closeSounds(room);assert.equal(closed,1);await Promise.all([playing,restored]);
 });

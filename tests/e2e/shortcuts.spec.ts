@@ -13,6 +13,25 @@ test('shortcuts are unset, validated, persistent and ignore typing, composition 
   }
   async function settings() { await page.getByRole('button', { name: 'Configurações de áudio', exact: true }).click(); await page.getByText('Atalhos de teclado', { exact: true }).click(); }
   await enter(); await settings();
+  for (const size of [{width:1280,height:600},{width:768,height:512},{width:375,height:600}]) {
+    await page.setViewportSize(size);
+    await page.getByRole('button',{name:'Definir atalho: Microfone',exact:true}).click();
+    await expect(page.locator('.shortcut-recording')).toHaveCount(1);
+    await page.getByRole('button',{name:'Gravar combinação'}).press('Alt+F8');
+    await page.getByRole('button',{name:'Remover atalho',exact:true}).scrollIntoViewIfNeeded();
+    const bounds=await page.locator('.call-settings').boundingBox();
+    const controls=await page.locator('.call-controls').boundingBox();
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(controls!.y);
+    expect(await page.locator('.call-settings').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+    await mkdir('.generated/review/settings',{recursive:true});
+    await page.screenshot({path:`.generated/review/settings/${size.width}.png`});
+    await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+  }
+  await page.getByLabel('Avisar quando alguém compartilhar tela',{exact:true}).uncheck();
+  await page.keyboard.press('Escape');
+  await enter(); await settings();
+  await expect(page.getByLabel('Avisar quando alguém compartilhar tela',{exact:true})).not.toBeChecked();
   async function record(label: string, keys: string, save = true) {
     await page.getByRole('button', { name: `Definir atalho: ${label}`, exact: true }).click();
     await page.getByRole('button', { name: 'Gravar combinação' }).press(keys);

@@ -12,6 +12,6 @@ export function useAccountBindings() {
 export function AccountShortcutSettings({onSaved}: {onSaved?:()=>Promise<void>}) {
   const {bindings,change}=useAccountBindings();const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
   async function save(value:Shortcuts){await change(value);await onSaved?.();}
-  return <><p className="muted">Atalhos salvos na conta para {shortcutPlatform()==='windowsDesktop'?'Windows desktop':'navegador'}. Atalhos locais antigos não têm prioridade.</p><KeybindingRecorder bindings={bindings} change={save}/>
-    {legacyLocalShortcuts()&&<button disabled={busy} onClick={()=>{const old=legacyLocalShortcuts();if(!old)return;setBusy(true);void save(old).then(()=>setNotice('Atalhos locais importados para a conta.')).catch(error=>setNotice(error.message)).finally(()=>setBusy(false));}}>Importar atalhos locais antigos</button>}{notice&&<p role="status">{notice}</p>}</>;
+  return <><p className="muted">Atalhos salvos na conta para {shortcutPlatform()==='windowsDesktop'?'Windows desktop':'navegador'}.</p><KeybindingRecorder bindings={bindings} change={save}/>
+    {legacyLocalShortcuts()&&<button disabled={busy} onClick={()=>{const old=legacyLocalShortcuts();if(!old)return;setBusy(true);void save(old).then(()=>setNotice('Atalhos locais importados para a conta.')).catch(error=>setNotice(error.message)).finally(()=>setBusy(false));}}>Usar atalhos deste dispositivo</button>}{notice&&<p role="status">{notice}</p>}</>;
 }

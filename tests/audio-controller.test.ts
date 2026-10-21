@@ -15,6 +15,15 @@ function fixture(enabled = false) {
   });
   return { controller, calls, state: () => state, mic: () => microphone, replace: () => { microphone = { enabled: false, track: {} }; }, disconnect: () => { available = false; microphone.enabled = false; controller.invalidate(); }, fail: () => { fail = true; } };
 }
+
+test('confirmation follows successful actions only, never a stale activation or disconnect', async () => {
+  const confirmed: string[]=[];let resolve!: (value:boolean)=>void;
+  const controller=new AudioController({microphone:()=>({enabled:false}),available:()=>true,changed:()=>{},
+    setMicrophone:()=>new Promise(done=>{resolve=done;}),confirmed:(action,silenced)=>confirmed.push(`${action}:${silenced}`)});
+  const failed=controller.dispatch('microphone');resolve(false);await failed;assert.deepEqual(confirmed,[]);
+  const stale=controller.dispatch('microphone');controller.invalidate();resolve(true);await stale;assert.deepEqual(confirmed,[]);
+  await controller.dispatch('listening');assert.deepEqual(confirmed,['listening:true']);
+});
 test('combined mute restores all four preceding combinations using only the retained track', async () => {
   for (const microphone of [false, true]) for (const listening of [false, true]) {
     const f = fixture(microphone);
