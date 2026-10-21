@@ -1,40 +1,40 @@
 'use client';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { readPreferences, savePreferences } from '@/lib/client/preferences';
-import { actionLabels, audioActions, bindingFromEvent, emptyShortcuts, shortcutAction, type Shortcuts } from '@/lib/client/shortcuts';
+import { shortcutAction, type Shortcuts } from '@/lib/client/shortcuts';
 import type { AudioAction } from '@/lib/client/audio-controller';
+import { KeybindingRecorder } from './keybinding-recorder';
 
-export function useAudioShortcuts(dispatch: (action: AudioAction) => void) {
+export function useAudioShortcuts(dispatch: (action: AudioAction) => void, available = true, state = { microphone: false, muted: false, combined: false }) {
   const [bindings, setBindings] = useState(() => readPreferences().shortcuts);
+  const [conflicts, setConflicts] = useState<string[]>([]);
+  const recording = useRef(false);
   const handle = useEffectEvent((event: KeyboardEvent) => {
-    if (!document.hasFocus()) return;
+    if (window.blueprintDesktop || recording.current || !document.hasFocus()) return;
     const action = shortcutAction(event, bindings);
     if (action) { event.preventDefault(); dispatch(action); }
   });
+  const nativeAction = useEffectEvent((action: AudioAction) => { if (available && !recording.current) dispatch(action); });
   useEffect(() => {
     const listener = (event: KeyboardEvent) => handle(event);
-    window.addEventListener('keydown', listener);
-    return () => window.removeEventListener('keydown', listener);
+    const record = (event: Event) => { recording.current = (event as CustomEvent<boolean>).detail; };
+    window.addEventListener('keydown', listener); window.addEventListener('blueprint-recording', record);
+    const conflictSubscription = window.blueprintDesktop?.onConflicts(setConflicts);
+    const unsubscribe = window.blueprintDesktop?.onAction(action => nativeAction(action));
+    return () => { conflictSubscription?.(); unsubscribe?.(); window.removeEventListener('keydown', listener); window.removeEventListener('blueprint-recording', record); void window.blueprintDesktop?.configure({ bindings: { microphone: '', listening: '', all: '' }, available: false, microphone: false, muted: false, combined: false }); };
   }, []);
+  const { microphone, muted, combined } = state;
+  useEffect(() => {
+    let active = true;
+    void window.blueprintDesktop?.configure({ bindings, available, microphone, muted, combined }).then(result => { if (active) setConflicts(result.conflicts); });
+    return () => { active = false; };
+  }, [bindings, available, microphone, muted, combined]); // Native state mirrors the SDK; never persists live mute.
   function change(value: Shortcuts) { setBindings(value); savePreferences({ shortcuts: value }); }
-  return { bindings, change };
+  return { bindings, change, conflicts };
 }
-export function AudioShortcuts({ bindings, change }: ReturnType<typeof useAudioShortcuts>) {
-  const [notice, setNotice] = useState('');
-  return <details className="shortcut-settings" data-shortcut-editor><summary>Atalhos de teclado</summary>
-    <p className="muted">Funcionam com o aplicativo em foco, fora dos campos de digitação. Não funcionam enquanto um jogo está em foco.</p>
-    <p className="muted">Selecione um campo e pressione Ctrl + Shift + uma letra. Algumas combinações são reservadas pelo navegador ou sistema.</p>
-    {audioActions.map(action => <div className="shortcut-row" key={action}><label>{actionLabels[action]}<input readOnly aria-label={`Atalho: ${actionLabels[action]}`} value={bindings[action] || 'Não definido'} onKeyDown={event => {
-      if (event.key === 'Tab' || event.key === 'Escape') return;
-      event.preventDefault();
-      if (event.repeat || event.nativeEvent.isComposing || event.keyCode === 229) return;
-      if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return;
-      const binding = bindingFromEvent(event.nativeEvent);
-      if (!binding) { setNotice('Combinação indisponível. Use Ctrl + Shift + outra letra.'); return; }
-      if (audioActions.some(other => other !== action && bindings[other] === binding)) { setNotice('Esse atalho já está atribuído a outro controle.'); return; }
-      change({ ...bindings, [action]: binding }); setNotice('Atalho salvo neste navegador.');
-    }} /></label><button type="button" aria-label={`Limpar atalho: ${actionLabels[action]}`} onClick={() => { change({ ...bindings, [action]: '' }); setNotice('Atalho removido.'); }}>Limpar</button></div>)}
-    <button type="button" onClick={() => { change({ ...emptyShortcuts }); setNotice('Todos os atalhos foram removidos.'); }}>Redefinir atalhos</button>
-    <p role="status" className="muted">{notice}</p>
+export function AudioShortcuts({ bindings, change, conflicts }: ReturnType<typeof useAudioShortcuts>) {
+  return <details data-shortcut-editor><summary>Atalhos de teclado</summary>
+    <p className="muted">{typeof window !== 'undefined' && window.blueprintDesktop ? 'Atalhos globais funcionam com a janela minimizada ou na bandeja. Jogos em modo exclusivo podem interceptá-los.' : 'No navegador, a página precisa estar em foco. Atalhos não funcionam enquanto outro aplicativo está em foco.'}</p>
+    <KeybindingRecorder bindings={bindings} change={change}/>{conflicts.length > 0 && <p role="status">Atalhos indisponíveis no Windows: {conflicts.join(', ')}. Escolha outra combinação.</p>}
   </details>;
 }

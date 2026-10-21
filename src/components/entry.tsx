@@ -1,4 +1,5 @@
 'use client';
+import { DesktopSettings } from './desktop-settings';
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -102,6 +103,7 @@ export default function Entry({ configuration, initialNickname = null }: { confi
           <AccountProfile/><button className="forget-access" disabled={busy} onClick={forget}>Esquecer acesso neste dispositivo</button>
         </>}
         {error&&<p className="error" role="alert">{error}</p>}
+        <DesktopSettings />
         <MicrophoneCheck key={authenticatedNickname ?? 'guest'} ref={microphoneCheck} disabled={busy || !configured} />
         <p className="entry-note">Você entra com o microfone desligado. Permissões de áudio e tela são solicitadas ao ativar cada recurso.</p>
       </section>

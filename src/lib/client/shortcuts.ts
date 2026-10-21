@@ -1,11 +1,11 @@
 import type { AudioAction } from './audio-controller';
+import { validBinding as validateBinding } from '../shared/keybindings.mjs';
 export const audioActions: AudioAction[] = ['microphone', 'listening', 'all'];
 export type Shortcuts = Record<AudioAction, string>;
 export const emptyShortcuts: Shortcuts = { microphone: '', listening: '', all: '' };
 export const actionLabels: Record<AudioAction, string> = { microphone: 'Microfone', listening: 'Áudio recebido', all: 'Silenciar tudo' };
 export function validBinding(value: unknown): value is string {
-  // Deliberately narrow: Ctrl+Shift+letter avoids plain typing and AltGr.
-  return typeof value === 'string' && /^Ctrl\+Shift\+[A-Z]$/.test(value) && !['Ctrl+Shift+N', 'Ctrl+Shift+T', 'Ctrl+Shift+W', 'Ctrl+Shift+Q', 'Ctrl+Shift+I', 'Ctrl+Shift+J', 'Ctrl+Shift+C', 'Ctrl+Shift+P'].includes(value);
+  return validateBinding(value);
 }
 export function validateShortcuts(value: unknown): Shortcuts {
   const result = { ...emptyShortcuts }; const seen = new Set<string>();
@@ -16,8 +16,11 @@ export function validateShortcuts(value: unknown): Shortcuts {
   }
   return result;
 }
-export function bindingFromEvent(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'shiftKey' | 'altKey' | 'metaKey'>) {
-  const value = event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey ? `Ctrl+Shift+${event.key.toUpperCase()}` : '';
+export function bindingFromEvent(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'shiftKey' | 'altKey' | 'metaKey'> & { code?: string }) {
+  const names: Record<string, string> = { ' ': 'Space', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', '-': 'Minus', '=': 'Equal', ',': 'Comma', '.': 'Period', '/': 'Slash', '\\': 'Backslash', ';': 'Semicolon', "'": 'Quote', '[': 'BracketLeft', ']': 'BracketRight', '`': 'Backquote' };
+  const punctuationCodes = new Set(['Minus', 'Equal', 'Comma', 'Period', 'Slash', 'Backslash', 'Semicolon', 'Quote', 'BracketLeft', 'BracketRight', 'Backquote']);
+  const key = event.code && punctuationCodes.has(event.code) ? event.code : names[event.key] ?? (event.key.length === 1 ? event.key.toUpperCase() : event.key);
+  const value = [event.ctrlKey && 'Ctrl', event.altKey && 'Alt', event.shiftKey && 'Shift', event.metaKey && 'Meta', key].filter(Boolean).join('+');
   return validBinding(value) ? value : '';
 }
 export function shortcutAction(event: KeyboardEvent, bindings: Shortcuts): AudioAction | undefined {
