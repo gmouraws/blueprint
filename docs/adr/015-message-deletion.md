@@ -1,6 +1,6 @@
 # ADR 015: Sender-owned deletion and bounded reconciliation
 
-Status: accepted for Preview; Production release requires separate authorization.
+Status: accepted; the owner authorized the Production release in PR #12.
 
 ## Decision
 
@@ -14,8 +14,8 @@ History reads use one repeatable-read snapshot for messages and deletion cursors
 
 Blob deletion runs only after the database has revoked access. Both the raw upload and normalized image are removed; failures preserve the existing `deleting` row for retry. The bounded cleanup batch continues past individual failures. A cleanup marker remains through the original one-hour upload-token window so a replayed raw upload can be removed later. The existing cleanup endpoint/CLI handles retries, orphaned uploads and retention; no queue, service or dependency is added.
 
-Preview has no scheduled Vercel cron: operators must run cleanup there periodically and after restoring failed storage. Production uses its existing daily cleanup only after this feature is separately approved and migrated. Monitor failures and repeat batches for backlogs. Application visibility is independent of cleanup availability and provider backup retention.
+Preview has no scheduled Vercel cron: operators must run cleanup there periodically and after restoring failed storage. Production has received migration 003 and uses its existing daily cleanup after the authorized PR #12 deployment. Monitor failures and repeat batches for backlogs. Application visibility is independent of cleanup availability and provider backup retention.
 
 ## Compatibility and rollout
 
-Apply migration 003 to the intended environment before its application deployment; never relabel a database. It is repeatable, preserves existing messages and requires no new variables. Reload Preview clients to receive deletion reconciliation. Earlier application versions do not understand tombstones; after deletion has been used, prefer a forward fix over rolling back to a reader that lacks `deleted_at` filtering. Do not reverse the migration or restore deleted content during rollback.
+Apply migration 003 to the intended environment before its application deployment; never relabel a database. It is repeatable, preserves existing messages and requires no new variables. Reload clients after deployment to receive deletion reconciliation. Earlier application versions do not understand tombstones; after deletion has been used, prefer a forward fix over rolling back to a reader that lacks `deleted_at` filtering. Do not reverse the migration or restore deleted content during rollback.

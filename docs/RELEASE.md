@@ -41,3 +41,19 @@ Production preparation creates a separate private Blob store on the existing Hob
 To recover urgently, roll back this Vercel project to the deployment above and verify the canonical domain. Check automatic domain assignment before the next release. For durable source recovery, revert PR #10's actual merge commit on a recovery branch and merge a normal PR; never rewrite main. Application rollback does not delete or reverse the database migration, history or Blob objects. Old and new deployments use different LiveKit room names, so clients need to reload/rejoin after recovery. Maintain image retention even if the older application is restored.
 
 Automated tests and Preview image persistence passed. Hosted token issuance and leave endpoints returned 200, but a connected Cloud peer was not observed in the in-app browser. Physical-device voice/output routing, room switching with active media, Cloud ninth-participant concurrency, revoked-token reuse and sustained screen quality remain manual acceptance items. Production authorization does not mark those tests passed. Record the actual deployment, canonical-domain and authenticated verification results in PR #10 after release.
+
+## Deletion, audio controls and membership notices (PR #12)
+
+The owner explicitly authorized this Production release after Preview delivery. It includes sender-owned message/image deletion, native microphone noise-suppression settings, screen-audio/deafen refinements and visual entry/exit notices restricted to the joined voice room. The combined eight-person voice limit is unchanged. Publish through the existing Git integration after checks pass; no duplicate deployment, DNS change, new resource or paid plan is needed.
+
+Immediately before this release, the canonical domain was assigned to:
+
+- Commit: `50739a9e186f8a4115f2e40be449b9ee31b7edf3` (PR #11).
+- READY Production deployment: `dpl_DfVHbgt7veJfyz2o42Ur2cgto9Mt`.
+- URL: https://blueprint-gpa12zn60-gmouraws-8238s-projects.vercel.app.
+
+Migration 003 was applied transactionally to the isolated Production Neon database and metadata-verified before merging. No existing messages were deleted. The existing daily cleanup schedule was verified enabled in Vercel. This is not evidence of a completed cleanup invocation; hosted deletion and physical Blob cleanup remain acceptance checks.
+
+**Recovery constraint:** earlier readers do not understand deletion tombstones. After any deletion has been used, prefer a forward fix that retains migration 003 and `deleted_at` filtering. Do not reverse the migration or restore deleted content. Before deletion is used, urgent application recovery may use the recorded Vercel deployment, followed by canonical-domain verification and checking automatic domain assignment. Any durable recovery must use a reviewed PR on current main, without rewriting history, and preserve deletion safeguards.
+
+Reload open clients after deployment so they receive deletion reconciliation and membership notices. The final deployment/merge identifiers and public checks belong in PR #12. Real-device audio, hosted multi-user notifications and cross-client deletion/Blob cleanup remain separate from the passing automated tests and local synthetic LiveKit tests.
