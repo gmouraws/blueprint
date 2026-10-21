@@ -51,7 +51,7 @@ export default function ConnectedRoom({ room, details, onLeave }: { room: Room; 
     finally { await closeCallRoom(room); onLeave(message); }
   }
   async function joinVoice(destination: VoiceRoomId) {
-    if (joinLock.current || (room.state === ConnectionState.Connected && destination === currentRoom)) return;
+    if (joinLock.current || leaving.current || ![ConnectionState.Disconnected, ConnectionState.Connected].includes(room.state) || (room.state === ConnectionState.Connected && destination === currentRoom)) return;
     joinLock.current = true; intentionalDisconnect.current = true; setJoining(true); setError(''); prepareCallAudio(room);
     try {
       await room.disconnect(true);
@@ -71,6 +71,7 @@ export function RoomView({ error = '', onLeave, onJoin, joining = false, current
   const room = useRoomContext();
   const state = useConnectionState();
   const connected = state === ConnectionState.Connected;
+  const voiceBusy = joining || (!connected && state !== ConnectionState.Disconnected);
   const [view, setView] = useState(initialView);
   const [browsing, setBrowsing] = useState(currentRoom);
   const [unread, setUnread] = useState(0);
@@ -125,12 +126,12 @@ export function RoomView({ error = '', onLeave, onJoin, joining = false, current
   const showStream = !!current && (mini ? !miniHidden : browsing === currentRoom);
   return <main className="room-shell">
     <header className="room-header"><Brand /><span className="connection" role="status"><i className={connected ? 'connected-dot' : ''} /><span>Voz: <span>{status}</span>{connected && ' · ' + name(currentRoom)}</span></span><span className="small-label"><Icon name="lock" /> Sala privada</span></header>
-    <div className="room-columns"><aside className="participants-panel"><VoiceNavigation currentRoom={currentRoom} connected={connected} browsing={browsing} busy={joining || screenPending || microphone.pending} onBrowse={destination => { setBrowsing(destination); setView('sala'); }} onJoin={enter} onChat={() => setView('chat')} chatActive={view === 'chat'} volumes={volumes} onVolume={(identity, value) => setVolumes(previous => ({ ...previous, [identity]: value }))} /></aside>
+    <div className="room-columns"><aside className="participants-panel"><VoiceNavigation currentRoom={currentRoom} connected={connected} browsing={browsing} busy={voiceBusy || screenPending || microphone.pending} onBrowse={destination => { setBrowsing(destination); setView('sala'); }} onJoin={enter} onChat={() => setView('chat')} chatActive={view === 'chat'} volumes={volumes} onVolume={(identity, value) => setVolumes(previous => ({ ...previous, [identity]: value }))} /></aside>
       <div className="workspace-main"><div className="view-tabs" role="tablist" aria-label="Visualização">{(['sala', 'chat'] as const).map(tab => <button key={tab} role="tab" id={'tab-' + tab} aria-controls={'panel-' + tab} aria-selected={view === tab} tabIndex={view === tab ? 0 : -1} onClick={() => setView(tab)} onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 'sala' : event.key === 'End' ? 'chat' : tab === 'sala' ? 'chat' : 'sala'; setView(next); document.getElementById('tab-' + next)?.focus(); } }}>{tab === 'sala' ? 'Sala' : 'Chat'}{tab === 'chat' && unread > 0 && view !== 'chat' && <span className="pill" aria-label={unread + ' mensagens novas'}>{unread > 99 ? '99+' : unread}</span>}</button>)}</div>
         <div className="workspace-notices">{error && <p className="error banner" role="alert">{error}</p>}{[notice, microphone.notice].filter(Boolean).map(message => <p className="notice banner" role="status" key={message}>{message}</p>)}{!canPlayAudio && connected && <button className="audio-unlock" onClick={unlock}>Ativar áudio</button>}</div>
         <div className={'media-chat-layout ' + (mini ? 'chat-layout' : '')}>
           <section className={mini ? 'stream-mini' : 'stage-column'} id="panel-sala" role={mini ? 'region' : 'tabpanel'} aria-label={mini ? 'Tela em mini-player' : undefined} aria-labelledby={mini ? undefined : 'tab-sala'} hidden={mini && !showStream}>
-            {!mini && <div className="stage-heading"><h1>{name(browsing)}</h1>{(!connected || browsing !== currentRoom) && <button disabled={joining || screenPending || microphone.pending} onClick={() => enter(browsing)}>Entrar nesta voz</button>}</div>}
+            {!mini && <div className="stage-heading"><h1>{name(browsing)}</h1>{(!connected || browsing !== currentRoom) && <button disabled={voiceBusy || screenPending || microphone.pending} onClick={() => enter(browsing)}>Entrar nesta voz</button>}</div>}
             <div className="screen-viewer" ref={viewer}>{showStream ? <>
               <div className="viewer-toolbar"><label>Tela de <select aria-label="Escolher tela compartilhada" value={current!.publication.trackSid} onChange={event => setSelected(event.target.value)}>{screens.map(track => <option value={track.publication.trackSid} key={track.publication.trackSid}>{track.participant.name || 'Participante'}{track.participant.isLocal ? ' (você)' : ''}</option>)}</select></label>
                 {mini ? <><button className="icon-button" onClick={() => { setBrowsing(currentRoom); setView('sala'); }} title="Voltar à sala" aria-label="Expandir tela e voltar à sala"><Icon name="expand" /></button><button className="icon-button" onClick={() => setMiniHidden(true)} title="Ocultar mini-player" aria-label="Ocultar mini-player sem desligar áudio"><Icon name="close" /></button></> : <button onClick={fullscreen} aria-label="Alternar tela cheia"><Icon name="expand" /><span>Tela cheia</span></button>}
