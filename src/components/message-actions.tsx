@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import type { ChatDeletion, ChatMessage } from '@/lib/chat';
-import { ControlMenu } from './control-menu';
 import { Icon } from './icons';
 
 export function MessageActions({ message, onDelete, imageOnly = false }: { message: ChatMessage; onDelete: (id: string, target: ChatDeletion['kind']) => Promise<void>; imageOnly?: boolean }) {
@@ -19,7 +18,7 @@ export function MessageActions({ message, onDelete, imageOnly = false }: { messa
     finally { setPending(false); }
   }
   return <div className={imageOnly ? 'image-delete-action' : 'message-actions'}>
-    {imageOnly ? <button type="button" className="icon-button image-delete" aria-label="Excluir imagem" title="Excluir imagem" onClick={() => confirm('image')}><Icon name="trash" width="17" height="17" /></button> : <ControlMenu label="Opções da sua mensagem"><button onClick={() => confirm('message')}>Excluir mensagem</button></ControlMenu>}
+    <button type="button" className="icon-button content-delete" aria-label={imageOnly ? 'Excluir imagem' : 'Excluir mensagem'} title={imageOnly ? 'Excluir imagem' : 'Excluir mensagem'} onClick={() => confirm(imageOnly ? 'image' : 'message')}><Icon name="trash" width="17" height="17" /></button>
     <dialog ref={dialog} className="delete-dialog" aria-label="Confirmar exclusão" onCancel={event => { if (pending) event.preventDefault(); }}>
       <h2>{target === 'message' ? 'Excluir esta mensagem?' : 'Excluir esta imagem?'}</h2>
       <p>{target === 'image' && message.body ? 'O texto será mantido.' : 'O conteúdo será removido para todos.'} Esta ação não pode ser desfeita.</p>

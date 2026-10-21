@@ -120,8 +120,8 @@ label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 7px
 .message-meta { display: flex; align-items: baseline; gap: 12px; font-size: 12px; }
 .message-meta strong { overflow-wrap: anywhere; }
 .message-meta time { color: var(--color-muted); font-size: 10px; flex: none; }
-.message-actions { margin-left: auto; }
-.message-actions > button { width: 36px; padding: 8px; }
+.message-meta { position: relative; padding-right: 44px; }
+.message-actions { position: absolute; right: 0; top: 0; }
 .message-meta { align-items: center; min-height: 32px; }
 .delete-dialog { margin: auto; color: var(--color-ink); background: var(--color-surface); border: 1px solid var(--line); border-radius: 10px; max-width: min(400px,calc(100vw - 24px)); padding: 20px; }
 .delete-dialog::backdrop { background: #000a; }
@@ -271,9 +271,11 @@ button.listening-muted { border-color: #d9ba78; color: #f3d9a5; background: #302
 .message-image { display: flex; align-items: flex-start; gap: 4px; }
 .message-image > button { min-width: 0; }
 .image-delete-action { flex: 0 0 44px; }
-.image-delete { width: 44px; height: 44px; padding: 12px; color: var(--color-muted); border-color: transparent; background: transparent; }
-.image-delete:hover,.image-delete:focus-visible { color: #ff9b9b; border-color: currentColor; }
+.content-delete { width: 44px; height: 44px; padding: 12px; color: var(--color-muted); border: 0; background: transparent; }
+.content-delete:hover:not(:disabled),.content-delete:focus-visible { color: #ff9b9b; background: transparent; }
+.content-delete:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
 @media (hover: hover) and (pointer: fine) {
-  .image-delete { opacity: 0; }
-  .message-image:hover .image-delete,.message-image:focus-within .image-delete { opacity: 1; }
+  .content-delete { opacity: 0; }
+  .message:hover .message-actions .content-delete,.message:focus-within .message-actions .content-delete,
+  .message-image:hover .content-delete,.message-image:focus-within .content-delete { opacity: 1; }
 }

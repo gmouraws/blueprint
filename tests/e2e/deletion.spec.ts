@@ -21,7 +21,7 @@ test('chat-only clients reconcile confirmed deletion, image-only removal, failed
     await owner.getByLabel('Selecionar imagem',{exact:true}).setInputFiles({name:'disposable.png',mimeType:'image/png',buffer:bytes});
     await owner.getByRole('button',{name:'Enviar mensagem'}).click();
     await expect(reader.getByText('Preservar o texto',{exact:true})).toBeVisible({timeout:15000});
-    await expect(reader.getByRole('button',{name:'Opções da sua mensagem'})).toHaveCount(0);
+    await expect(reader.getByRole('button',{name:'Excluir mensagem',exact:true})).toHaveCount(0);
     const row=(await store.db.query<{id:string;attachment_id:string}>('SELECT id,attachment_id FROM blueprint_chat_messages')).rows[0];
     const touchContext=await browser.newContext({hasTouch:true,isMobile:true,viewport:{width:375,height:812}});contexts.push(touchContext);
     const touch=await touchContext.newPage();await store.install(touch,'Ana');await touch.route('**/api/login',route=>route.fulfill({json:{nickname:'Ana'}}));
@@ -35,6 +35,20 @@ test('chat-only clients reconcile confirmed deletion, image-only removal, failed
     expect(attempt).toBe(404);
     await expect(reader.getByRole('button',{name:'Excluir imagem',exact:true})).toHaveCount(0);
     const trash=owner.getByRole('button',{name:'Excluir imagem',exact:true});
+    const messageTrash=owner.getByRole('button',{name:'Excluir mensagem',exact:true});
+    for (const control of [trash,messageTrash]) {
+      await expect(control).toHaveCount(1);
+      await expect(control).toHaveText('');
+      await expect(control).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+      await expect(control).toHaveCSS('border-top-width','0px');
+    }
+    const before=await owner.getByText('Preservar o texto',{exact:true}).boundingBox();
+    await messageTrash.hover();
+    await expect(messageTrash).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+    await messageTrash.focus();
+    await expect(messageTrash).toHaveCSS('color','rgb(255, 155, 155)');
+    expect(await owner.getByText('Preservar o texto',{exact:true}).boundingBox()).toEqual(before);
+    await owner.getByLabel('Mensagem',{exact:true}).focus();
     await expect(trash).toHaveCSS('opacity','0');
     await trash.focus(); await expect(trash).toHaveCSS('opacity','1');
     await trash.press('Enter');
@@ -55,7 +69,7 @@ test('chat-only clients reconcile confirmed deletion, image-only removal, failed
     await expect(reader.getByRole('dialog',{name:'Imagem ampliada'})).toHaveCount(0,{timeout:15000});
     await expect(reader.getByText('Preservar o texto',{exact:true})).toBeVisible();
     expect(await reader.evaluate(async id=>(await fetch(`/api/attachments/${id}`)).status,row.attachment_id)).toBe(404);
-    await owner.getByRole('button',{name:'Opções da sua mensagem'}).click();await owner.getByRole('button',{name:'Excluir mensagem',exact:true}).click();
+    await owner.getByRole('button',{name:'Excluir mensagem',exact:true}).click();
     store.faults.failDeletion=true;await dialog.getByRole('button',{name:'Excluir',exact:true}).click();
     await expect(dialog.getByRole('alert')).toContainText('Não foi possível confirmar');
     await expect(reader.getByText('Preservar o texto',{exact:true})).toBeVisible();
@@ -66,5 +80,9 @@ test('chat-only clients reconcile confirmed deletion, image-only removal, failed
     await expect(reader.getByText('Preservar o texto',{exact:true})).toHaveCount(0,{timeout:15000});
     await expect(owner.getByText('Preservar o texto',{exact:true})).toHaveCount(0,{timeout:15000});
     expect((await store.db.query('SELECT * FROM blueprint_chat_deletions')).rows).toHaveLength(2);
+    await owner.getByLabel('Selecionar imagem',{exact:true}).setInputFiles({name:'image-only.png',mimeType:'image/png',buffer:bytes});
+    await owner.getByRole('button',{name:'Enviar mensagem'}).click();
+    await expect(owner.getByRole('button',{name:'Excluir imagem',exact:true})).toHaveCount(1);
+    await expect(owner.getByRole('button',{name:'Excluir mensagem',exact:true})).toHaveCount(0);
   } finally {await Promise.all(contexts.map(context=>context.close()));await store.close();}
 });
