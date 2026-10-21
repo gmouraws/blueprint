@@ -11,11 +11,15 @@ The approved `/stream` experiment is separate from member rooms/chat. It uses ex
 
 Eight connections maximum in this streaming space; publisher + viewer uses one connection. Multiple tabs sharing a guest cookie replace the earlier connection. Different browsers/devices consume separate slots. Leaving stops tracks and releases the connection; a still-valid browser session can reopen. Member APIs never accept the guest cookie.
 
+## Persistent owner-managed invitation
+
+The owner may explicitly create one no-expiry share/watch pair under **Link persistente · Discord**. Copy is available after creation because only this new pair uses purpose-separated server-key derivation. Existing expiring secrets remain unrecoverable. Rotation durably revokes the old pair before replacement; pending provider cleanup prevents replacement. Sessions and media tokens remain short-lived. See ADR 023.
+
 ## Optional Discord
 
-This implementation uses an incoming channel webhook, not Discord Interactions. It does not read an Application ID or Public Key and has no Interactions Endpoint URL. Leave that field empty in the Developer Portal; do not configure `/stream` or `/api/stream` as an interactions endpoint. The owner-created Discord application can remain unused until a separately approved command integration. Do not add unused application identifier variables to Vercel.
+Automatic announcements use the existing incoming webhook. The separate owner-approved `/blueprint` HTTP command uses `/api/discord/interactions`; see DISCORD.md for exact setup. Never use `/stream` or `/api/stream` as the Interactions Endpoint.
 
-Only after explicit owner authorization of the destination, set server-only `DISCORD_STREAM_WEBHOOK_URL` to the target Discord webhook URL and `DISCORD_STREAM_ANNOUNCEMENTS_ENABLED=true` in the intended environment, then deploy. Keep Preview and Production targets isolated. Never paste the credential into logs/PRs. No slash command, Discord login, nickname or mass mentions are used.
+Only after explicit owner authorization of the destination, set server-only `DISCORD_STREAM_WEBHOOK_URL` to the target Discord webhook URL and `DISCORD_STREAM_ANNOUNCEMENTS_ENABLED=true` in the intended environment, then deploy. Keep Preview and Production targets isolated. Never paste the credential into logs/PRs. No Discord login, nickname or mass mentions are used. The optional slash command is independently configured.
 
 The server checks actual screen publication before sending a neutral announcement with a read-only one-hour-or-shorter invitation. Reconnects/replacements do not repeat it. Network ambiguity can intentionally omit a notice; failures never stop media. Do not resend automatically. A stopped screen and a later explicit new share permit a new notice.
 

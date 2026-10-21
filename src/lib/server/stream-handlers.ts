@@ -16,6 +16,7 @@ const input = z.discriminatedUnion('action', [
 ]);
 const management = z.discriminatedUnion('action', [
   z.object({ action: z.literal('list') }).strict(),
+  z.object({ action: z.literal('persistent'), operation: z.enum(['status', 'create', 'copy', 'rotate', 'revoke']) }).strict(),
   z.object({ action: z.literal('create'), role: z.enum(['share', 'watch']), hours: z.union([z.literal(1), z.literal(24), z.literal(168)]) }).strict(),
   z.object({ action: z.literal('revoke'), id: z.uuid() }).strict(),
 ]);
@@ -40,6 +41,10 @@ export async function streamHandler(request: NextRequest, owner = false, deps = 
       await deps.rateLimit(config, 'stream-owner', session.identity);
       const parsed = management.safeParse(body);
       if (!parsed.success) return json({ error: 'Solicitação inválida.' }, 400);
+      if (parsed.data.action === 'persistent') {
+        const result = await service.persistent(parsed.data.operation);
+        return json({ active: result.active, cleanupPending: result.cleanupPending, urls: result.links ? { share: invitationUrl(config.APP_ORIGIN, result.links.share, 'share'), watch: invitationUrl(config.APP_ORIGIN, result.links.watch, 'watch') } : undefined });
+      }
       const result = await service.manage(parsed.data.action, parsed.data.action === 'list' ? undefined : parsed.data);
       return json({ invitations: result.invitations, cleanupPending: result.cleanupPending, url: result.created ? invitationUrl(origin, result.created.secret, result.created.role) : undefined });
     }

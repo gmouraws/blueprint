@@ -10,7 +10,7 @@ export function enforceLimitResults(results: { success: boolean; reset: number; 
   const denied = results.find(result => !result.success);
   if (denied) throw new LimitError(429, Math.max(1, Math.ceil((denied.reset - Date.now()) / 1000)));
 }
-export async function rateLimit(config: Config, kind: 'stream-request' | 'stream-owner' | 'stream-exchange' | 'stream-join' | 'stream-session' | 'otp-send' | 'otp-attempt' | 'login' | 'token' | 'view-token' | 'view-leave' | 'chat-write' | 'chat-read' | 'voice-read' | 'image-write' | 'image-read', identifier: string) {
+export async function rateLimit(config: Config, kind: 'discord-command' | 'stream-request' | 'stream-owner' | 'stream-exchange' | 'stream-join' | 'stream-session' | 'otp-send' | 'otp-attempt' | 'login' | 'token' | 'view-token' | 'view-leave' | 'chat-write' | 'chat-read' | 'voice-read' | 'image-write' | 'image-read', identifier: string) {
   const redis = new Redis({ url: config.UPSTASH_REDIS_REST_URL, token: config.UPSTASH_REDIS_REST_TOKEN, retry: { retries: 0 } });
   const hashed = createHmac('sha256', config.SESSION_SECRET).update(identifier).digest('hex');
   const prefix = `blueprint:${config.LIVEKIT_ROOM_NAME}:${kind}`;

@@ -110,3 +110,36 @@ test('desktop handoff is single-use, short-lived and preserves parent role/revoc
   await assert.rejects(api.status(native.secret));
   await assert.rejects(api.handoff(person.secret));
 });
+
+
+test('persistent pair is explicit, reproducible only server-side, role-separated, and keeps short sessions/tokens', async () => {
+  const { api, state, guest } = fixture(); const expiring = await guest('watch');
+  assert.equal(await api.configuredLinks(), null);
+  const created = await api.persistent('create'); assert.equal(created.active, true); assert.ok(created.links);
+  const links = created.links!;assert.notEqual(links.share, links.watch);
+  assert.ok(!JSON.stringify(state.data).includes(links.share));assert.ok(!JSON.stringify(state.data).includes(links.watch));
+  const size = state.data.invitations.length;
+  assert.deepEqual(await api.configuredLinks(), links);assert.deepEqual((await api.persistent('copy')).links,links);
+  assert.equal(state.data.invitations.length,size);assert.equal((await api.persistent('status')).links,undefined);
+  assert.equal(state.data.invitations.find(i=>i.id===expiring.link.id)!.expires,expiring.link.expires);
+  state.now += 8*24*3600000;
+  const share = await api.exchange(links.share), watch = await api.exchange(links.watch);
+  assert.equal(share.expires,state.now+12*3600000);assert.equal(watch.role,'watch');
+  const joined = await api.join(share.secret);const claims = await new TokenVerifier(fixtureConfig.LIVEKIT_API_KEY,fixtureConfig.LIVEKIT_API_SECRET).verify(joined.token);
+  assert.ok(claims.exp! <= Math.floor(Date.now()/1000)+120);assert.ok(claims.exp! > Math.floor(Date.now()/1000));assert.deepEqual(claims.video?.canPublishSources,['screen_share','screen_share_audio']);
+  state.people=[new ParticipantInfo({identity:`stream:${joined.connectionId}`,tracks:[new TrackInfo({source:TrackSource.SCREEN_SHARE})]})];
+  const announcement=await api.announce(share.secret,randomUUID(),true);assert.equal(announcement!.viewer.role,'watch');assert.notEqual(announcement!.viewer.secret,links.share);
+  const viewer=await api.exchange(announcement!.viewer.secret);await api.join(viewer.secret);
+  await api.persistent('revoke');assert.equal(await api.configuredLinks(),null);
+  await assert.rejects(api.exchange(links.share));await assert.rejects(api.exchange(links.watch));await assert.rejects(api.status(viewer.secret));assert.ok(state.revoked.length>=2);
+});
+
+test('rotation commits revocation first; provider failure never returns a replacement, and key rotation fails closed', async () => {
+  const {api,state}=fixture();const old=(await api.persistent('create')).links!;const guest=await api.exchange(old.share);await api.join(guest.secret);
+  state.outage=true;const failed=await api.persistent('rotate');assert.equal(failed.cleanupPending,true);assert.equal(failed.links,undefined);assert.equal(await api.configuredLinks(),null);await assert.rejects(api.exchange(old.share));
+  state.outage=false;const replacement=(await api.persistent('create')).links!;assert.notEqual(replacement.share,old.share);await assert.rejects(api.exchange(old.share));
+  const next=(await api.persistent('rotate')).links!;assert.notEqual(next.share,replacement.share);await assert.rejects(api.exchange(replacement.watch));
+  // A persistent hash cannot validate with a different environment key.
+  const other=streamService({...fixtureConfig,SESSION_SECRET:'a-different-key-that-is-at-least-thirty-two-characters'},{lock:async()=>true,read:async()=>structuredClone(state.data),save:async()=>true,unlock:async()=>{}});
+  assert.equal(await other.configuredLinks(),null);await assert.rejects(other.exchange(next.share));
+});
