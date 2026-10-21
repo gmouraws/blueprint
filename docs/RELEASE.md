@@ -1,5 +1,13 @@
 # Blueprint Room production release
 
+## Accounts cutover preparation (PR #15)
+
+The owner authorized the accounts release after successful Preview OTP login. Resend reports the sender domain Verified and the authorized recipient's latest authentication message Delivered; the owner then completed login. Preview owner controls, preferences and chat history were verified, including a new account-owned message surviving reload. Physical multi-user audio and Cloud revocation acceptance remain separate checks.
+
+Before migration, the Production rollback target is commit `0a725223bcaf5dcdf5d59e0b167f7808354c86c6`, READY deployment `dpl_27L6YyZ4rPt3HFEYSJnbGr2RdAHV`. Neon Production project `green-poetry-18415626`, branch `br-sparkling-math-b8kvnjp0`, has a verified manual snapshot named `main at 2026-10-21 16:13:03 UTC (manual)`, with no expiry shown. It was created on the existing Free plan without upgrading. This is a recovery point, not evidence that the cutover is complete.
+
+Migration 004 does not delete history or infer legacy ownership, but its insertion guards make the old shared-password writer incompatible. Prefer a forward fix after cutover. A deployment-only rollback is insufficient: coordinate database recovery under maintenance, preserve post-snapshot data and deletion tombstones, and reconcile private objects before reopening access. Do not blindly restore the snapshot after new writes because doing so could discard new data or resurrect deleted content. Keep the canonical origin and use a distinct account media namespace so retained legacy deployments cannot access the new rooms. The PR records final migration/deployment/acceptance results.
+
 ## Authorization and scope
 
 The owner authorized merging PR #8 into main and replacing the public website through the existing Vercel Git integration, project blueprint (`prj_hNhWNMGea9fQLySMr6CfR92BodNS`). This includes the eight-participant server cap, configuration fixes and compact entry screen. No other project, DNS change, paid plan or duplicate manual deployment is included.

@@ -2,7 +2,7 @@
 
 ## Scope and current status
 
-This branch is Preview-only. Production remains on the shared-password release. Migration 004 was applied transactionally to `blueprint-room-preview` (Neon project `wispy-art-99499480`, branch `br-wispy-field-b745i39u`) and verified: account tables exist, zero accounts, zero legacy history rows claimed. BETTER_AUTH_SECRET is configured as a write-only Secret for Preview branch `codex/room-accounts`. A branch-only LIVEKIT_ROOM_NAME gives account Preview separate media rooms and Redis admission from older password Previews. Resend sender/key and explicit owner email remain external prerequisites. No Production migration, environment change or deploy is authorized by this task.
+The owner authorized the accounts Production cutover, conditional on release verification. Preview migration 004, owner OTP login, owner controls, preferences and account-owned chat persistence have passed hosted checks. Resend reports the domain Verified and the test email Delivered; the owner separately completed login. Production configuration has been prepared with an independent BETTER_AUTH_SECRET, the canonical origin and a new media namespace. The owner confirmed voice entry and exit in a normal browser; the Codex browser did not complete that connection. Physical multi-user audio remains unverified. Preparation is not a completed release. See RELEASE.md for the existing deployment and pre-cutover database snapshot.
 
 ## Configuration
 
@@ -35,7 +35,7 @@ Revocation first denies HTTP/session issuance, then removes all associated voice
 
 Client expiry disconnects media, closes viewing subscriptions and offers a modal code login without automatically rejoining. Same-account drafts survive. Session cookies and OTPs are never stored in application localStorage or returned in auth JSON. The only public API routes are bounded code/verify; no generic Better Auth route is mounted.
 
-## Future Production cutover (separate approval required)
+## Production cutover sequence
 
 Record current deployment/commit and Neon recovery point; pause new entry and drain existing voice/view rooms. Assign a new Production LIVEKIT_ROOM_NAME namespace so older retained deployments cannot mint credentials into account rooms. Configure independent Production auth/email values and verify sender delivery. Apply 004 plus explicit owner bootstrap to Production in a coordinated maintenance window, then merge/deploy account code. All legacy cookies are rejected. Verify owner login, member invite, remembered expiration, chat/image access, cross-device takeover and Cloud revocation before reopening access.
 
