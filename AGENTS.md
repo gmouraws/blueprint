@@ -48,9 +48,9 @@ If provenance is uncertain, do not use or publish the information.
 
 ## Product principles
 
-1. One fixed private room, at most eight participants, with server-enforced admission.
+1. Exactly two allowlisted voice rooms, at most eight simultaneous participants combined, with server-enforced admission.
 2. Reliable voice and screen sharing before extra features.
-3. One authenticated plain-text chat channel with 30-day PostgreSQL history; no recordings, AI, analytics, or advertising. See docs/adr/012-persistent-room-chat.md.
+3. One authenticated chat channel with plain text and private images, retained for 30 days; no recordings, AI, analytics, or advertising. See docs/adr/013-two-rooms-and-private-images.md.
 4. No secrets in browser bundles, logs, URLs, or Git.
 5. Keep architecture small; fail closed when security dependencies are unavailable.
 6. Preserve accessibility, keyboard controls, and smaller-screen usability.

@@ -6,7 +6,7 @@ import { prepareSounds, closeSounds } from './call-sounds';
 export function createCallRoom(prepareAudio = true) {
   const room = new Room({ adaptiveStream: true, dynacast: true,
     audioCaptureDefaults: { deviceId: readPreferences().microphone, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    publishDefaults: { screenShareEncoding: { maxBitrate: 2_500_000, maxFramerate: 15 }, stopMicTrackOnMute: false },
+    publishDefaults: { screenShareEncoding: { maxBitrate: 5_000_000, maxFramerate: 30 }, stopMicTrackOnMute: false },
   });
   // Listening never acquires a microphone. Actual playback failures remain visible in RoomView.
   if (prepareAudio) prepareCallAudio(room);

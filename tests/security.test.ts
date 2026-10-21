@@ -7,7 +7,7 @@ import { SignJWT } from 'jose';
 import { handlers, services } from '../src/lib/server/handlers';
 import { type Config, configuration, configurationStatus, allowedOrigins } from '../src/lib/server/config';
 import { cookieOptions, COOKIE_NAME, passwordMatches, signSession, verifySession, SESSION_SECONDS, REMEMBERED_SESSION_SECONDS } from '../src/lib/server/session';
-import { createRoomToken, ensureRoom, RoomFullError } from '../src/lib/server/livekit';
+import { createRoomToken, ensureRoom, livekitRoomName, RoomFullError } from '../src/lib/server/livekit';
 import { LimitError, enforceLimitResults } from '../src/lib/server/rate-limit';
 import { encodeMessage, decodeMessage, normalizeNickname, validNickname } from '../src/lib/room';
 
@@ -16,7 +16,11 @@ const config: Config = {
   LIVEKIT_URL: 'wss://fixture.livekit.cloud', LIVEKIT_API_KEY: 'test-api-key', LIVEKIT_API_SECRET: 'test-api-secret-long-enough-for-tests', LIVEKIT_ROOM_NAME: 'test-fixed-room',
   UPSTASH_REDIS_REST_URL: 'https://fixture.upstash.io', UPSTASH_REDIS_REST_TOKEN: 'test-only-redis-token',
 };
-const deps = { ...services, getConfig: () => config, rateLimit: async () => {}, ensureRoom: async () => {} };
+const fakeAdmission: typeof services.admissionService = () => ({
+  join: async (session, room) => ({ identity: session.identity, nickname: session.nickname, voiceRoom: room, serverUrl: config.LIVEKIT_URL, token: await createRoomToken(config, session, room) }),
+  leave: async () => {}, roster: async () => ({ main: [], second: [] }),
+});
+const deps = { ...services, getConfig: () => config, rateLimit: async () => {}, admissionService: fakeAdmission };
 function request(body: unknown, token?: string, origin = config.APP_ORIGIN) {
   return new NextRequest(`${config.APP_ORIGIN}/api/token`, { method: 'POST', headers: { origin, 'content-type': 'application/json', ...(token ? { cookie: `${COOKIE_NAME}=${token}` } : {}) }, body: JSON.stringify(body) });
 }
@@ -155,8 +159,8 @@ test('password or signing-secret changes deny both session modes before rate lim
 test('forgetting access deletes the cookie, even if expired or participant removal fails', async () => {
   const { token, session } = await signSession('Ana', config, true);
   let removals = 0;
-  const api = handlers({ ...deps, roomService: () => Object.assign(services.roomService(config), { removeParticipant: async (room: string, identity: string) => {
-    assert.equal(room, config.LIVEKIT_ROOM_NAME); assert.equal(identity, session.identity); removals++; throw new Error('offline');
+  const api = handlers({ ...deps, admissionService: () => ({ ...fakeAdmission(config), leave: async value => {
+    assert.equal(value.identity, session.identity); removals++; throw new Error('offline');
   } }) });
   assert.equal((await api.logout(request({}, token, 'https://attacker.test'))).status, 403);
   for (const value of [token, 'invalid-session', undefined]) {
@@ -198,21 +202,21 @@ test('fixed-room tokens have minimal grants, short TTL and an eight-person recre
   const jwt = await createRoomToken(config, session);
   const claims = await new TokenVerifier(config.LIVEKIT_API_KEY, config.LIVEKIT_API_SECRET).verify(jwt);
   assert.equal(claims.sub, session.identity); assert.equal(claims.name, 'Ana');
-  assert.equal(claims.video?.room, config.LIVEKIT_ROOM_NAME); assert.equal(claims.video?.roomJoin, true);
+  assert.equal(claims.video?.room, livekitRoomName(config, 'main')); assert.equal(claims.video?.roomJoin, true);
   assert.equal(claims.video?.canPublishData, true); assert.equal(claims.video?.canSubscribe, true);
   assert.deepEqual(claims.video?.canPublishSources, ['microphone', 'screen_share', 'screen_share_audio']);
   for (const flag of ['roomAdmin','roomCreate','roomList','roomRecord','canUpdateOwnMetadata'] as const) assert.equal(claims.video?.[flag], false);
   const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString());
   assert.ok(payload.exp - payload.nbf <= 120);
   const roomConfig = RoomConfiguration.fromJson(payload.roomConfig);
-  assert.equal(roomConfig.maxParticipants, 8); assert.equal(roomConfig.name, config.LIVEKIT_ROOM_NAME);
+  assert.equal(roomConfig.maxParticipants, 8); assert.equal(roomConfig.name, livekitRoomName(config, 'main'));
   assert.equal(roomConfig.agents.length, 0); assert.equal(roomConfig.egress, undefined);
 });
 test('token issuance checks existing room safety before returning any credentials', async () => {
   const { token } = await signSession('Ana', config);
-  const response = await handlers({ ...deps, ensureRoom: async () => { throw new Error('unsafe'); } }).token(request({}, token));
+  const response = await handlers({ ...deps, admissionService: () => ({ ...fakeAdmission(config), join: async () => { throw new Error('unsafe'); } }) }).token(request({}, token));
   assert.equal(response.status, 503); assert.equal((await response.json()).token, undefined);
-  assert.equal((await handlers({ ...deps, ensureRoom: async () => { throw new RoomFullError(); } }).token(request({}, token))).status, 409);
+  assert.equal((await handlers({ ...deps, admissionService: () => ({ ...fakeAdmission(config), join: async () => { throw new RoomFullError(); } }) }).token(request({}, token))).status, 409);
 });
 test('authorized token endpoint derives identity and name from session, not request', async () => {
   const { token, session } = await signSession('Ana', config);
@@ -236,7 +240,7 @@ test('a successful SDK timeout response is still denied and retry windows are bo
 
 test('room creation allows the eighth slot, rejects a full room and rejects incompatible caps', async () => {
   await ensureRoom(config, { createRoom: async options => {
-    assert.equal(options.name, config.LIVEKIT_ROOM_NAME); assert.equal(options.maxParticipants, 8);
+    assert.equal(options.name, livekitRoomName(config, 'main')); assert.equal(options.maxParticipants, 8);
     return new Room({ maxParticipants: 8, numParticipants: 7 });
   } });
   for (const maxParticipants of [0, 5]) {

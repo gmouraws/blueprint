@@ -48,15 +48,17 @@ export async function instrument(page: Page) {
     Context.prototype.createOscillator = function () { const node = oscillator.call(this); const start = node.start.bind(node); node.start = (...args) => { probe.tones++; start(...args); }; return node; };
     const send = RTCDataChannel.prototype.send;
     RTCDataChannel.prototype.send = function (...args) { if (probe.failData) throw new Error('Controlled data transport failure'); return Reflect.apply(send, this, args); };
-    navigator.mediaDevices.getDisplayMedia = async () => {
+    navigator.mediaDevices.getDisplayMedia = async constraints => {
+      Object.assign(probe, { screenConstraints: constraints });
       const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360;
       const paint = canvas.getContext('2d')!; paint.fillStyle = '#a3e1c5'; paint.fillRect(0, 0, 640, 360);
-      const video = canvas.captureStream(5).getVideoTracks()[0];
+      let frame = 0; const moving = setInterval(() => { paint.fillStyle = frame++ % 2 ? '#a3e1c5' : '#26364c'; paint.fillRect(0, 0, 640, 360); }, 33);
+      const video = canvas.captureStream(30).getVideoTracks()[0];
       const context = new AudioContext(); await context.resume();
       const tone = context.createOscillator(); const destination = context.createMediaStreamDestination();
       tone.frequency.value = 220; tone.connect(destination); tone.start();
       const stream = new MediaStream([video, destination.stream.getAudioTracks()[0]]); probe.streams.push(stream);
-      const stop = video.stop.bind(video); video.stop = () => { stop(); tone.stop(); void context.close(); stream.getAudioTracks().forEach(track => track.stop()); };
+      const stop = video.stop.bind(video); video.stop = () => { clearInterval(moving); stop(); tone.stop(); void context.close(); stream.getAudioTracks().forEach(track => track.stop()); };
       return stream;
     };
   });
@@ -64,14 +66,22 @@ export async function instrument(page: Page) {
 
 export async function prepare(page: Page, identity: string, room: string) {
   await (await chatStore(room)).install(page, identity);
-  const token = new AccessToken(key, secret, { identity, name: identity, ttl: 300 });
-  token.addGrant({ roomJoin: true, room, canSubscribe: true, canPublish: true, canPublishData: true,
-    canPublishSources: [TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO], canUpdateOwnMetadata: false });
-  token.roomConfig = new RoomConfiguration({ name: room, maxParticipants: 8 });
-  const jwt = await token.toJwt();
   await instrument(page);
   await page.route('**/api/login', route => route.fulfill({ json: { nickname: identity } }));
-  await page.route('**/api/token', route => route.fulfill({ json: { nickname: identity, identity, token: jwt, serverUrl: 'ws://127.0.0.1:7880' } }));
+  await page.route('**/api/token', async route => {
+    const voiceRoom = route.request().postDataJSON().room ?? 'main';
+    const destination = voiceRoom === 'second' ? room + '-second' : room;
+    const token = new AccessToken(key, secret, { identity, name: identity, ttl: 300 });
+    token.addGrant({ roomJoin: true, room: destination, canSubscribe: true, canPublish: true, canPublishData: true, canPublishSources: [TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO], canUpdateOwnMetadata: false });
+    token.roomConfig = new RoomConfiguration({ name: destination, maxParticipants: 8 });
+    await route.fulfill({ json: { nickname: identity, identity, voiceRoom, token: await token.toJwt(), serverUrl: 'ws://127.0.0.1:7880' } });
+  });
+  await page.route('**/api/voice', async route => {
+    const rooms = await service.listRooms([room, room + '-second']);
+    const roster = async (name: string) => rooms.some(item => item.name === name) ? (await service.listParticipants(name)).map(person => ({identity:person.identity,name:person.name,muted:!person.tracks.some(track => track.source === TrackSource.MICROPHONE && !track.muted)})) : [];
+    await route.fulfill({ json: { rooms: { main: await roster(room), second: await roster(room + '-second') } } });
+  });
+  await page.route('**/api/voice/leave', route => route.fulfill({json:{ok:true}}));
   await page.route('**/api/logout', route => route.fulfill({ json: { ok: true } }));
   await page.goto('/');
   await page.getByLabel('Seu apelido').fill(identity);

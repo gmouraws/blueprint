@@ -25,3 +25,7 @@ For an urgent recovery, use this existing project's Vercel rollback action to re
 For durable source recovery, create a branch from current main and revert PR #8's actual merge commit (`git revert -m 1 <merge-sha>` for a merge commit, or `git revert <squash-sha>` for a squash). Review and merge that recovery PR normally; never reset or force-push main. Do not delete provider resources or rotate credentials as part of a website rollback unless separately authorized.
 
 These are release preparation and recovery records, not a claim that deployment or real-media validation has completed. The PR contains the final deployment outcome.
+
+## Current Preview extension
+
+The two-room/private-image extension (ADR-013) is Preview-only. The currently released Room baseline is main commit `e9eb3e29a6e19fe50413b933579e4e10aeb19f35` from PR #9. This task does not merge, promote, change DNS or modify Production data/configuration. Before a future authorized release, configure isolated Production Blob storage, apply migration 002, verify Cloud admission/revocation and complete physical-device media acceptance. The earlier public-site recovery record above remains historical.

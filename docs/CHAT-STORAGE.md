@@ -58,3 +58,11 @@ The installed Free plan advertises 1 GB per project and 100 CU-hours per project
 Chat is plain text, at most 2000 UTF-8 bytes. Sender and timestamps come from the validated session/database. A request UUID is saved only to prevent duplicate writes. No message bodies, credentials or session tokens are logged; no analytics, read receipts, uploads, editing or extra channels were added. Shared-password access is suitable only for the approved trusted group. Members and providers can retain their own copies; this is not end-to-end encryption against the storage provider.
 
 Sources: [Neon managed integration](https://neon.com/docs/guides/vercel-managed-integration), [Neon driver](https://neon.com/docs/serverless/serverless-driver), [Vercel Cron deployment scope](https://vercel.com/docs/cron-jobs/quickstart), [Cron limits](https://vercel.com/docs/cron-jobs/usage-and-pricing), [Cron security and failure behavior](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
+
+## Preview image extension (ADR-013)
+
+Run both migrations in order using `npm run db:migrate` against only the intended environment. Migration 002 adds owner-bound attachment metadata and the atomic image/message write function; it is safe to rerun and does not delete existing messages. The environment binding remains mandatory. Do not deploy this feature before migration 002 exists in that environment.
+
+`blueprint-room-images-preview` is a private Blob store in IAD1 on the existing Hobby plan, connected only to Blueprint Preview. `BLOB_READ_WRITE_TOKEN` is sensitive and scoped to Preview; `BLOB_ENVIRONMENT=preview` is also Preview-only. No paid plan or automatic upgrade was enabled. Production storage and schema are unchanged by this extension. Before a separately authorized production release, create a distinct private Production store, bind its environment, apply migration 002 there, and verify cleanup. Free storage/operation limits still apply; uploads fail visibly when the provider refuses them.
+
+The existing cleanup endpoint/CLI also removes expired objects and orphaned uploads in batches of 100. Repeat maintenance for a backlog; failures preserve metadata so deletion can be retried. Never reuse a Production database or Blob token locally/in Preview. Never include credentials or client upload tokens in screenshots or logs.
