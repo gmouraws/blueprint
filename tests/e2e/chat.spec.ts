@@ -16,7 +16,7 @@ test('chat without voice persists, retries once, paginates, catches up and keeps
     }
     async function openChat(tab = page, name = 'Ana') {
       await tab.goto('/'); await tab.getByLabel('Seu apelido').fill(name); await tab.getByLabel('Senha da sala').fill('test-only-password');
-      await tab.getByRole('button', { name: 'Abrir chat sem entrar na voz' }).click();
+      await tab.getByRole('button', { name: 'Abrir chat' }).click();
       await expect(tab.getByRole('tab', { name: 'Chat', exact: true })).toHaveAttribute('aria-selected', 'true');
       await expect(tab.getByText('Carregando histórico…')).toHaveCount(0);
     }

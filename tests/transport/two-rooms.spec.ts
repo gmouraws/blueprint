@@ -50,6 +50,7 @@ test('room disclosure is view-only; switching isolates media, preserves shared c
       await alice.screenshot({path:`test-results/two-rooms-${width}.png`,fullPage:true});
     }
     await alice.getByRole('button',{name:'Sair da sala',exact:true}).click();
+    await expect(alice.getByRole('region',{name:'Entrar na sala',exact:true})).toBeVisible();
     await expect(alice.getByRole('button',{name:'Entrar na sala',exact:true})).toBeVisible();
     expect(await tones()).toBe(4);
     await testInfo.attach('sound-events',{body:JSON.stringify({localJoin:1,remoteJoin:1,localSwitch:1,localLeave:1}),contentType:'application/json'});

@@ -263,3 +263,17 @@ button.listening-muted { border-color: #d9ba78; color: #f3d9a5; background: #302
 }
 @media (max-width: 640px) and (max-height: 600px) { .participants-panel { max-height: 24dvh; } }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+.shortcut-settings { border-top: 1px solid var(--line); padding-top: 8px; }
+.shortcut-row { display: flex; align-items: end; gap: 8px; margin: 8px 0; }
+.shortcut-row label { min-width: 0; flex: 1; }
+.shortcut-row input { width: 100%; font-size: .85rem; }
+.message-image { display: flex; align-items: flex-start; gap: 4px; }
+.message-image > button { min-width: 0; }
+.image-delete-action { flex: 0 0 44px; }
+.image-delete { width: 44px; height: 44px; padding: 12px; color: var(--color-muted); border-color: transparent; background: transparent; }
+.image-delete:hover,.image-delete:focus-visible { color: #ff9b9b; border-color: currentColor; }
+@media (hover: hover) and (pointer: fine) {
+  .image-delete { opacity: 0; }
+  .message-image:hover .image-delete,.message-image:focus-within .image-delete { opacity: 1; }
+}

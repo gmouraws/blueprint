@@ -12,10 +12,10 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
   try {
     await prepare(alice, 'Alice', room); await join(alice);
     await prepare(bob, 'Bruno', room);
-    await bob.getByRole('button', { name: 'Abrir chat sem entrar na voz' }).click();
+    await bob.getByRole('button', { name: 'Abrir chat' }).click();
     await expect(bob.getByText('Desconectado', { exact: true })).toBeVisible();
     expect(await captures(bob)).toBe(0);
-    await bob.getByRole('button', { name: 'Entrar na voz', exact: true }).click();
+    await bob.getByRole('button', { name: 'Entrar na sala', exact: true }).click();
     await expect(bob.getByText('Conectado', { exact: true })).toBeVisible();
     await expect(alice.getByRole('button', { name: 'Opções de Bruno', exact: true })).toBeVisible();
     expect(await captures(alice)).toBe(0); expect(await captures(bob)).toBe(0);

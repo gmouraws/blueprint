@@ -1,6 +1,6 @@
 'use client';
 /* eslint-disable @next/next/no-img-element -- Authenticated image routes must bypass public image optimization/cache. */
-import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type ReactNode } from 'react';
 import { put } from '@vercel/blob/client';
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, type ChatImage } from '@/lib/images';
 import { Icon } from './icons';
@@ -65,13 +65,14 @@ export function ImageComposer({ image, disabled }: { image: ReturnType<typeof us
     {image.error && <p className="error" role="alert">{image.error}</p>}
   </div>;
 }
-export function MessageImage({ image }: { image: ChatImage }) {
+export function MessageImage({ image, children }: { image: ChatImage; children?: ReactNode }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
   const url = '/api/attachments/' + image.id;
   return <div className="message-image">
     {failed ? <p className="muted">Imagem indisponível ou acesso expirado.</p> : <button type="button" aria-label="Ampliar imagem da mensagem" onClick={() => { setOpen(true); dialog.current?.showModal(); }}><img src={url} width={image.width} height={image.height} alt="Imagem compartilhada na conversa" loading="lazy" onError={() => setFailed(true)} /></button>}
+    {children}
     <dialog ref={dialog} className="image-dialog" aria-label="Imagem ampliada" onClose={() => setOpen(false)}><button autoFocus onClick={() => dialog.current?.close()} aria-label="Fechar imagem ampliada"><Icon name="close" />Fechar</button>{open && <img src={url} alt="Imagem compartilhada ampliada" />}</dialog>
   </div>;
 }

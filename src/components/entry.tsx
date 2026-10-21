@@ -105,7 +105,7 @@ export default function Entry({ configuration, initialNickname = null }: { confi
           </>}
           {error && <p className="error" role="alert">{error}</p>}
           <button className="primary join-button" disabled={busy || !configured}>{busy ? 'Entrando…' : 'Entrar na sala'}<span aria-hidden="true">→</span></button>
-          <button className="chat-entry" name="destination" value="chat" disabled={busy || !configured}>Abrir chat sem entrar na voz</button>
+          <button className="chat-entry" name="destination" value="chat" disabled={busy || !configured}>Abrir chat</button>
         </form>
         {authenticatedNickname && <button className="forget-access" disabled={busy} onClick={forget}>Esquecer acesso neste dispositivo</button>}
         <MicrophoneCheck ref={microphoneCheck} disabled={busy || !configured} />

@@ -11,12 +11,12 @@ test('viewing authorization fails safely without joining voice; disclosure and k
   await page.route('**/api/chat**', route => route.fulfill({ json: { messages: [], hasMore: false, serverTime: new Date().toISOString() } }));
   await page.route('**/api/view', route => { viewed.push(route.request().postDataJSON().room); return route.fulfill({ status: 503, json: { error: 'Visualização indisponível. Tente novamente.' } }); });
   await page.goto('/'); await page.getByLabel('Seu apelido').fill('Ana'); await page.getByLabel('Senha da sala').fill('fixture-password');
-  await page.getByRole('button', { name: 'Abrir chat sem entrar na voz' }).click();
+  await page.getByRole('button', { name: 'Abrir chat' }).click();
   await page.getByRole('button', { name: 'Expandir participantes de Sala 2' }).click();
   expect(viewed).toEqual([]);
   await page.getByRole('button', { name: 'Ver Sala 2', exact: true }).focus(); await page.keyboard.press('Enter');
   await expect(page.locator('main').getByRole('alert')).toContainText('Visualização indisponível');
-  await expect(page.getByRole('button', { name: 'Entrar na voz de Sala 2' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Entrar na sala: Sala 2' })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Ativar microfone', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Tentar visualização novamente' }).click();
   await expect.poll(() => viewed.length).toBe(2); expect(viewed).toEqual(['second', 'second']); expect(voiceRequests).toBe(0);
@@ -129,7 +129,8 @@ test('actual room layout handles failed connection and exposes accessible contro
     if ([1440, 768, 375].includes(width)) await page.screenshot({ path: `test-results/room-disconnected-${width}.png`, fullPage: true });
   }
   await page.getByRole('button', { name: 'Sair da sala' }).click();
-  await expect(page.getByRole('button', { name: 'Entrar na sala' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Entrar na sala', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Entrar na sala', exact: true })).toBeVisible();
   await expect(page.getByLabel('Senha da sala')).toHaveCount(0);
   expect(logoutCalls).toBe(0);
   await page.getByRole('button', { name: 'Esquecer acesso neste dispositivo' }).click();

@@ -1,9 +1,11 @@
-export type Preferences = { microphone: string; sounds: boolean; screenVolume: number; noiseSuppression: boolean };
-export const defaultPreferences: Preferences = { microphone: 'default', sounds: true, screenVolume: 80, noiseSuppression: true };
+import { validateShortcuts, emptyShortcuts, type Shortcuts } from './shortcuts';
+export type Preferences = { microphone: string; sounds: boolean; screenVolume: number; noiseSuppression: boolean; shortcuts: Shortcuts };
+export const defaultPreferences: Preferences = { microphone: 'default', sounds: true, screenVolume: 80, noiseSuppression: true, shortcuts: emptyShortcuts };
 const key = 'blueprint.audio-preferences';
 export function validatePreferences(value: unknown): Preferences {
   const data = value && typeof value === 'object' ? value as Partial<Preferences> : {};
   return {
+    shortcuts: validateShortcuts(data.shortcuts),
     microphone: typeof data.microphone === 'string' && data.microphone.length > 0 && data.microphone.length <= 256 ? data.microphone : 'default',
     sounds: typeof data.sounds === 'boolean' ? data.sounds : true,
     noiseSuppression: typeof data.noiseSuppression === 'boolean' ? data.noiseSuppression : true,
