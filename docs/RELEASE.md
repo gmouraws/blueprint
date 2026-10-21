@@ -65,3 +65,13 @@ Migration 003 was applied transactionally to the isolated Production Neon databa
 **Recovery constraint:** earlier readers do not understand deletion tombstones. After any deletion has been used, prefer a forward fix that retains migration 003 and `deleted_at` filtering. Do not reverse the migration or restore deleted content. Before deletion is used, urgent application recovery may use the recorded Vercel deployment, followed by canonical-domain verification and checking automatic domain assignment. Any durable recovery must use a reviewed PR on current main, without rewriting history, and preserve deletion safeguards.
 
 Reload open clients after deployment so they receive deletion reconciliation and membership notices. The final deployment/merge identifiers and public checks belong in PR #12. Real-device audio, hosted multi-user notifications and cross-client deletion/Blob cleanup remain separate from the passing automated tests and local synthetic LiveKit tests.
+
+## Windows 0.1.3 and audio/settings refinement (PR #16)
+
+Owner explicitly authorized the complete web release and public unsigned Windows test installer, without requiring manual Preview acceptance. No schema, credentials, origin, storage or retention changes are needed.
+
+Pre-release recovery target: main `f16107498a57a33e6f645aa26cc163a9c4f15d4f`, READY Production deployment `dpl_GyfE5vBeyBK1pBspat1wrDKNMvhp`, canonical https://www.blueprint.app.br. Previous installer is private Production 0.1.2, SHA-256 `94d630b0d66af5f62d7e8f7b32edd90e511c07ecdf303c0f37241d3a199d264f`. There is no prior public Windows download to restore.
+
+Recovery: set the Windows release manifest to null in a reviewed PR to hide downloads while preserving browser entry. For urgent web recovery, roll back this project to the recorded READY Production deployment and check canonical assignment; use a normal revert PR for durable recovery. Preserve all account preference keys/data. Never reverse migrations or reset history. An installed desktop client loads the hosted page; ask users to leave the call and restart after a web rollback. To recover the shell, exit via tray and reinstall the retained private 0.1.2 binary if available, preserving its Production profile. Do not overwrite published release assets; withdraw a defective release/download and issue a new version.
+
+Automated CI/build/synthetic media evidence is separate from real audio, game, tray and multi-user acceptance. Record final deployment/release/hash evidence in the PR and release report.

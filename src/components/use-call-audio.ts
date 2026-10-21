@@ -3,6 +3,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { ConnectionState, RoomEvent, Track, type Room } from 'livekit-client';
 import { AudioController, type AudioAction } from '@/lib/client/audio-controller';
 import type { useMicrophone } from './microphone';
+import { playConfirmationTone } from '@/lib/client/call-sounds';
+import { readPreferences } from '@/lib/client/preferences';
 
 export function useCallAudio(room: Room, microphone: ReturnType<typeof useMicrophone>, disabled: boolean) {
   const latest = useRef({ microphone, disabled });
@@ -18,6 +20,7 @@ export function useCallAudio(room: Room, microphone: ReturnType<typeof useMicrop
     available: () => room.state === ConnectionState.Connected && !latest.current.disabled && !latest.current.microphone.pending,
     setMicrophone: (enabled, existingOnly) => latest.current.microphone.setEnabled(enabled, existingOnly),
     changed: setState,
+    confirmed: (_action, silenced) => { if (room.state === ConnectionState.Connected && readPreferences().confirmationSounds) void playConfirmationTone(room, silenced); },
     });
     controller.current = instance;
     const reset = () => instance.invalidate();

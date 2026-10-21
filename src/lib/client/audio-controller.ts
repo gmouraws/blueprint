@@ -5,6 +5,7 @@ type Ports = {
   available: () => boolean;
   setMicrophone: (enabled: boolean, existingOnly?: boolean) => Promise<boolean>;
   changed: (state: { muted: boolean; combined: boolean; busy: boolean }) => void;
+  confirmed?: (action: AudioAction, silenced: boolean) => void;
 };
 
 // Transient call state only: preferences must never restore capture automatically.
@@ -19,7 +20,7 @@ export class AudioController {
   async dispatch(action: AudioAction) {
     // Listening remains independent even while microphone permission is pending.
     if (action === 'listening') {
-      this.snapshot = undefined; this.muted = !this.muted; this.emit(); return;
+      this.snapshot = undefined; this.muted = !this.muted; this.emit(); this.ports.confirmed?.(action, this.muted); return;
     }
     // A combined mute can cancel an in-flight activation; restoration cannot.
     if (this.busy && !(action === 'all' && !this.snapshot)) return;
@@ -34,16 +35,18 @@ export class AudioController {
       if (action === 'all') this.muted = snapshot!.muted;
     }
     this.busy = true; this.emit();
+    let success = true;
     try {
       if (action === 'all' && snapshot) {
         const current = this.ports.microphone();
         if (snapshot.enabled && snapshot.track && current.track === snapshot.track && current.device === snapshot.device && this.ports.available()) {
-          await this.ports.setMicrophone(true, true);
+          success = await this.ports.setMicrophone(true, true);
         }
       } else {
-        const success = await this.ports.setMicrophone(action === 'microphone' ? !this.ports.microphone().enabled : false);
+        success = await this.ports.setMicrophone(action === 'microphone' ? !this.ports.microphone().enabled : false);
         if (!success && version === this.generation) this.snapshot = undefined;
       }
+      if (success && version === this.generation) this.ports.confirmed?.(action, action === 'microphone' ? !this.ports.microphone().enabled : !!this.snapshot);
     } finally {
       if (version === this.generation) { this.busy = false; this.emit(); }
     }

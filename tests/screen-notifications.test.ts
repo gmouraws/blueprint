@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import { ConnectionState, RoomEvent, Track, type Room } from 'livekit-client';
+import { observeScreenStarts } from '../src/lib/client/screen-notifications';
+
+test('screen starts exclude initial/local/replacement/reconnect events and remove all listeners', context => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  const publication = (trackSid: string, source = Track.Source.ScreenShare) => ({trackSid,source});
+  const initial=publication('initial');
+  const participant={identity:'remote',isLocal:false,trackPublications:new Map([['initial',initial]])};
+  const emitter=Object.assign(new EventEmitter(),{state:ConnectionState.Connected,remoteParticipants:new Map([['remote',participant]])});
+  let count=0;
+  const stop=observeScreenStarts(emitter as unknown as Room,()=>count++);
+  const publish=(id:string,p=participant)=>emitter.emit(RoomEvent.TrackPublished,publication(id),p);
+  publish('initial');assert.equal(count,0);
+  emitter.emit(RoomEvent.TrackUnpublished,initial,participant);
+  publish('replacement');assert.equal(count,0);
+  context.mock.timers.tick(501);
+  emitter.emit(RoomEvent.TrackUnpublished,publication('replacement'),participant);
+  context.mock.timers.tick(501);
+  publish('new');publish('new');assert.equal(count,1);
+  publish('local',{...participant,identity:'local',isLocal:true});assert.equal(count,1);
+  emitter.emit(RoomEvent.TrackPublished,publication('mic',Track.Source.Microphone),participant);assert.equal(count,1);
+  emitter.state=ConnectionState.Reconnecting;emitter.emit(RoomEvent.Reconnecting);publish('during-reconnect');assert.equal(count,1);
+  participant.trackPublications=new Map([['resumed',publication('resumed')]]);
+  emitter.state=ConnectionState.Connected;emitter.emit(RoomEvent.Reconnected);publish('resumed');assert.equal(count,1);
+  emitter.emit(RoomEvent.Disconnected);emitter.state=ConnectionState.Disconnected;publish('old-room');assert.equal(count,1);
+  stop();assert.equal(emitter.eventNames().length,0);
+  context.mock.timers.tick(1000);assert.equal(count,1);
+});

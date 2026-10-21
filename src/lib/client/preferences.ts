@@ -1,7 +1,7 @@
 import { accountPreferences, type AccountPreferences } from '../account-preferences';
 import { validateShortcuts, emptyShortcuts, type Shortcuts } from './shortcuts';
-export type Preferences = { microphone: string; output: string; sounds: boolean; screenVolume: number; noiseSuppression: boolean; shortcuts: Shortcuts };
-export const defaultPreferences: Preferences = { microphone: 'default', output: 'default', sounds: true, screenVolume: 80, noiseSuppression: true, shortcuts: emptyShortcuts };
+export type Preferences = { microphone: string; output: string; sounds: boolean; screenSounds: boolean; confirmationSounds: boolean; screenVolume: number; noiseSuppression: boolean; shortcuts: Shortcuts };
+export const defaultPreferences: Preferences = { microphone: 'default', output: 'default', sounds: true, screenSounds: true, confirmationSounds: true, screenVolume: 80, noiseSuppression: true, shortcuts: emptyShortcuts };
 const legacyKey = 'blueprint.audio-preferences';
 let accountId = '';
 let defaults: AccountPreferences = {};
@@ -34,6 +34,8 @@ export function validatePreferences(value: unknown): Preferences {
     output: typeof data.output === 'string' && data.output.length > 0 && data.output.length <= 256 ? data.output : 'default',
     microphone: typeof data.microphone === 'string' && data.microphone.length > 0 && data.microphone.length <= 256 ? data.microphone : 'default',
     sounds: typeof data.sounds === 'boolean' ? data.sounds : true,
+    screenSounds: typeof data.screenSounds === 'boolean' ? data.screenSounds : true,
+    confirmationSounds: typeof data.confirmationSounds === 'boolean' ? data.confirmationSounds : true,
     noiseSuppression: typeof data.noiseSuppression === 'boolean' ? data.noiseSuppression : true,
     screenVolume: typeof data.screenVolume === 'number' && Number.isFinite(data.screenVolume) ? Math.round(Math.min(100, Math.max(0, data.screenVolume))) : 80,
   };
