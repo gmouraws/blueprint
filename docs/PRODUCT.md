@@ -27,3 +27,7 @@ Owner-approved visual membership notices accompany the existing voice lifecycle:
 ## Combined mute and browser shortcuts (Phase A, Preview)
 
 Entry actions use "Entrar na sala"; chat-only entry uses "Abrir chat" without changing admission. Separate microphone and incoming-audio controls remain. "Silenciar tudo" snapshots their states and mutes both; restoration never creates a microphone track. An individual override exits combined mode and changes only that side, leaving the other muted. Room lifecycle changes discard restoration; device/track changes prevent microphone restoration. Browser shortcuts start unset, are local preferences, and work only while the application has focus, outside typing/IME/repeated-key events. No global shortcuts, Electron application or infrastructure is included.
+
+## Separate guest transmission experiment
+
+The owner approved an additional /stream experience for invitation-only guests without accounts or nicknames, preserving the member rooms. See ADR 021 and STREAM.md for its separate screen-only authorization, capacity, expiry and native limitations.

@@ -11,7 +11,7 @@ import { CallAudioControls, type CallAudioControlsProps } from './call-audio-con
 export function ScreenViewer({ current, screens, mini, hasAudio, setting, onSetting, onSelect, onExpand, onHide, onNotice, audioControls, listening }: {
   current: TrackReference; screens: TrackReference[]; mini: boolean; hasAudio: boolean;
   setting: VolumeSetting; onSetting: (setting: VolumeSetting) => void; onSelect: (sid: string) => void;
-  onExpand: () => void; onHide: () => void; onNotice: (notice: string) => void; audioControls: CallAudioControlsProps;
+  onExpand: () => void; onHide: () => void; onNotice: (notice: string) => void; audioControls?: CallAudioControlsProps;
   listening?: { enabled: boolean; toggle: () => void };
 }) {
   const viewer = useRef<HTMLDivElement>(null);
@@ -56,6 +56,6 @@ export function ScreenViewer({ current, screens, mini, hasAudio, setting, onSett
       </ControlMenu>
       {mini && <button className="icon-button" onClick={onHide} title="Ocultar mini-player" aria-label="Ocultar mini-player sem desligar áudio"><Icon name="close" /></button>}
     </div>
-    {fullscreen && <div className="fullscreen-audio"><CallAudioControls {...audioControls} /></div>}
+    {fullscreen && audioControls && <div className="fullscreen-audio"><CallAudioControls {...audioControls} /></div>}
   </div>;
 }
