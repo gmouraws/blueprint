@@ -5,6 +5,7 @@ import { Room, RoomEvent, ConnectionState, Track } from 'livekit-client';
 import { RoomContext, VideoTrack, useAudioPlayback, useConnectionState, useLocalParticipant, useRoomContext, useTracks } from '@livekit/components-react';
 import { VOICE_ROOMS, type ConnectionDetails, type VoiceRoomId } from '@/lib/room';
 import { closeCallRoom, prepareCallAudio } from '@/lib/client/call-room';
+import { connectRoom, VoiceConnectionTimeout } from '@/lib/client/connect-room';
 import { readPreferences, savePreferences } from '@/lib/client/preferences';
 import { playMembershipTone, resumeSounds } from '@/lib/client/call-sounds';
 import { Brand, Icon } from './icons';
@@ -33,7 +34,7 @@ export default function ConnectedRoom({ room, details, onLeave }: { room: Room; 
     let active = true; leaving.current = false;
     const disconnected = () => { if (active && !leaving.current && !intentionalDisconnect.current) setError('A conexão foi encerrada. Você pode entrar na voz novamente.'); };
     room.on(RoomEvent.Disconnected, disconnected);
-    if (details) void room.connect(details.serverUrl, details.token, { autoSubscribe: true }).catch(() => { if (active) setError('Não foi possível entrar na voz. Tente novamente.'); });
+    if (details) void connectRoom(room, details.serverUrl, details.token).catch(failure => { if (active) setError(failure instanceof VoiceConnectionTimeout ? 'A conexão de voz demorou demais. Confira sua rede e tente novamente. O chat continua disponível.' : 'Não foi possível entrar na voz. Tente novamente.'); });
     const close = () => { void closeCallRoom(room); };
     window.addEventListener('pagehide', close);
     return () => { active = false; leaving.current = true; room.off(RoomEvent.Disconnected, disconnected); window.removeEventListener('pagehide', close); close(); };
@@ -57,8 +58,8 @@ export default function ConnectedRoom({ room, details, onLeave }: { room: Room; 
       if (leaving.current) return;
       const result: ConnectionDetails = await post('/api/token', { room: destination });
       admission.current = result.identity;
-      if (!leaving.current) { setCurrentRoom(destination); await room.connect(result.serverUrl, result.token, { autoSubscribe: true }); }
-    } catch { if (!leaving.current) setError('Não foi possível entrar na voz. A sala pode estar cheia ou indisponível. Tente novamente.'); }
+      if (!leaving.current) { setCurrentRoom(destination); await connectRoom(room, result.serverUrl, result.token); }
+    } catch (failure) { if (!leaving.current) setError(failure instanceof VoiceConnectionTimeout ? 'A conexão de voz demorou demais. Confira sua rede e tente novamente. O chat continua disponível.' : 'Não foi possível entrar na voz. A sala pode estar cheia ou indisponível. Tente novamente.'); }
     finally { intentionalDisconnect.current = false; joinLock.current = false; if (!leaving.current) setJoining(false); }
   }
   return <RoomContext.Provider value={room}><RoomView error={error} onLeave={leave} onJoin={joinVoice} joining={joining} currentRoom={currentRoom} initialView={details ? 'sala' : 'chat'} /></RoomContext.Provider>;
