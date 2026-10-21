@@ -10,7 +10,7 @@ import { STREAM_COOKIE, StreamError, streamService, validCredential } from './st
 export const streamServices = { getConfig, verifySession, rateLimit, streamService, fetch: globalThis.fetch };
 const input = z.discriminatedUnion('action', [
   z.object({ action: z.literal('exchange'), credential: z.string().refine(validCredential) }).strict(),
-  z.object({ action: z.enum(['join', 'status', 'stopped']) }).strict(),
+  z.object({ action: z.enum(['join', 'status', 'stopped', 'handoff']) }).strict(),
   z.object({ action: z.literal('leave'), connectionId: z.uuid() }).strict(),
   z.object({ action: z.literal('announce'), attempt: z.uuid() }).strict(),
 ]);

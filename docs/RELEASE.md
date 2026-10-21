@@ -99,3 +99,12 @@ PR #20 merged as `b36632e0c211885a10b62c1a1ddfe55f72c7fb25`; main Quality and th
 The actual [0.1.4 release](https://github.com/gmouraws/blueprint/releases/tag/windows-v0.1.4) installer was downloaded and matched its published SHA-256: `a030e1a3f860ca341e4705488a9be4e91e51532e7ea2ebbe1abce9daeaed68e0`. Extracted contents confirm version 0.1.4, Production/canonical origin, the native helper and no environment/test fixtures; the packaged helper reports supported on this Windows host. The existing running application prevented a separate packaged startup smoke test through single-instance handoff; the owner chose manual acceptance after release. No installed application was stopped.
 
 Verification: 78 unit/integration, 21 browser and 15 desktop tests passed, plus production builds. Real Windows fixtures exposed 28 sources (all rendered), including 20 controlled windows and selection beyond the first page. Native and sandboxed Electron/local-LiveKit tests received selected/child process tones while excluding a second application and Electron playback. This is measured synthetic Windows audio, not a physical microphone, game or friends' Production call. Physical display scaling, installer wizard, long-running AV synchronization and real-user acceptance remain manual. Application audio stays experimental and off by default. The website manifest is enabled only after this published-asset verification.
+
+
+## Windows guest transmission 0.1.5
+
+Owner authorized installer publication and Production download update after checks. Baseline main: `3bdc00fd65c9a965b73d4beaad6d5691a56522cc`; recovery Vercel deployment: `dpl_HG6xEq4JCNy63ZMpzysQAFzsUpwG`. Recovery installer: `windows-v0.1.4`, SHA-256 `a030e1a3f860ca341e4705488a9be4e91e51532e7ea2ebbe1abce9daeaed68e0`.
+
+Merge the desktop/web compatibility PR through Quality and Windows checks. The existing version-gated workflow builds/publishes 0.1.5 only after main Quality succeeds. Verify the downloaded release asset and checksum before a separate download-manifest update. Vercel Git integration deploys merged web commits; do not duplicate deployments.
+
+No migrations, new environment variables or account changes. To recover, revert/hide the download manifest and restore the recorded web deployment via normal recovery. Installed clients are not replaced by a web rollback: instruct manual downgrade to 0.1.4. Revoke affected guest invitations and confirm provider cleanup before removing a running guest flow. Preserve Redis ledger and account/chat storage.

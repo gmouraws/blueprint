@@ -29,3 +29,18 @@ test('invalid guest access has no entry form; page denies microphone and member 
   for (const path of ['/api/account', '/api/chat', '/api/voice', '/api/attachments/00000000-0000-4000-8000-000000000000']) expect((await request.get(path, { headers })).status()).toBe(401);
   for (const path of ['/api/token', '/api/view']) expect((await request.post(path, { headers, data: { room: 'main' } })).status()).toBe(401);
 });
+
+
+test('native invitation arrives through the isolated bridge, never asks for an account or capture', async ({ page }) => {
+  await page.addInitScript(() => { window.blueprintStreamDesktop = { version: 1, consumeInvite: async () => 'n'.repeat(43), configure: async () => ({ ready: true }) }; });
+  let exchanged = false;
+  await page.route('**/api/stream', route => {
+    const body = route.request().postDataJSON();
+    expect(page.url()).not.toContain('n'.repeat(43));
+    if (body.action === 'exchange') { expect(body.credential).toBe('n'.repeat(43)); exchanged = true; return route.fulfill({ json: {} }); }
+    return route.fulfill({ status: 401, json: { error: 'Convite revogado.' } });
+  });
+  await page.goto('/stream?intent=share');
+  await expect(page.getByRole('status')).toContainText('Convite revogado');expect(exchanged).toBe(true);
+  await expect(page.locator('input')).toHaveCount(0);await expect(page.getByRole('button', { name: 'Selecionar tela' })).toHaveCount(0);
+});

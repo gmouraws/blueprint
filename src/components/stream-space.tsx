@@ -23,6 +23,7 @@ export default function StreamSpace() {
   const lifetime = useRef<() => Promise<void>>(() => Promise.resolve());
   const previous = useRef(Promise.resolve());
   const invite = useRef<string | null>(null);
+  const [openingApp, setOpeningApp] = useState(false);
   useEffect(() => {
     if (left) return;
     let cancelled = false; let connectionId = ''; let expiry = 0; let pollBusy = false;
@@ -36,11 +37,13 @@ export default function StreamSpace() {
         await before; if (cancelled) return;
         const params = new URLSearchParams(location.hash.slice(1));
         if (params.has('invite')) invite.current = params.get('invite');
+        const nativeStream = window.blueprintStreamDesktop?.version === 1;
+        if (nativeStream) { const received = await window.blueprintStreamDesktop!.consumeInvite(); if (received) invite.current = received; }
         const intent = new URLSearchParams(location.search).get('intent') === 'share' ? 'share' : 'watch';
         // Strip the capability before any media, provider or guest-session request.
         history.replaceState(null, '', `/stream?intent=${intent}`);
         const desktop = !!window.blueprintDesktop;
-        if (desktop) void window.blueprintDesktop!.configure({ available: false, microphone: false, muted: true, combined: false, bindings: { microphone: '', listening: '', all: '' } });
+        if (desktop && !nativeStream) void window.blueprintDesktop!.configure({ available: false, microphone: false, muted: true, combined: false, bindings: { microphone: '', listening: '', all: '' } }).catch(() => undefined);
         setNotice('Validando convite…');
         if (invite.current) { await post({ action: 'exchange', credential: invite.current }); invite.current = null; }
         if (cancelled) return;
@@ -82,14 +85,33 @@ export default function StreamSpace() {
     return () => { clearInterval(poll); window.removeEventListener('pagehide', close); previous.current = close(); };
   }, [retry, left]);
   async function leave() { setLeft(true); await lifetime.current(); setConnection(null); setNotice('Você saiu do espaço.'); }
+  async function openApp() {
+    if (openingApp || window.blueprintDesktop) return;
+    const profiles: Record<string, string> = { 'https://www.blueprint.app.br': 'blueprint-room', 'https://blueprint-git-codex-windows-room-gmouraws-8238s-projects.vercel.app': 'blueprint-room-preview' };
+    const scheme = profiles[location.origin];
+    if (!scheme) { setNotice('A abertura no aplicativo está disponível pelo convite no domínio de Production. Continue no navegador neste Preview.'); return; }
+    setOpeningApp(true);
+    try {
+      const result = await post({ action: 'handoff' });
+      if (!/^[A-Za-z0-9_-]{43}$/.test(result.credential)) throw Error('invalid');
+      const intent = connection?.intent === 'share' ? 'share' : 'watch';
+      await leave();
+      setNotice('Confirme a abertura no Windows. Se o aplicativo não abrir, instale a versão 0.1.5 ou continue no navegador.');
+      // This is an OS protocol handoff, never a Next.js route.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      location.assign(`${scheme}://stream?intent=${intent}#invite=${result.credential}`);
+    } catch { setNotice('Não foi possível abrir no aplicativo. Continue no navegador ou tente novamente.'); }
+    finally { setOpeningApp(false); }
+  }
   return <main className="stream-space"><header className="stream-header"><Brand/><span className="muted">Transmissão privada · até 8 pessoas</span>{!left && <button onClick={() => void leave()}>Sair</button>}</header>
+    {connection && !connection.desktop && !left && <div className="stream-actions"><button disabled={openingApp} onClick={() => void openApp()}>Abrir no aplicativo</button><span className="muted">Ou continue no navegador. Windows 0.1.5 ou posterior.</span></div>}
     {notice && <p role="status">{notice}</p>}
     {connection && !left && <RoomContext.Provider value={connection.room}><StreamContent {...connection} onNotice={setNotice}/></RoomContext.Provider>}
-    {notice && <button onClick={() => { setLeft(false); setRetry(value => value + 1); }}>Reabrir espaço</button>}
+    {notice && <button onClick={() => { setLeft(false); setRetry(value => value + 1); }}>{left ? 'Continuar no navegador' : 'Reabrir espaço'}</button>}
     <p className="stream-disclosure">Somente telas e o áudio escolhido por quem transmite. Nenhum microfone ou chat. Os rótulos de visitantes não verificam identidades.</p>
   </main>;
 }
-function StreamContent({ room, share, intent, desktop, onNotice }: { room: Room; share: boolean; intent: string; desktop: boolean; onNotice: (value: string) => void }) {
+function StreamContent({ room, share, intent, desktop, expires, onNotice }: { room: Room; share: boolean; intent: string; desktop: boolean; expires: number; onNotice: (value: string) => void }) {
   const screens = useTracks([Track.Source.ScreenShare], { onlySubscribed: true });
   const audio = useTracks([Track.Source.ScreenShareAudio], { onlySubscribed: true });
   const [selected, setSelected] = useState(''); const [quality, setQuality] = useState<ScreenQuality>('balanced');
@@ -98,6 +120,15 @@ function StreamContent({ room, share, intent, desktop, onNotice }: { room: Room;
   const [busy, setBusy] = useState(false); const busyRef = useRef(false); const alive = useRef(false);
   const current = screens.find(track => track.publication.trackSid === selected);
   const own = screens.some(track => track.participant.isLocal);
+  const nativeStream = typeof window !== 'undefined' && window.blueprintStreamDesktop?.version === 1;
+  const [nativeReady, setNativeReady] = useState(false);
+  useEffect(() => {
+    if (!nativeStream) return;
+    let alive = true;
+    const sync = () => { void window.blueprintStreamDesktop!.configure({ available: share && room.state === ConnectionState.Connected, expires }).then(() => { if (alive) setNativeReady(true); }).catch(() => { if (alive) { setNativeReady(false); onNotice('A integração de transmissão ficou indisponível. Reabra o aplicativo.'); void room.disconnect(true); } }); };
+    sync(); room.on(RoomEvent.ConnectionStateChanged, sync); const heartbeat = setInterval(sync, 5000);
+    return () => { alive = false; clearInterval(heartbeat); room.off(RoomEvent.ConnectionStateChanged, sync); void window.blueprintStreamDesktop!.configure({ available: false, expires: 0 }).catch(() => undefined); };
+  }, [room, share, expires, nativeStream, onNotice]);
   useEffect(() => {
     alive.current = true;
     const update = () => setConnected(room.state === ConnectionState.Connected);
@@ -113,7 +144,7 @@ function StreamContent({ room, share, intent, desktop, onNotice }: { room: Room;
     return () => { alive.current = false; clearTimeout(stopped); room.off(RoomEvent.ConnectionStateChanged, update).off(RoomEvent.LocalTrackUnpublished, unpublished); };
   }, [room]);
   async function publish() {
-    if (busyRef.current || room.state !== ConnectionState.Connected || !share || desktop) return;
+    if (busyRef.current || room.state !== ConnectionState.Connected || !share || (desktop && !nativeReady)) return;
     busyRef.current = true; setBusy(true); onNotice('');
     const stopping = room.localParticipant.isScreenShareEnabled;
     try {
@@ -134,9 +165,9 @@ function StreamContent({ room, share, intent, desktop, onNotice }: { room: Room;
   function select(sid: string) { setSelected(sid); setSetting(value => ({ ...value, muted: true })); }
   function adjust(value: VolumeSetting) { setSetting(value); if (!value.muted) void room.startAudio().catch(() => onNotice('Clique em Ouvir novamente para liberar a reprodução.')); }
   return <><div className="stream-actions"><h1>{intent === 'share' && share ? 'Transmitir' : 'Assistir'}</h1>
-    {share && <><label>Qualidade<select value={quality} onChange={event => setQuality(event.target.value as ScreenQuality)} disabled={busy || own}>{Object.entries(SCREEN_QUALITIES).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label><button className="primary" disabled={!connected || busy || desktop} onClick={() => void publish()}>{busy ? 'Aguarde…' : own ? 'Parar transmissão' : intent === 'share' ? 'Selecionar tela' : 'Transmitir'}</button></>}
+    {share && <><label>Qualidade<select value={quality} onChange={event => setQuality(event.target.value as ScreenQuality)} disabled={busy || own}>{Object.entries(SCREEN_QUALITIES).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label><button className="primary" disabled={!connected || busy || (desktop && !nativeReady)} onClick={() => void publish()}>{busy ? 'Aguarde…' : own ? 'Parar transmissão' : intent === 'share' ? 'Selecionar tela' : 'Transmitir'}</button></>}
     </div>
-    {share && <p className="muted">{desktop ? 'Nesta versão, abra o convite no Chrome ou Edge para transmitir. O aplicativo instalado ainda não recebe links de convidados.' : 'Confirme a tela e o áudio no seletor do navegador. Áudio do aplicativo isolado é exclusivo do aplicativo Windows nas salas autenticadas; não é prometido pelo navegador. Áudio do sistema pode incluir Discord e outras aplicações.'}</p>}
+    {share && <p className="muted">{nativeStream ? 'Escolha a tela no seletor do Windows. Sem áudio é o padrão; áudio do aplicativo depende da fonte e do Windows, e continua experimental. Áudio do sistema inclui outras aplicações e pode incluir Discord.' : desktop ? 'Atualize para Windows 0.1.5 e use Abrir no aplicativo pelo convite no navegador.' : 'Confirme a tela e o áudio no seletor do navegador. Para áudio do aplicativo, use o Windows 0.1.5 ou posterior. Áudio do sistema pode incluir Discord e outras aplicações.'}</p>}
     <div className="stream-list" aria-label="Transmissões disponíveis">{screens.map((track, index) => <button key={track.publication.trackSid} aria-pressed={selected === track.publication.trackSid} onClick={() => select(track.publication.trackSid)}>Assistir · Transmissão {index + 1}{track.participant.isLocal ? ' (sua)' : ''}</button>)}</div>
     {current ? <ScreenViewer current={current} screens={screens} mini={false} hasAudio={audio.some(track => track.participant.identity === current.participant.identity)} setting={setting} onSetting={adjust} onSelect={select} onExpand={() => undefined} onHide={() => undefined} onNotice={onNotice}/> : <div className="stream-empty"><p>{screens.length ? 'Escolha uma transmissão para assistir.' : 'Nenhuma transmissão ativa. Quando alguém compartilhar, ela aparecerá aqui.'}</p>{selected && <p>A transmissão selecionada terminou.</p>}</div>}
     <IncomingAudio volumes={{}} screenOnly screenIdentity={current?.participant.identity} screenSetting={setting} globalMuted={!current || setting.muted}/>

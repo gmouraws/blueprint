@@ -1,5 +1,8 @@
 # Windows test application
 
+Version 0.1.5 adds a separate guest transmission window and validated invitation handoff (ADR 022). Install the Production x64 test client, open a valid HTTPS invitation, and choose **Abrir no aplicativo**. Browser continuation remains available. No account/nickname is required in this window and microphone permission is always denied. **Selecionar tela** is still an explicit action. Close hides the window; the tray restores it; **Sair do aplicativo** stops all media. Member sessions and voice rooms retain their separate persistent cookie store.
+
+
 Version 0.1.4 adds searchable/refreshed capture sources and experimental application-only audio (ADR 020). The owner subsequently authorized Production publication for manual acceptance. No hosted media integration change is needed; switch the download only after the published asset is verified. See WINDOWS-APPLICATION-AUDIO.md for runtime requirements and measured versus manual verification.
 
 ## Build and profiles

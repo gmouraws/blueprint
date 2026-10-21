@@ -1,6 +1,6 @@
 {
   "name": "blueprint-room-desktop",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "Blueprint Room Windows test client",
   "author": "Blueprint",
@@ -36,7 +36,9 @@
       "picker.html",
       "picker.css",
       "picker.js",
-      "process-audio.mjs"
+      "process-audio.mjs",
+      "stream-links.mjs",
+      "stream-window.mjs"
     ],
     "win": {
       "target": [

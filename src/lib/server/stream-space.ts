@@ -12,7 +12,7 @@ export const validCredential = (value: unknown): value is string => typeof value
 export const streamRoom = (config: Config) => `${config.LIVEKIT_ROOM_NAME}-guest-stream-v1`;
 type Invitation = { id: string; hash: string; role: 'watch' | 'share'; expires: number; revoked?: boolean; parent?: string };
 type Guest = { hash: string; invite: string; expires: number; label: number; identity?: string; issued?: number; attempt?: string; announcement?: 'claimed' | 'sent' | 'failed' };
-export type StreamState = { invitations: Invitation[]; guests: Guest[]; sequence: number };
+export type StreamState = { invitations: Invitation[]; guests: Guest[]; sequence: number; handoffs?: { hash: string; invite: string; expires: number }[] };
 export interface StreamStore {
   lock(owner: string): Promise<boolean>;
   read(): Promise<StreamState>;
@@ -56,6 +56,7 @@ export function streamService(config: Config, store = streamStore(config), media
   }
   async function cleanup(state: StreamState) {
     let pending = false;
+    state.handoffs = (state.handoffs ?? []).filter(ticket => ticket.expires > now() && validInvite(state, state.invitations.find(item => item.id === ticket.invite)));
     for (const guest of state.guests) if (guest.expires <= now() || !validInvite(state, invitation(state, guest))) {
       try { await revoke(guest); } catch { pending = true; }
     }
@@ -85,8 +86,10 @@ export function streamService(config: Config, store = streamStore(config), media
     }),
     exchange: (secret: string, existing?: string) => exclusive(async state => {
       await cleanup(state);
-      const invite = validCredential(secret) ? state.invitations.find(item => item.hash === digest(secret)) : undefined;
+      const ticket = validCredential(secret) ? state.handoffs?.find(item => item.hash === digest(secret) && item.expires > now()) : undefined;
+      const invite = validCredential(secret) ? state.invitations.find(item => ticket ? item.id === ticket.invite : item.hash === digest(secret)) : undefined;
       if (!invite || !validInvite(state, invite)) throw new StreamError(401, 'Convite inválido, expirado ou revogado. Peça um novo link ao responsável.');
+      if (ticket) state.handoffs = state.handoffs!.filter(item => item !== ticket);
       const previous = existing && validCredential(existing) ? state.guests.find(item => item.hash === digest(existing)) : undefined;
       if (previous && previous.invite === invite.id && previous.expires > now()) return { secret: existing!, expires: previous.expires, role: invite.role };
       if (previous) { await revoke(previous); state.guests = state.guests.filter(item => item !== previous); }
@@ -94,6 +97,14 @@ export function streamService(config: Config, store = streamStore(config), media
       const next = credential(); const expires = Math.min(invite.expires, now() + 12 * 3600000);
       state.guests.push({ hash: digest(next), invite: invite.id, expires, label: ++state.sequence });
       return { secret: next, expires, role: invite.role };
+    }),
+    handoff: (secret: string) => exclusive(async state => {
+      await cleanup(state);
+      const guest = session(state, secret);
+      if (state.handoffs!.length >= 32) throw new StreamError(429, 'Muitas aberturas recentes. Aguarde e tente novamente.');
+      const next = credential();
+      state.handoffs!.push({ hash: digest(next), invite: guest.invite, expires: Math.min(guest.expires, now() + 60000) });
+      return { credential: next };
     }),
     join: (secret: string) => exclusive(async state => {
       await cleanup(state);
