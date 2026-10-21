@@ -21,16 +21,16 @@ for (const initialVoice of [false, true]) test(`stalled ${initialVoice ? 'initia
   await page.goto('/');
   await page.getByLabel('Seu apelido').fill('Ana');
   await page.getByLabel('Senha da sala').fill('test-only-password');
-  await page.getByRole('button', { name: initialVoice ? 'Entrar na sala' : 'Abrir chat sem entrar na voz', exact: true }).click();
+  await page.getByRole('button', { name: initialVoice ? 'Entrar na sala' : 'Abrir chat', exact: true }).click();
   if (initialVoice) await page.getByRole('tab', { name: 'Chat', exact: true }).click();
   await page.getByLabel('Mensagem', { exact: true }).fill('Draft survives failed voice entry');
-  if (!initialVoice) await page.getByRole('button', { name: 'Entrar na voz', exact: true }).click();
+  if (!initialVoice) await page.getByRole('button', { name: 'Entrar na sala', exact: true }).click();
   await signaling;
-  await expect(page.getByRole('button', { name: /Entrar na voz|Entrando…/, exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /Entrar na sala|Entrando…/, exact: true })).toBeDisabled();
   await page.clock.runFor(36000);
   // The SDK may reject first; both failures must leave the same usable, disconnected UI.
-  await expect(page.getByText(/A conexão(?: de voz)? demorou demais|Não foi possível (?:entrar na voz|conectar toda a mídia)/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Entrar na voz', exact: true })).toBeEnabled();
+  await expect(page.getByText(/A conexão(?: de voz)? demorou demais|Não foi possível (?:entrar na sala|conectar toda a mídia)/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Entrar na sala', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Sair da sala', exact: true })).toBeEnabled();
   await expect(page.getByLabel('Mensagem', { exact: true })).toHaveValue('Draft survives failed voice entry');
   expect(await page.evaluate(() => (window as unknown as { captureAttempts: number }).captureAttempts)).toBe(0);

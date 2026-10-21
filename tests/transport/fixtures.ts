@@ -132,7 +132,9 @@ export async function prepare(page: Page, identity: string, room: string) {
   await page.getByLabel('Senha da sala').fill('browser-fixture-password');
 }
 export async function join(page: Page) {
-  await page.getByRole('button', { name: 'Entrar na sala', exact: true }).click();
+  const entry = page.getByRole('region', { name: 'Entrar na sala', exact: true });
+  await expect(entry).toBeVisible();
+  await entry.getByRole('button', { name: 'Entrar na sala', exact: true }).click();
   await expect(page.getByText('Conectado', { exact: true })).toBeVisible();
 }
 export async function energy(page: Page) {

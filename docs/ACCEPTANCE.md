@@ -49,3 +49,11 @@ Automated tests do not establish real-device, multi-network or provider-quota be
 - Toggle native noise suppression on a physical microphone, change devices, reconnect and compare speech/noise. Confirm the preference persists and the reported setting matches the browser; unsupported/unreported processing must remain honestly labeled. Screen audio must remain unchanged.
 - Use the dark stream selector by keyboard and touch, with long names and presenters stopping. Check one selected audio path and visible volume controls at desktop/mobile widths.
 - Deafen with microphones, a selected screen and tones active. Start/replace tracks while deafened; all must remain silent. Restore audio and confirm earlier individual mute/volume settings and local microphone state are preserved. Verify both joined and view-only screen connections and the other-room opt-in.
+
+## Phase A controls and shortcuts (Preview only)
+
+- Check all four microphone/deafen combinations before and after combined mute; change each individual control while combined mode is active. The other stays muted. Verify footer and fullscreen controls agree.
+- Cancel a pending capture through combined mute, deny permission, replace/unplug a microphone and switch/reconnect rooms. Restoration must never reacquire capture.
+- Configure, clear/reset and reload shortcuts; try duplicates/reserved bindings, typing fields, contenteditable, IME and held keys. Nothing should activate when another application has focus.
+- Use two physical devices to hear microphone, screen and tone suppression/restoration. Synthetic local transport tests are not proof of audibility or Cloud behavior.
+- Reach the image trash icon by hover, keyboard and touch. Cancel then delete a disposable owned image: preserve its text and other messages/images. Other senders have no trash control; ordinary message deletion is unchanged.

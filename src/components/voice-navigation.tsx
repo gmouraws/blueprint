@@ -70,7 +70,7 @@ export function VoiceNavigation({ currentRoom, connected, browsing, busy, onBrow
       return <section className={`voice-section ${mine ? 'current-voice' : ''}`} key={item.id} aria-label={item.name}>
         <div className="voice-room-row">
           <button className="voice-disclosure icon-button" aria-label={`${expanded[item.id] ? 'Recolher' : 'Expandir'} participantes de ${item.name}`} aria-expanded={expanded[item.id]} aria-controls={`members-${item.id}`} onClick={() => setExpanded(value => ({ ...value, [item.id]: !value[item.id] }))}><Icon name="chevron" /></button>
-          <button className="voice-room-select" aria-label={`Ver ${item.name}`} aria-current={!chatActive && browsing === item.id ? 'page' : undefined} title="Um clique para ver; dois para entrar na voz" onClick={() => { setExpanded(value => ({ ...value, [item.id]: true })); onBrowse(item.id); }} onDoubleClick={() => { if (!busy) onJoin(item.id); }}>
+          <button className="voice-room-select" aria-label={`Ver ${item.name}`} aria-current={!chatActive && browsing === item.id ? 'page' : undefined} title="Um clique para ver; dois para entrar na sala" onClick={() => { setExpanded(value => ({ ...value, [item.id]: true })); onBrowse(item.id); }} onDoubleClick={() => { if (!busy) onJoin(item.id); }}>
             <span>{item.name}</span><span className="room-count" aria-label={members ? `${members.length} participantes` : 'Contagem indisponível'}>{members?.length ?? '—'}</span>
             {mine && <span className="joined-room-marker" role="img" aria-label="Sua chamada atual" title="Sua chamada atual"><Icon name="audio" /></span>}
           </button>

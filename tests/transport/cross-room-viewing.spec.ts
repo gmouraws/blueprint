@@ -30,7 +30,7 @@ test('view either room without joining: authorized screens, isolated microphones
     await expect(viewer.getByRole('heading', { name: 'Sala 2', exact: true })).toBeVisible();
     await expect.poll(decoded).toEqual({ width: 640, height: 360 });
     await expect(viewer.locator('.connection')).toContainText('Sala principal');
-    await expect(viewer.getByRole('button', { name: 'Entrar na voz de Sala 2' })).toBeVisible();
+    await expect(viewer.getByRole('button', { name: 'Entrar na sala: Sala 2' })).toBeVisible();
     await expect.poll(() => service.listParticipants(room)).toHaveLength(2);
     await expect.poll(() => service.listParticipants(room + '-second')).toHaveLength(1);
     await expect.poll(() => observers('-second')).toHaveLength(1);
@@ -94,14 +94,14 @@ test('view either room without joining: authorized screens, isolated microphones
     }
     expect((await new AxeBuilder({ page: viewer }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
 
-    await prepare(chatOnly, 'Diego', room); await chatOnly.getByRole('button', { name: 'Abrir chat sem entrar na voz' }).click();
+    await prepare(chatOnly, 'Diego', room); await chatOnly.getByRole('button', { name: 'Abrir chat' }).click();
     await chatOnly.getByRole('button', { name: 'Ver Sala principal', exact: true }).focus(); await chatOnly.keyboard.press('Enter');
     await expect.poll(() => chatOnly.locator('video').evaluate(video => (video as HTMLVideoElement).videoWidth)).toBe(640);
     await expect(chatOnly.locator('audio')).toHaveCount(0); expect(await captures(chatOnly)).toBe(0);
     await expect.poll(() => service.listParticipants(room)).toHaveLength(2);
 
     // Touch/keyboard join action follows the same safe flow as double-click.
-    await viewer.getByRole('button', { name: 'Entrar na voz de Sala 2' }).click();
+    await viewer.getByRole('button', { name: 'Entrar na sala: Sala 2' }).click();
     await expect(viewer.locator('.connection')).toContainText('Sala 2');
     await expect.poll(() => observers('-second')).toHaveLength(0);
     await expect.poll(() => service.listParticipants(room)).toHaveLength(1);

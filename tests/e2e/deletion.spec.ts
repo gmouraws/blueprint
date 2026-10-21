@@ -13,7 +13,7 @@ test('chat-only clients reconcile confirmed deletion, image-only removal, failed
   try {
     for(const [page,name] of [[owner,'Ana'],[reader,'Bruno']] as const){
       await store.install(page,name);await page.route('**/api/login',route=>route.fulfill({json:{nickname:name}}));
-      await page.goto('/');await page.getByLabel('Seu apelido').fill(name);await page.getByLabel('Senha da sala').fill('test-only-password');await page.getByRole('button',{name:'Abrir chat sem entrar na voz'}).click();
+      await page.goto('/');await page.getByLabel('Seu apelido').fill(name);await page.getByLabel('Senha da sala').fill('test-only-password');await page.getByRole('button',{name:'Abrir chat'}).click();
       await expect(page.getByText('Carregando histórico…')).toHaveCount(0);
     }
     const bytes=await sharp({create:{width:64,height:32,channels:3,background:'#a3e1c5'}}).png().toBuffer();
@@ -23,15 +23,26 @@ test('chat-only clients reconcile confirmed deletion, image-only removal, failed
     await expect(reader.getByText('Preservar o texto',{exact:true})).toBeVisible({timeout:15000});
     await expect(reader.getByRole('button',{name:'Opções da sua mensagem'})).toHaveCount(0);
     const row=(await store.db.query<{id:string;attachment_id:string}>('SELECT id,attachment_id FROM blueprint_chat_messages')).rows[0];
+    const touchContext=await browser.newContext({hasTouch:true,isMobile:true,viewport:{width:375,height:812}});contexts.push(touchContext);
+    const touch=await touchContext.newPage();await store.install(touch,'Ana');await touch.route('**/api/login',route=>route.fulfill({json:{nickname:'Ana'}}));
+    await touch.goto('/');await touch.getByLabel('Seu apelido').fill('Ana');await touch.getByLabel('Senha da sala').fill('test-only-password');await touch.getByRole('button',{name:'Abrir chat',exact:true}).click();
+    const touchTrash=touch.getByRole('button',{name:'Excluir imagem',exact:true});await expect(touchTrash).toHaveCSS('opacity','1');
+    const size=await touchTrash.boundingBox();expect(size!.width).toBeGreaterThanOrEqual(44);expect(size!.height).toBeGreaterThanOrEqual(44);
+    await mkdir('.generated/review/deletion',{recursive:true});await touch.screenshot({path:'.generated/review/deletion/trash-touch.png'});
+    await touchTrash.tap();await touch.getByRole('dialog',{name:'Confirmar exclusão'}).getByRole('button',{name:'Cancelar'}).click();await touchContext.close();contexts.pop();
+
     const attempt=await reader.evaluate(async id=>(await fetch('/api/chat',{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify({id,target:'message'})})).status,String(row.id));
     expect(attempt).toBe(404);
-    await owner.getByRole('button',{name:'Opções da sua mensagem'}).click();await owner.getByRole('button',{name:'Excluir imagem',exact:true}).click();
+    await expect(reader.getByRole('button',{name:'Excluir imagem',exact:true})).toHaveCount(0);
+    const trash=owner.getByRole('button',{name:'Excluir imagem',exact:true});
+    await expect(trash).toHaveCSS('opacity','0');
+    await trash.focus(); await expect(trash).toHaveCSS('opacity','1');
+    await trash.press('Enter');
     const dialog=owner.getByRole('dialog',{name:'Confirmar exclusão'});
     await expect(dialog.getByRole('button',{name:'Cancelar'})).toBeFocused();
     await dialog.getByRole('button',{name:'Cancelar'}).click();await expect(owner.getByRole('button',{name:'Ampliar imagem da mensagem'})).toBeVisible();
     await reader.getByRole('button',{name:'Ampliar imagem da mensagem'}).click();
-    // Reopen using the existing menu if it remained open after cancellation.
-    if(!await owner.getByRole('button',{name:'Excluir imagem',exact:true}).isVisible())await owner.getByRole('button',{name:'Opções da sua mensagem'}).click();
+    await trash.focus();
     await owner.getByRole('button',{name:'Excluir imagem',exact:true}).click();
     await mkdir('.generated/review/deletion',{recursive:true});
     for(const width of [1440,375]){

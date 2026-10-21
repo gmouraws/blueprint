@@ -1,6 +1,6 @@
 'use client';
 
-import { createLocalAudioTrack, RoomEvent, Track, ConnectionState, type LocalAudioTrack, type Room } from 'livekit-client';
+import { createLocalAudioTrack, LocalTrack, RoomEvent, Track, ConnectionState, type LocalAudioTrack, type Room } from 'livekit-client';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { microphoneError, readPreferences, savePreferences } from '@/lib/client/preferences';
 import { DeviceOptions, useAudioDevices } from './audio-devices';
@@ -18,11 +18,18 @@ export function useMicrophone(room: Room) {
   }, []);
   useEffect(() => {
     alive.current = true;
-    room.on(RoomEvent.Disconnected, cancel);
-    return () => { alive.current = false; cancel(); room.off(RoomEvent.Disconnected, cancel); };
+    room.on(RoomEvent.Disconnected, cancel).on(RoomEvent.Reconnecting, cancel).on(RoomEvent.SignalReconnecting, cancel);
+    return () => { alive.current = false; cancel(); room.off(RoomEvent.Disconnected, cancel).off(RoomEvent.Reconnecting, cancel).off(RoomEvent.SignalReconnecting, cancel); };
   }, [room, cancel]);
-  async function toggle() {
-    if (operation.current || room.state !== ConnectionState.Connected) return;
+  async function setEnabled(enabled: boolean, existingOnly = false): Promise<boolean> {
+    if (!enabled) {
+      cancel();
+      try { await room.localParticipant.getTrackPublication(Track.Source.Microphone)?.mute(); return true; }
+      catch { if (alive.current) setNotice('Não foi possível silenciar o microfone. Tente novamente ou saia da sala.'); return false; }
+    }
+    if (operation.current || room.state !== ConnectionState.Connected) return false;
+    const retained = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+    if (existingOnly && (!retained?.track || retained.track.mediaStreamTrack.readyState !== 'live')) return false;
     const op: Operation = { cancelled: false }; operation.current = op;
     setPending(true); setNotice('');
     const started = performance.now(); let captureMs = 0; let publishMs = 0;
@@ -31,26 +38,31 @@ export function useMicrophone(room: Room) {
     try {
       const existing = room.localParticipant.getTrackPublication(Track.Source.Microphone);
       if (existing?.track && existing.track.mediaStreamTrack.readyState === 'live') {
-        if (existing.isMuted) await existing.unmute(); else await existing.mute();
-        if (!current()) await existing.mute();
+        // LocalAudioTrack.unmute may reacquire after a deferred device change.
+        // Restoration uses the public base operation: enable/signalling only,
+        // never capture. Explicit microphone activation retains the SDK path.
+        if (existingOnly) await LocalTrack.prototype.unmute.call(existing.track);
+        else await existing.unmute();
+        if (!current() || existing.track.mediaStreamTrack.readyState !== 'live') { await existing.mute(); return false; }
       } else {
         if (existing?.track) await room.localParticipant.unpublishTrack(existing.track, true);
         op.track = await createLocalAudioTrack(room.options.audioCaptureDefaults);
         captureMs = performance.now() - started;
-        if (!current()) { op.track.stop(); return; }
+        if (!current()) { op.track.stop(); return false; }
         const publishing = performance.now();
         await room.localParticipant.publishTrack(op.track, { source: Track.Source.Microphone, stopMicTrackOnMute: false });
         publishMs = performance.now() - publishing;
         if (!current()) { op.track.stop(); await room.localParticipant.unpublishTrack(op.track, true); }
       }
-    } catch (failure) { op.track?.stop(); if (current()) setNotice(microphoneError(failure)); }
+      return current();
+    } catch (failure) { op.track?.stop(); if (current()) setNotice(microphoneError(failure)); return false; }
     finally {
       clearTimeout(waiting); operation.current = null;
       if (alive.current) { setPending(false); setTiming({ captureMs: Math.round(captureMs), publishMs: Math.round(publishMs), totalMs: Math.round(performance.now() - started) }); }
     }
   }
   function cancelPending() { cancel(); setNotice('Ativação cancelada. Se o pedido do navegador continuar aberto, feche-o. Uma captura concluída depois será liberada.'); }
-  return { pending, notice, timing, toggle, cancel: cancelPending, stop: cancel };
+  return { pending, notice, timing, setEnabled, cancel: cancelPending, stop: cancel };
 }
 
 export type MicrophoneCheckHandle = { stop: () => void };
