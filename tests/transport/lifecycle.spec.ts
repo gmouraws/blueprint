@@ -107,10 +107,10 @@ test('membership tones skip initial snapshot, mute, disabled preference and reco
     await alice.getByRole('button', { name: 'Opções de Bruno' }).click();
     await expect(alice.getByRole('slider', { name: 'Voz de Bruno' })).toHaveValue('40');
     await alice.getByRole('button', { name: 'Fechar', exact: true }).click();
-    await alice.getByRole('button', { name: 'Silenciar áudio', exact: true }).click();
+    await alice.getByRole('button', { name: 'Silenciar todo o áudio', exact: true }).click();
     await bob.getByRole('button', { name: 'Sair da sala' }).click();
     await expect(alice.getByRole('button', { name: 'Opções de Bruno', exact: true })).toHaveCount(0); expect(await tones()).toBe(2);
-    await alice.getByRole('button', { name: 'Ouvir áudio', exact: true }).click();
+    await alice.getByRole('button', { name: 'Restaurar áudio', exact: true }).click();
     await alice.getByRole('button', { name: 'Configurações de áudio', exact: true }).click();
     await alice.getByLabel('Sons de entrada e saída').uncheck();
     await expect(bob.getByLabel('Senha da sala')).toHaveCount(0);

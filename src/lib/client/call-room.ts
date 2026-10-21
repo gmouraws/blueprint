@@ -1,11 +1,12 @@
 import { Room } from 'livekit-client';
 import { readPreferences } from './preferences';
 import { prepareSounds, closeSounds } from './call-sounds';
+import { microphoneProcessing } from './microphone-processing';
 
 // Called synchronously in the join gesture, before authentication awaits.
 export function createCallRoom(prepareAudio = true) {
   const room = new Room({ adaptiveStream: { pixelDensity: 'screen' }, dynacast: true,
-    audioCaptureDefaults: { deviceId: readPreferences().microphone, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    audioCaptureDefaults: { deviceId: readPreferences().microphone, ...microphoneProcessing(readPreferences().noiseSuppression, navigator.mediaDevices?.getSupportedConstraints() ?? {}) },
     publishDefaults: { screenShareEncoding: { maxBitrate: 5_000_000, maxFramerate: 30 }, stopMicTrackOnMute: false },
   });
   // Listening never acquires a microphone. Actual playback failures remain visible in RoomView.

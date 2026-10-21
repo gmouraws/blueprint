@@ -2,7 +2,7 @@
 
 import { AudioTrack, useConnectionQualityIndicator, useRoomContext, useTracks } from '@livekit/components-react';
 import { ConnectionState, RoomEvent, Track, type Participant, type RemoteParticipant } from 'livekit-client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { incomingVolume } from '@/lib/client/preferences';
 import { playMembershipTone, setSoundPolicy } from '@/lib/client/call-sounds';
 
@@ -19,16 +19,19 @@ export function ParticipantQuality({ participant }: { participant: Participant }
 }
 export function IncomingAudio({ volumes, screenIdentity, screenSetting, globalMuted, screenOnly = false }: { volumes: Record<string, VolumeSetting>; screenIdentity?: string; screenSetting: VolumeSetting; globalMuted: boolean; screenOnly?: boolean }) {
   const tracks = useTracks([Track.Source.Microphone, Track.Source.ScreenShareAudio], { onlySubscribed: true });
-  const audible = tracks.filter(ref => !ref.participant.isLocal && (ref.source === Track.Source.Microphone ? !screenOnly : ref.participant.identity === screenIdentity));
+  // Keep subscriptions, but attach no playback element while deafened. The SDK
+  // resets DOM muted during attach; omitting renderers also fences new tracks.
+  const audible = tracks.filter(ref => !globalMuted && !ref.participant.isLocal && (ref.source === Track.Source.Microphone ? !screenOnly : ref.participant.identity === screenIdentity));
   return <div className="incoming-audio" hidden>{audible.map(ref => {
     const setting = ref.source === Track.Source.Microphone ? volumes[volumeIdentity(ref.participant.identity)] ?? defaultVolume : screenSetting;
-    return <AudioTrack key={`${ref.participant.identity}:${ref.publication.trackSid}`} trackRef={ref} volume={incomingVolume(globalMuted, setting.muted, setting.volume)} data-audio-kind={ref.source} data-audio-owner={ref.participant.identity} />;
+    const volume = incomingVolume(globalMuted, setting.muted, setting.volume);
+    return <AudioTrack key={`${ref.participant.identity}:${ref.publication.trackSid}`} trackRef={ref} ref={element => { if (element) element.volume = volume; }} volume={volume} data-audio-kind={ref.source} data-audio-owner={ref.participant.identity} />;
   })}</div>;
 }
 export function MembershipSounds({ enabled, muted }: { enabled: boolean; muted: boolean }) {
   const room = useRoomContext();
   const options = useRef({ enabled, muted });
-  useEffect(() => { options.current = { enabled, muted }; setSoundPolicy(room, options.current); }, [room, enabled, muted]);
+  useLayoutEffect(() => { options.current = { enabled, muted }; setSoundPolicy(room, options.current); }, [room, enabled, muted]);
   useEffect(() => {
     let ready = room.state === ConnectionState.Connected;
     let known = new Set(room.remoteParticipants.keys());

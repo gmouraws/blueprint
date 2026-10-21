@@ -6,6 +6,7 @@ import { database } from './chat-store';
 import type { Session } from './session';
 import { MAX_IMAGE_BYTES, type ChatImage } from '../images';
 import { boundedImage, InvalidImage, normalizeImage } from './image-validation';
+import { drainImageCleanup } from './image-cleanup';
 
 type Attachment = { id: string; sender_id: string; request_id: string; state: string; content_type: string; original_size: number; width: number; height: number; size: number };
 export class ImageUnavailable extends Error {}
@@ -67,7 +68,7 @@ export async function downloadImage(id: string) {
   const [, rows] = await sql.transaction([
     sql`SELECT blueprint_chat_assert_environment(${environment})`,
     sql`SELECT a.id FROM blueprint_chat_attachments a JOIN blueprint_chat_messages m ON m.attachment_id = a.id
-      WHERE a.id = ${id} AND a.state = 'attached' AND m.created_at > now() - interval '30 days'`,
+      WHERE a.id = ${id} AND a.state = 'attached' AND m.deleted_at IS NULL AND m.created_at > now() - interval '30 days'`,
   ], { readOnly: true });
   if (!rows.length) return null;
   return get(imageKeys(environment, id).image, { ...options, access: 'private', useCache: false });
@@ -78,18 +79,22 @@ export async function cleanImages() {
     sql`SELECT blueprint_chat_assert_environment(${environment})`,
     sql`UPDATE blueprint_chat_attachments a SET state = 'deleting' WHERE a.id IN (
       SELECT x.id FROM blueprint_chat_attachments x LEFT JOIN blueprint_chat_messages m ON m.attachment_id = x.id
-      WHERE (m.id IS NULL AND x.created_at <= now() - interval '1 hour' AND (x.state <> 'validating' OR x.validation_started < now() - interval '2 minutes')) OR m.created_at <= now() - interval '30 days'
+      WHERE x.state = 'deleting' OR (m.id IS NULL AND x.created_at <= now() - interval '1 hour' AND (x.state <> 'validating' OR x.validation_started < now() - interval '2 minutes')) OR m.created_at <= now() - interval '30 days'
       ORDER BY x.created_at LIMIT 100 FOR UPDATE OF x SKIP LOCKED) RETURNING a.id`,
   ]);
   if (!rows.length) return;
   const options = storage(environment);
-  for (const row of rows) {
-    const keys = imageKeys(environment, String(row.id));
+  await drainImageCleanup(rows.map(row => String(row.id)), async id => {
+    const keys = imageKeys(environment, id);
     // Keep metadata on deletion failure, including failures after a partial deletion.
     await del([keys.raw, keys.image], options);
+  }, async id => {
     await sql.transaction([
-      sql`DELETE FROM blueprint_chat_messages WHERE attachment_id = ${row.id} AND created_at <= now() - interval '30 days'`,
-      sql`DELETE FROM blueprint_chat_attachments WHERE id = ${row.id} AND state = 'deleting'`,
+      sql`DELETE FROM blueprint_chat_messages WHERE attachment_id = ${id} AND created_at <= now() - interval '30 days'`,
+      // A previously issued upload token can live until created_at + 1 hour.
+      // Retain its cleanup marker through that window so replayed raw uploads
+      // are removed on a later pass. Access stays revoked throughout.
+      sql`DELETE FROM blueprint_chat_attachments WHERE id = ${id} AND state = 'deleting' AND created_at <= now() - interval '1 hour'`,
     ]);
-  }
+  });
 }

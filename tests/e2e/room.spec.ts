@@ -120,8 +120,8 @@ test('actual room layout handles failed connection and exposes accessible contro
   await expect(page.getByLabel('Contagem indisponível', { exact: true })).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Ativar microfone' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Compartilhar tela' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Silenciar áudio' }).click();
-  await expect(page.getByRole('button', { name: 'Ouvir áudio' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Silenciar todo o áudio' }).click();
+  await expect(page.getByRole('button', { name: 'Restaurar áudio' })).toHaveAttribute('aria-pressed', 'true');
   for (const width of [1440, 1024, 768, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -38,20 +38,19 @@ test('view either room without joining: authorized screens, isolated microphones
     expect(observer.permission?.canPublish).toBe(false); expect(observer.permission?.canPublishData).toBe(false); expect(observer.tracks).toHaveLength(0);
     await expect(viewer.locator('audio[data-audio-owner="Bruno"]')).toHaveCount(0);
     await expect(viewer.locator('audio[data-audio-kind="screen_share_audio"]')).toHaveCount(0);
-    await expect(viewer.getByRole('button', { name: 'Ouvir áudio desta tela', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(viewer.getByRole('button', { name: 'Ouvir áudio da tela de Bruno', exact: true })).toHaveAttribute('aria-pressed', 'true');
     expect(await captures(viewer)).toBe(0); expect(await tones()).toBe(before);
     await viewer.getByRole('button', { name: 'Recolher participantes de Sala 2' }).click();
     await expect.poll(decoded).toEqual({ width: 640, height: 360 });
     expect(await tones()).toBe(before);
 
-    await viewer.getByRole('button', { name: 'Ouvir áudio desta tela', exact: true }).click();
+    await viewer.getByRole('button', { name: 'Ouvir áudio da tela de Bruno', exact: true }).click();
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.8);
-    await viewer.getByRole('button', { name: 'Opções de visualização', exact: true }).click();
-    await viewer.getByRole('slider', { name: 'Áudio da tela selecionada' }).fill('45'); await viewer.keyboard.press('Escape');
-    await viewer.getByRole('button', { name: 'Silenciar áudio', exact: true }).click();
+    await viewer.getByRole('slider', { name: /Volume da tela de/ }).fill('45'); await viewer.keyboard.press('Escape');
+    await viewer.getByRole('button', { name: 'Silenciar todo o áudio', exact: true }).click();
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBe(0);
     await expect.poll(() => gain(viewer, 'microphone', 'Alice')).toBe(0);
-    await viewer.getByRole('button', { name: 'Ouvir áudio', exact: true }).click();
+    await viewer.getByRole('button', { name: 'Restaurar áudio', exact: true }).click();
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.45);
     await expect.poll(() => gain(viewer, 'microphone', 'Alice')).toBe(1);
     await expect(viewer.locator('audio[data-audio-kind="microphone"][data-audio-owner="Bruno"]')).toHaveCount(0);
@@ -80,7 +79,7 @@ test('view either room without joining: authorized screens, isolated microphones
     await expect.poll(() => observers('-second')).toHaveLength(1);
     await expect.poll(() => service.listParticipants(room)).toHaveLength(2);
     await expect(viewer.locator('audio[data-audio-kind="screen_share_audio"]')).toHaveCount(0);
-    await viewer.getByRole('button', { name: 'Ouvir áudio desta tela', exact: true }).click();
+    await viewer.getByRole('button', { name: 'Ouvir áudio da tela de Bruno', exact: true }).click();
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.45);
     await viewer.getByRole('tab', { name: 'Chat', exact: true }).click();
     await expect(viewer.locator('.stream-mini video')).toBeVisible();

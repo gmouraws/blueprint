@@ -23,6 +23,7 @@ export async function instrument(page: Page) {
       failCapture: '', devices: null as MediaDeviceInfo[] | null, screenWidth: 640, screenHeight: 360,
       releaseCapture: undefined as (() => void) | undefined,
       streams: [] as MediaStream[], peers: [] as RTCPeerConnection[], contexts: [] as AudioContext[],
+      microphoneConstraints: [] as MediaTrackConstraints[], bypassSpeechDSP: true,
     };
     Object.assign(window, { mediaProbe: probe });
     const capture = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
@@ -32,7 +33,8 @@ export async function instrument(page: Page) {
       if (probe.failCapture) throw new DOMException('Controlled device failure', probe.failCapture);
       // A synthetic tone is not speech: bypass speech DSP only in this test fixture.
       const audio = typeof constraints?.audio === 'object' ? constraints.audio : {};
-      const stream = await capture({ ...constraints, audio: { ...audio, echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); probe.streams.push(stream); return stream;
+      probe.microphoneConstraints.push(audio);
+      const stream = await capture({ ...constraints, audio: probe.bypassSpeechDSP ? { ...audio, echoCancellation: false, noiseSuppression: false, autoGainControl: false } : audio }); probe.streams.push(stream); return stream;
     };
     const enumerate = navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
     navigator.mediaDevices.enumerateDevices = async () => { probe.enumerations++; return probe.devices ?? enumerate(); };
@@ -131,7 +133,7 @@ export async function energy(page: Page) {
 export async function gain(page: Page, kind: string, owner: string) {
   return page.evaluate(({ kind, owner }) => {
     const element = document.querySelector<HTMLAudioElement>(`audio[data-audio-kind="${kind}"][data-audio-owner="${owner}"]`);
-    return element?.volume ?? -1;
+    return element?.volume ?? 0; // No renderer means no playback, including deafen.
   }, { kind, owner });
 }
 export async function captures(page: Page) { return page.evaluate(() => (window as unknown as { mediaProbe: { captures: number } }).mediaProbe.captures); }
