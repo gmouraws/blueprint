@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { captures, energy, gain, join, liveTracks, prepare, service } from './fixtures';
+import { mkdir } from 'node:fs/promises';
+import { captures, energy, gain, join, liveTracks, prepare, service, observeMembership } from './fixtures';
 
 test('prejoin meter cleans up, pending capture is cancellable, and device errors are useful', async ({ page }) => {
   const room = `lifecycle-${Date.now()}`; await service.createRoom({ name: room, maxParticipants: 8 });
@@ -86,15 +87,26 @@ test('blocked playback unlocks without capturing a microphone; device changes up
   } finally { await a.close(); await b.close(); await service.deleteRoom(room); }
 });
 
-test('membership tones skip initial snapshot, mute, disabled preference and reconnect', async ({ browser }) => {
+test('membership notices share the voice lifecycle while tones respect mute, preference and reconnect', async ({ browser }) => {
   const room = `sounds-${Date.now()}`; await service.createRoom({ name: room, maxParticipants: 8 });
   const a = await browser.newContext(); const b = await browser.newContext();
   const alice = await a.newPage(); const bob = await b.newPage();
   const tones = () => alice.evaluate(() => (window as unknown as { mediaProbe: { tones: number } }).mediaProbe.tones);
+  const notices = () => alice.evaluate(() => (window as unknown as { membershipProbe: string[] }).membershipProbe);
   try {
-    await prepare(alice, 'Alice', room); await join(alice); await expect.poll(tones).toBe(1);
+    await prepare(alice, 'Alice', room);
+    await observeMembership(alice);
+    await join(alice); await expect.poll(tones).toBe(1);
+    await expect.poll(notices).toEqual(['Você entrou na Sala principal.']);
     await prepare(bob, 'Bruno', room); await join(bob);
     await expect.poll(tones).toBe(2);
+    await expect(alice.getByRole('log', { name: 'Atividade da sua sala de voz' })).toContainText('Bruno entrou na Sala principal.');
+    await expect(bob.getByRole('log', { name: 'Atividade da sua sala de voz' })).not.toContainText('Alice entrou');
+    await alice.getByRole('tab', { name: 'Chat', exact: true }).click();
+    await expect(alice.getByText('Bruno entrou na Sala principal.', { exact: true })).toBeVisible();
+    await alice.getByRole('button', { name: 'Dispensar aviso: Bruno entrou na Sala principal.', exact: true }).focus();
+    await alice.keyboard.press('Enter');
+    await expect(alice.getByText('Bruno entrou na Sala principal.', { exact: true })).toHaveCount(0);
     await alice.getByRole('button', { name: 'Opções de Bruno' }).click();
     await alice.getByRole('slider', { name: 'Voz de Bruno' }).fill('40');
     await alice.getByRole('button', { name: 'Fechar', exact: true }).click();
@@ -104,20 +116,35 @@ test('membership tones skip initial snapshot, mute, disabled preference and reco
     await a.setOffline(false);
     await expect(alice.getByText('Conectado', { exact: true })).toBeVisible({ timeout: 20000 });
     expect(await tones()).toBe(2);
+    expect(await notices()).toEqual(['Você entrou na Sala principal.', 'Bruno entrou na Sala principal.']);
+    await expect(alice.locator('.membership-notice')).toHaveCount(0);
     await alice.getByRole('button', { name: 'Opções de Bruno' }).click();
     await expect(alice.getByRole('slider', { name: 'Voz de Bruno' })).toHaveValue('40');
     await alice.getByRole('button', { name: 'Fechar', exact: true }).click();
     await alice.getByRole('button', { name: 'Silenciar todo o áudio', exact: true }).click();
     await bob.getByRole('button', { name: 'Sair da sala' }).click();
     await expect(alice.getByRole('button', { name: 'Opções de Bruno', exact: true })).toHaveCount(0); expect(await tones()).toBe(2);
+    await expect(alice.getByText('Bruno saiu da Sala principal.', { exact: true })).toBeVisible();
+    await mkdir('.generated/review/notifications', { recursive: true });
+    for (const width of [1440, 375]) {
+      await alice.setViewportSize({ width, height: 900 });
+      expect(await alice.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await alice.screenshot({ path: `.generated/review/notifications/voice-${width}.png`, fullPage: true });
+    }
+    await alice.setViewportSize({ width: 1280, height: 720 });
     await alice.getByRole('button', { name: 'Restaurar áudio', exact: true }).click();
     await alice.getByRole('button', { name: 'Configurações de áudio', exact: true }).click();
     await alice.getByLabel('Sons de entrada e saída').uncheck();
     await expect(bob.getByLabel('Senha da sala')).toHaveCount(0);
     await join(bob);
     await expect(alice.getByRole('button', { name: 'Opções de Bruno', exact: true })).toBeVisible(); expect(await tones()).toBe(2);
+    await expect(alice.getByText('Bruno entrou na Sala principal.', { exact: true })).toBeVisible();
     await alice.getByLabel('Sons de entrada e saída').check();
     await bob.getByRole('button', { name: 'Sair da sala' }).click();
     await expect.poll(tones).toBe(3);
+    expect((await notices()).filter(text => text === 'Bruno saiu da Sala principal.')).toHaveLength(2);
+    const identity = (await service.listParticipants(room))[0].identity;
+    await service.removeParticipant(room, identity);
+    await expect(alice.getByText('Você foi desconectado da Sala principal.', { exact: true })).toBeVisible();
   } finally { await a.setOffline(false); await a.close(); await b.close(); await service.deleteRoom(room); }
 });

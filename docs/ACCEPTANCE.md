@@ -29,6 +29,7 @@ Automated tests do not establish real-device, multi-network or provider-quota be
 - Switch rooms repeatedly while sharing. Previous capture/audio must stop, the destination microphone stays off, and chat/drafts remain intact. Across both rooms the ninth voice participant must be refused.
 - Confirm red crossed-out microphones reflect sender mute; listener mute is separately labeled and changes only local playback. Open/close participant options by keyboard.
 - Confirm one local join/switch/leave tone, remote tones only for the current room, no initial-snapshot/reconnect duplicates, and preference/global-mute suppression.
+- Confirm visual entry/exit notices name only participants in your joined voice room, also while viewing Chat. Notices remain with tones disabled/deafen; keyboard dismissal and automatic expiry work. Chat-only browsing and other-room activity produce none, and temporary reconnection does not announce false departures/arrivals.
 - Send JPEG/PNG/WebP by paste, file picker and drop; remove the preview, retry failures, reload and enlarge the image. Reject malformed/oversized/unauthorized/expired uploads or retrieval. Confirm links open safely and other content remains plain text.
 - Watch a moving stream while chatting. Hide/restore/expand the mini-player without duplicate audio or a second connection. Switching voice rooms clears the previous stream. Check measured quality; do not infer 60 fps from the requested preset.
 

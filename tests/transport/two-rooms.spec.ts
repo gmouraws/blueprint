@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { prepare, join, service, liveTracks, energy, captures, closeChatStores } from './fixtures';
+import { prepare, join, service, liveTracks, energy, captures, closeChatStores, observeMembership } from './fixtures';
 test.afterAll(closeChatStores);
 
 test('room disclosure is view-only; switching isolates media, preserves shared chat and emits one local tone', async ({browser}, testInfo) => {
@@ -30,6 +30,7 @@ test('room disclosure is view-only; switching isolates media, preserves shared c
     await expect(alice.getByRole('button',{name:'Ativar microfone',exact:true})).toBeVisible();
     await expect(bob.locator('audio[data-audio-owner="Alice"]')).toHaveCount(0);
     await expect.poll(tones).toBe(3);
+    await expect(alice.getByText('Você entrou na Sala 2.', {exact:true})).toBeVisible();
     await alice.getByRole('tab',{name:'Chat',exact:true}).click();
     await expect(alice.getByLabel('Mensagem',{exact:true})).toHaveValue('Draft survives switching');
     await alice.getByLabel('Mensagem',{exact:true}).press('Enter');
@@ -37,6 +38,11 @@ test('room disclosure is view-only; switching isolates media, preserves shared c
     await expect(bob.getByText('Draft survives switching',{exact:true})).toBeVisible({timeout:15000});
     await bob.getByRole('button',{name:'Ativar microfone',exact:true}).click();
     await expect(alice.locator('audio')).toHaveCount(0);
+    expect(await tones()).toBe(3);
+    const newNotices = await observeMembership(alice);
+    await bob.getByRole('button',{name:'Sair da sala',exact:true}).click();
+    await join(bob);
+    expect(await newNotices()).toEqual([]);
     expect(await tones()).toBe(3);
     for(const width of [1440,768,375]) {
       await alice.setViewportSize({width,height:1000});

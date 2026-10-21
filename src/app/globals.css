@@ -50,7 +50,7 @@ label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 7px
 .connection i.connected-dot { background: var(--color-accent); }
 .room-columns { display: grid; grid-template-columns: 210px minmax(0,1fr); min-height: 0; flex: 1; }
 .participants-panel { padding: 10px 8px; border-right: 1px solid var(--line); min-width: 0; min-height: 0; overflow-y: auto; }
-.workspace-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.workspace-main { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .view-tabs { display: flex; gap: 20px; padding: 0 16px; border-bottom: 1px solid var(--line); flex: none; }
 .view-tabs button { background: transparent; border: 0; border-radius: 0; border-bottom: 2px solid transparent; padding: 8px 4px; min-width: 56px; color: var(--color-muted); }
 .view-tabs button[aria-selected=true] { color: var(--color-ink); border-bottom-color: var(--color-accent); }
@@ -59,6 +59,10 @@ label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 7px
 .workspace-notices:has(> *) { padding: 8px 16px; }
 .workspace-notices .banner { margin: 0; padding: 8px 12px; }
 .workspace-notices .banner + .banner { margin-top: 6px; }
+.membership-notifications { position: absolute; right: 12px; bottom: 80px; z-index: 10; width: min(360px,calc(100% - 24px)); max-height: 30dvh; overflow-y: auto; pointer-events: none; }
+.membership-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; padding: 2px 6px 2px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--color-surface); color: var(--color-ink); font-size: 12px; pointer-events: auto; }
+.membership-notice p { overflow-wrap: anywhere; }
+.membership-notice .icon-button { flex: none; color: var(--color-muted); }
 .audio-unlock { border-color: var(--color-accent); }
 
 /* View changes leave voice ownership and audio renderers mounted. */

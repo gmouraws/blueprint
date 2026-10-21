@@ -12,7 +12,7 @@ import { Brand, Icon } from './icons';
 import { Chat } from './chat';
 import { AudioDevices } from './audio-devices';
 import { useMicrophone } from './microphone';
-import { AudioDiagnostics, IncomingAudio, MembershipSounds, VolumeControl, type VolumeSetting } from './incoming-audio';
+import { AudioDiagnostics, IncomingAudio, MembershipNotifications, VolumeControl, type VolumeSetting } from './incoming-audio';
 import { VoiceNavigation } from './voice-navigation';
 import { SCREEN_QUALITIES, type ScreenQuality } from './screen-quality';
 import { ScreenViewer } from './screen-viewer';
@@ -167,6 +167,7 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
     <header className="room-header"><Brand /><span className="connection" role="status"><i className={connected ? 'connected-dot' : ''} /><span>Voz: <span>{status}</span>{connected && ' · ' + name(currentRoom)}</span></span><span className="small-label"><Icon name="lock" /> Sala privada</span></header>
     <div className="room-columns"><aside className="participants-panel"><VoiceNavigation currentRoom={currentRoom} connected={connected} browsing={browsing} busy={voiceBusy || screenPending || microphone.pending} onBrowse={browse} onJoin={enter} onChat={() => setView('chat')} chatActive={view === 'chat'} volumes={volumes} onVolume={(identity, value) => setVolumes(previous => ({ ...previous, [identity]: value }))} /></aside>
       <div className="workspace-main"><div className="view-tabs" role="tablist" aria-label="Visualização">{(['sala', 'chat'] as const).map(tab => <button key={tab} role="tab" id={'tab-' + tab} aria-controls={'panel-' + tab} aria-selected={view === tab} tabIndex={view === tab ? 0 : -1} onClick={() => { if (tab === 'sala') setViewed(true); setView(tab); }} onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 'sala' : event.key === 'End' ? 'chat' : tab === 'sala' ? 'chat' : 'sala'; if (next === 'sala') setViewed(true); setView(next); document.getElementById('tab-' + next)?.focus(); } }}>{tab === 'sala' ? 'Sala' : 'Chat'}{tab === 'chat' && unread > 0 && view !== 'chat' && <span className="pill" aria-label={unread + ' mensagens novas'}>{unread > 99 ? '99+' : unread}</span>}</button>)}</div>
+        <MembershipNotifications enabled={sounds} muted={audioMuted} roomName={name(currentRoom)} />
         <div className="workspace-notices">{error && <p className="error banner" role="alert">{error}</p>}{observer.error && <p className="error banner" role="alert">{observer.error} <button onClick={observer.retry}>Tentar visualização novamente</button></p>}{[notice, microphone.notice, screenOutput.error].filter(Boolean).map(message => <p className="notice banner" role="status" key={message}>{message}</p>)}{((!canPlayAudio && connected) || (!screenPlayback.canPlayAudio && hasScreenAudio && screenListening)) && <button className="audio-unlock" onClick={unlock}>Ativar áudio</button>}</div>
         <div className={'media-chat-layout ' + (mini ? 'chat-layout' : '')}>
           <section className={mini ? 'stream-mini' : 'stage-column'} id="panel-sala" role={mini ? 'region' : 'tabpanel'} aria-label={mini ? 'Tela em mini-player' : undefined} aria-labelledby={mini ? undefined : 'tab-sala'} hidden={mini && !showStream}>
@@ -186,6 +187,5 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
       </div><button className="leave" disabled={joining || screenPending} aria-label="Sair da sala" title="Sair da sala" onClick={() => { microphone.stop(); onLeave(); }}><Icon name="leave" /><span className="control-label">Sair da sala</span></button></footer>
     <IncomingAudio volumes={volumes} screenSetting={screenSetting} globalMuted={audioMuted} />
     <RoomContext.Provider value={screenRoom}><IncomingAudio volumes={{}} screenOnly screenIdentity={screenListening ? current?.participant.identity : undefined} screenSetting={screenSetting} globalMuted={audioMuted || !screenOutput.ready} /></RoomContext.Provider>
-    <MembershipSounds enabled={sounds} muted={audioMuted} />
   </main>;
 }

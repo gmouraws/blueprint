@@ -5,6 +5,7 @@ import { ConnectionState, RoomEvent, Track, type Participant, type RemotePartici
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { incomingVolume } from '@/lib/client/preferences';
 import { playMembershipTone, setSoundPolicy } from '@/lib/client/call-sounds';
+import { Icon } from './icons';
 
 export type VolumeSetting = { volume: number; muted: boolean };
 export const defaultVolume: VolumeSetting = { volume: 100, muted: false };
@@ -28,28 +29,59 @@ export function IncomingAudio({ volumes, screenIdentity, screenSetting, globalMu
     return <AudioTrack key={`${ref.participant.identity}:${ref.publication.trackSid}`} trackRef={ref} ref={element => { if (element) element.volume = volume; }} volume={volume} data-audio-kind={ref.source} data-audio-owner={ref.participant.identity} />;
   })}</div>;
 }
-export function MembershipSounds({ enabled, muted }: { enabled: boolean; muted: boolean }) {
+export function MembershipNotifications({ enabled, muted, roomName }: { enabled: boolean; muted: boolean; roomName: string }) {
   const room = useRoomContext();
+  const [notices, setNotices] = useState<{ id: number; text: string }[]>([]);
+  const sequence = useRef(0);
+  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const options = useRef({ enabled, muted });
   useLayoutEffect(() => { options.current = { enabled, muted }; setSoundPolicy(room, options.current); }, [room, enabled, muted]);
+  function dismiss(id: number) {
+    clearTimeout(timers.current.get(id)); timers.current.delete(id);
+    setNotices(current => current.filter(notice => notice.id !== id));
+  }
+  useEffect(() => {
+    const pending = timers.current;
+    return () => { for (const timer of pending.values()) clearTimeout(timer); pending.clear(); };
+  }, []);
   useEffect(() => {
     let ready = room.state === ConnectionState.Connected;
+    let connectedOnce = ready;
     let known = new Set(room.remoteParticipants.keys());
+    const notify = (text: string) => {
+      const id = ++sequence.current;
+      setNotices(current => [...current, { id, text }].slice(-3));
+      timers.current.set(id, setTimeout(() => {
+        timers.current.delete(id);
+        setNotices(current => current.filter(notice => notice.id !== id));
+      }, 12000));
+    };
     const snapshot = () => { known = new Set(room.remoteParticipants.keys()); ready = true; };
-    const connected = () => { snapshot(); void playMembershipTone(room, true); };
+    const connected = () => { snapshot(); connectedOnce = true; notify(`Você entrou na ${roomName}.`); void playMembershipTone(room, true); };
     const pause = () => { ready = false; };
+    const disconnected = () => {
+      pause(); known.clear();
+      if (connectedOnce) notify(`Você foi desconectado da ${roomName}.`);
+      connectedOnce = false;
+    };
     const joined = (participant: RemoteParticipant) => {
       const newIdentity = !known.has(participant.identity); known.add(participant.identity);
-      if (newIdentity && ready && room.state === ConnectionState.Connected && options.current.enabled && !options.current.muted && room.canPlaybackAudio) playMembershipTone(room, true);
+      if (newIdentity && ready && room.state === ConnectionState.Connected) {
+        notify(`${participant.name || 'Participante'} entrou na ${roomName}.`);
+        if (options.current.enabled && !options.current.muted && room.canPlaybackAudio) void playMembershipTone(room, true);
+      }
     };
     const left = (participant: RemoteParticipant) => {
       const existed = known.delete(participant.identity);
-      if (existed && ready && room.state === ConnectionState.Connected && options.current.enabled && !options.current.muted && room.canPlaybackAudio) playMembershipTone(room, false);
+      if (existed && ready && room.state === ConnectionState.Connected) {
+        notify(`${participant.name || 'Participante'} saiu da ${roomName}.`);
+        if (options.current.enabled && !options.current.muted && room.canPlaybackAudio) void playMembershipTone(room, false);
+      }
     };
-    room.on(RoomEvent.Connected, connected).on(RoomEvent.Reconnected, snapshot).on(RoomEvent.Reconnecting, pause).on(RoomEvent.SignalReconnecting, pause).on(RoomEvent.Disconnected, pause).on(RoomEvent.ParticipantConnected, joined).on(RoomEvent.ParticipantDisconnected, left);
-    return () => { room.off(RoomEvent.Connected, connected).off(RoomEvent.Reconnected, snapshot).off(RoomEvent.Reconnecting, pause).off(RoomEvent.SignalReconnecting, pause).off(RoomEvent.Disconnected, pause).off(RoomEvent.ParticipantConnected, joined).off(RoomEvent.ParticipantDisconnected, left); };
-  }, [room]);
-  return null;
+    room.on(RoomEvent.Connected, connected).on(RoomEvent.Reconnected, snapshot).on(RoomEvent.Reconnecting, pause).on(RoomEvent.SignalReconnecting, pause).on(RoomEvent.Disconnected, disconnected).on(RoomEvent.ParticipantConnected, joined).on(RoomEvent.ParticipantDisconnected, left);
+    return () => { room.off(RoomEvent.Connected, connected).off(RoomEvent.Reconnected, snapshot).off(RoomEvent.Reconnecting, pause).off(RoomEvent.SignalReconnecting, pause).off(RoomEvent.Disconnected, disconnected).off(RoomEvent.ParticipantConnected, joined).off(RoomEvent.ParticipantDisconnected, left); };
+  }, [room, roomName]);
+  return <div className="membership-notifications" role="log" aria-label="Atividade da sua sala de voz" aria-live="polite" aria-relevant="additions">{notices.map(notice => <div className="membership-notice" key={notice.id}><p>{notice.text}</p><button className="icon-button" onClick={() => dismiss(notice.id)} aria-label={`Dispensar aviso: ${notice.text}`} title="Dispensar aviso"><Icon name="close" /></button></div>)}</div>;
 }
 export function AudioDiagnostics({ canPlay, globalMuted, timing }: { canPlay: boolean; globalMuted: boolean; timing?: { captureMs: number; publishMs: number; totalMs: number } }) {
   const room = useRoomContext();

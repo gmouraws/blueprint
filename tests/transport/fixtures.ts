@@ -11,6 +11,19 @@ export async function closeChatStores() {
   chatStores.clear();
 }
 
+export async function observeMembership(page: Page) {
+  await page.evaluate(() => {
+    const messages: string[] = [];
+    (window as unknown as { membershipProbe: string[] }).membershipProbe = messages;
+    new MutationObserver(records => {
+      for (const record of records) for (const node of record.addedNodes) {
+        if (node instanceof Element && node.matches('.membership-notice')) messages.push(node.querySelector('p')!.textContent!);
+      }
+    }).observe(document.body, { subtree: true, childList: true });
+  });
+  return () => page.evaluate(() => (window as unknown as { membershipProbe: string[] }).membershipProbe);
+}
+
 // Loopback-only development credentials, never used by application auth or a cloud service.
 const key = 'blueprint-test';
 const secret = 'local-test-secret-not-a-production-credential';

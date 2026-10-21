@@ -150,7 +150,11 @@ test('selected screen has one audio path, separate volume, and global mute resto
     await expect(viewer.locator('audio[data-audio-owner="Bruno"][data-audio-kind="screen_share_audio"]')).toHaveCount(0);
     await expect(viewer.getByRole('button', {name:'Escolher tela compartilhada'})).toContainText('Alice');
     await bob.getByRole('button', { name: 'Compartilhar tela', exact: true }).click();
-    await viewer.getByRole('button', {name:'Escolher tela compartilhada'}).click();await expect(viewer.getByRole('radio',{name:'Bruno',exact:true})).toBeVisible();await viewer.getByRole('radio',{name:'Bruno',exact:true}).check();await viewer.keyboard.press('Escape');
+    await viewer.getByRole('button', {name:'Escolher tela compartilhada'}).click();
+    // Pointer users activate the visible label, not the clipped sr-only input.
+    await viewer.getByRole('radiogroup',{name:'Telas disponíveis'}).getByText('Bruno',{exact:true}).click();
+    await expect(viewer.getByRole('radio',{name:'Bruno',exact:true})).toBeChecked();
+    await viewer.keyboard.press('Escape');
     await expect(viewer.locator('audio')).toHaveCount(0);
     await viewer.getByRole('button', { name: 'Restaurar áudio', exact: true }).click();
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.45);

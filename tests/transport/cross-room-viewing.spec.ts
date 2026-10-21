@@ -106,6 +106,7 @@ test('view either room without joining: authorized screens, isolated microphones
     await expect.poll(() => observers('-second')).toHaveLength(0);
     await expect.poll(() => service.listParticipants(room)).toHaveLength(1);
     await expect.poll(() => service.listParticipants(room + '-second')).toHaveLength(2);
+    await expect(chatOnly.getByRole('log', { name: 'Atividade da sua sala de voz' })).toBeEmpty();
     await expect(viewer.locator('audio[data-audio-owner="Alice"]')).toHaveCount(0);
     await expect.poll(() => liveTracks(viewer)).toBe(0);
     await expect.poll(() => gain(viewer, 'microphone', 'Bruno')).toBe(1);
