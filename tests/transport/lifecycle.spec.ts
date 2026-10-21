@@ -15,7 +15,8 @@ test('prejoin meter cleans up, pending capture is cancellable, and device errors
     await expect(page.getByRole('button', { name: 'Ativar microfone', exact: true })).toBeVisible();
     await page.evaluate(() => { (window as unknown as { mediaProbe: { pendingCapture: boolean } }).mediaProbe.pendingCapture = true; });
     await page.getByRole('button', { name: 'Ativar microfone', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Ativando…', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Alterando microfone…', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Alterando microfone…', exact: true })).toHaveAttribute('aria-busy', 'true');
     const count = await captures(page);
     await page.getByRole('button', { name: 'Cancelar ativação' }).click();
     await page.evaluate(() => { const probe = (window as unknown as { mediaProbe: { pendingCapture: boolean; releaseCapture?: () => void } }).mediaProbe; probe.pendingCapture = false; probe.releaseCapture?.(); });
@@ -28,7 +29,7 @@ test('prejoin meter cleans up, pending capture is cancellable, and device errors
     }
     await page.evaluate(() => { const probe = (window as unknown as { mediaProbe: { pendingCapture: boolean; failCapture: string } }).mediaProbe; probe.pendingCapture = true; probe.failCapture = ''; });
     await page.getByRole('button', { name: 'Ativar microfone', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Ativando…', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Alterando microfone…', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Sair da sala' }).click();
     await page.evaluate(() => { const probe = (window as unknown as { mediaProbe: { pendingCapture: boolean; releaseCapture?: () => void } }).mediaProbe; probe.pendingCapture = false; probe.releaseCapture?.(); });
     await expect.poll(() => liveTracks(page)).toBe(0);
@@ -56,12 +57,13 @@ test('blocked playback unlocks without capturing a microphone; device changes up
     await expect.poll(() => energy(bob)).toBeGreaterThan(0);
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBe(1);
     expect(await captures(bob)).toBe(0);
-    await bob.getByText('Configurações de áudio', { exact: true }).click();
+    await bob.getByRole('button', { name: 'Configurações de áudio', exact: true }).click();
     await expect(bob.getByText('A seleção de saída não é suportada neste navegador. O áudio segue o padrão do sistema operacional.')).toBeVisible();
+    await bob.keyboard.press('Escape');
     await bob.getByRole('button', { name: 'Opções de Alice' }).click();
     await bob.getByRole('slider', { name: 'Voz de Alice' }).fill('35');
     await bob.getByRole('button', { name: 'Fechar', exact: true }).click();
-    await alice.getByText('Configurações de áudio', { exact: true }).click();
+    await alice.getByRole('button', { name: 'Configurações de áudio', exact: true }).click();
     const input = alice.getByLabel('Selecionar microfone', { exact: true });
     await input.selectOption({ label: 'Fake Audio Input 1' });
     await expect(alice.getByRole('button', { name: 'Desligar microfone', exact: true })).toBeVisible();
@@ -109,7 +111,7 @@ test('membership tones skip initial snapshot, mute, disabled preference and reco
     await bob.getByRole('button', { name: 'Sair da sala' }).click();
     await expect(alice.getByRole('button', { name: 'Opções de Bruno', exact: true })).toHaveCount(0); expect(await tones()).toBe(2);
     await alice.getByRole('button', { name: 'Ouvir áudio', exact: true }).click();
-    await alice.getByText('Configurações de áudio', { exact: true }).click();
+    await alice.getByRole('button', { name: 'Configurações de áudio', exact: true }).click();
     await alice.getByLabel('Sons de entrada e saída').uncheck();
     await expect(bob.getByLabel('Senha da sala')).toHaveCount(0);
     await join(bob);

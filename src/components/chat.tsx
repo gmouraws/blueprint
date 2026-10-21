@@ -2,12 +2,13 @@
 
 import { useRoomContext } from '@livekit/components-react';
 import { ConnectionState, RoomEvent } from 'livekit-client';
-import { useCallback, useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { CHAT_TOPIC, MAX_MESSAGE_BYTES, encodeMessage } from '@/lib/room';
 import { mergeMessages, type ChatMessage, type ChatPage } from '@/lib/chat';
 import { Icon } from './icons';
-import { ImageComposer, MessageImage, useChatImage } from './chat-images';
+import { ImageAttachmentButton, ImageComposer, MessageImage, useChatImage } from './chat-images';
 import { messageParts } from '@/lib/client/message-links';
+import { ControlMenu } from './control-menu';
 
 async function request(path: string, init?: RequestInit) {
   const response = await fetch(path, { ...init, cache: 'no-store', signal: AbortSignal.timeout(15000) });
@@ -34,10 +35,29 @@ export function Chat({ active, onUnread }: { active: boolean; onUnread: (count: 
   const sending = useRef(false);
   const retry = useRef<{ body: string; requestId: string; imageId?: string } | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
+  const composer = useRef<HTMLTextAreaElement>(null);
   const nearBottom = useRef(true);
   const unread = useRef(0);
   const serverOffset = useRef(0);
   const refreshNow = useRef<() => void>(() => {});
+  const resizeComposer = useCallback(() => {
+    const field = composer.current;
+    if (!field || !field.clientWidth) return;
+    field.style.height = '0px';
+    field.style.height = `${Math.min(128, Math.max(44, field.scrollHeight + 2))}px`;
+    if (nearBottom.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
+  }, []);
+  useLayoutEffect(resizeComposer, [text, active, resizeComposer]);
+  useEffect(() => {
+    if (!composer.current) return;
+    let width = 0;
+    const observer = new ResizeObserver(entries => {
+      const next = entries[0].contentRect.width;
+      if (next !== width) { width = next; resizeComposer(); }
+    });
+    observer.observe(composer.current);
+    return () => observer.disconnect();
+  }, [resizeComposer]);
   const accept = useCallback((incoming: ChatMessage[]) => {
     const previous = records.current;
     records.current = mergeMessages(records.current, incoming, Date.now() + serverOffset.current);
@@ -127,13 +147,17 @@ export function Chat({ active, onUnread }: { active: boolean; onUnread: (count: 
     } catch (failure) { if (alive.current) setError(`${failure instanceof Error ? failure.message : 'Não foi possível confirmar o salvamento.'} Seu texto foi mantido; reenviar o mesmo texto não duplica a mensagem.`); }
     finally { sending.current = false; if (alive.current) setIsSending(false); }
   }
-  return <section className="chat-panel" aria-labelledby="chat-heading"><div className="panel-heading"><h2 id="chat-heading"># geral</h2><span className="pill">Histórico de 30 dias</span></div><p className="chat-disclosure">Mensagens visíveis a todos com acesso à sala e mantidas por 30 dias. Apelidos são nomes de exibição, não identidades verificadas. Você pode conversar sem entrar na voz.</p>
+  return <section className="chat-panel" aria-labelledby="chat-heading"><div className="panel-heading"><h2 id="chat-heading"># geral</h2><ControlMenu label="Informações do chat"><p className="menu-title"># geral</p><p className="chat-disclosure">Mensagens visíveis a todos com acesso à sala e mantidas por 30 dias. Apelidos são nomes de exibição, não identidades verificadas. Você pode conversar sem entrar na voz.</p><p className="muted">Enter envia · Shift+Enter quebra a linha. Até {MAX_MESSAGE_BYTES} bytes e uma imagem JPEG, PNG ou WebP de até 5 MB por mensagem.</p></ControlMenu></div>
     {loading && <p className="chat-loading" role="status">Carregando histórico…</p>}
     <div className="messages" ref={scroll} onScroll={() => { const element = scroll.current; if (element) nearBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48; }} role="log" aria-label="Mensagens da sala" aria-live={active ? 'polite' : 'off'} tabIndex={0}>
       {hasOlder && <button className="load-older" disabled={older} onClick={loadOlder}>{older ? 'Carregando…' : 'Carregar anteriores'}</button>}
       {!messages.length && !loading && !error && <div className="chat-empty"><span aria-hidden="true">#</span><p>Nenhuma mensagem nos últimos 30 dias.</p></div>}
       {messages.map(message => <div className="message" key={message.id} data-message-id={message.id}><div className="message-meta"><strong>{message.name}{message.own ? ' (você)' : ''}</strong><time dateTime={message.createdAt}>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(message.createdAt))}</time></div>{message.body && <p>{messageParts(message.body).map((part, index) => part.href ? <a key={index} href={part.href} target="_blank" rel="noopener noreferrer">{part.text}</a> : part.text)}</p>}{message.image && <MessageImage image={message.image} />}</div>)}
     </div>
-    <form className="chat-form" onSubmit={submit} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }} onDrop={event => { if (!isSending) image.drop(event); }}><label htmlFor="message">Mensagem</label><textarea id="message" rows={2} maxLength={MAX_MESSAGE_BYTES} value={text} onChange={event => { setText(event.target.value); setSaved(false); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} onPaste={image.paste} placeholder="Escreva para # geral…" disabled={isSending} /><p className="chat-keyboard muted">Enter envia · Shift+Enter quebra a linha</p><ImageComposer image={image} disabled={isSending} /><div className="chat-send"><span className="muted">{new TextEncoder().encode(text).length}/{MAX_MESSAGE_BYTES} bytes</span><span role="status">{saved ? 'Salva no histórico' : ''}</span><button className="primary" disabled={isSending || (!text.trim() && !image.pending)} aria-label="Enviar mensagem"><Icon name="send" />{isSending ? 'Salvando…' : 'Enviar'}</button></div>{error && <div className="error" role="alert"><p>{error}</p><button type="button" onClick={() => refreshNow.current()}>Atualizar histórico</button></div>}</form>
+    <form className="chat-form" onSubmit={submit} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }} onDrop={event => { if (!isSending) image.drop(event); }}>
+      <ImageComposer image={image} disabled={isSending} />
+      <div className="composer-row"><ImageAttachmentButton image={image} disabled={isSending} /><label htmlFor="message" className="sr-only">Mensagem</label><textarea ref={composer} id="message" rows={1} maxLength={MAX_MESSAGE_BYTES} value={text} onChange={event => { setText(event.target.value); setSaved(false); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} onPaste={image.paste} placeholder="Escreva para # geral…" aria-describedby="message-help" disabled={isSending} /><button className="primary icon-button" disabled={isSending || (!text.trim() && !image.pending)} aria-label="Enviar mensagem" aria-busy={isSending} title={isSending ? 'Salvando…' : 'Enviar mensagem'}><Icon name="send" /></button></div>
+      <p id="message-help" className="sr-only">Enter envia; Shift+Enter quebra a linha. Até {MAX_MESSAGE_BYTES} bytes.</p>
+      <div className="chat-send"><span className="muted">{text ? `${new TextEncoder().encode(text).length}/${MAX_MESSAGE_BYTES} bytes` : ''}</span><span role="status">{isSending ? 'Salvando…' : saved ? 'Salva no histórico' : ''}</span></div>{error && <div className="error" role="alert"><p>{error}</p><button type="button" onClick={() => refreshNow.current()}>Atualizar histórico</button></div>}</form>
   </section>;
 }

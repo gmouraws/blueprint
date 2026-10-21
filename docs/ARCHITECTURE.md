@@ -34,6 +34,8 @@ Chat is persisted through authenticated HTTP handlers with per-session Redis lim
 
 The sidebar has Texto/# geral and two collapsible voice-room sections with authenticated rosters. Browsing and expansion do not join or leave. Secondary local volume controls use keyboard-accessible popovers. A single selected-screen video renderer moves into a mini-player in Chat; hiding it removes that video element without duplicating or disconnecting audio. Accessible Sala/Chat tabs change only view visibility. Room ownership, incoming audio, volumes, microphone state and the chat draft remain mounted across changes. Entering Chat alone does not request a LiveKit token or start microphone capture; joining voice always requires an explicit action.
 
+The video element occupies the available viewing area for LiveKit's adaptive observer, using the screen's pixel density. `object-fit: scale-down` independently bounds the drawn image by its actual decoded dimensions; `contain` is the explicit fit-to-area option. Shrinking the observed element to a newly received low-resolution layer could prevent recovery after mini-player use, so decoded dimensions do not drive element sizing. Capture/publication targets are unchanged. One video renderer and the existing independent audio renderer serve all viewing modes; CSS cannot improve source resolution or encoding quality.
+
 ## Sources
 
 The communication lifecycle, local preferences, device/output behavior and controlled media verification are described in [ADR-010](adr/010-room-communication-lifecycle.md) and [the verification guide](COMMUNICATION-VERIFICATION.md). The entry remains microphone-off; local volume settings never change another participant's microphone.

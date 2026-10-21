@@ -55,8 +55,11 @@ test('mini-player retains one video/audio path, hides without disconnect and cle
  const contexts=await Promise.all([browser.newContext(),browser.newContext()]); const [host,viewer]=await Promise.all(contexts.map(c=>c.newPage()));
  try {
   await prepare(host,'Alice',room);await join(host);await prepare(viewer,'Bruno',room);await join(viewer);
+  await host.evaluate(()=>Object.assign((window as unknown as {mediaProbe:object}).mediaProbe,{screenWidth:1280,screenHeight:720}));
+  await viewer.setViewportSize({width:1440,height:900});
   await host.getByRole('button',{name:'Compartilhar tela',exact:true}).click();
   await expect(viewer.locator('video')).toHaveCount(1);await expect.poll(()=>energy(viewer)).toBeGreaterThan(0);
+  await expect.poll(()=>viewer.locator('video').evaluate(video=>(video as HTMLVideoElement).videoWidth),{timeout:15000}).toBe(1280);
   const peers=await viewer.evaluate(()=>(window as unknown as {mediaProbe:{peers:unknown[]}}).mediaProbe.peers.length);
   await viewer.getByRole('tab',{name:'Chat',exact:true}).click();
   await expect(viewer.locator('.stream-mini video')).toBeVisible();await expect(viewer.locator('video')).toHaveCount(1);
@@ -65,7 +68,9 @@ test('mini-player retains one video/audio path, hides without disconnect and cle
   await viewer.getByRole('button',{name:'Ocultar mini-player sem desligar áudio'}).click();await expect(viewer.locator('video')).toHaveCount(0);
   await expect(viewer.locator('audio')).toHaveCount(1);expect(await captures(viewer)).toBe(0);
   await viewer.getByRole('button',{name:'Mostrar mini-player',exact:true}).click();
+  await viewer.setViewportSize({width:1440,height:900});
   await viewer.getByRole('button',{name:'Expandir tela e voltar à sala'}).click();await expect(viewer.locator('.stage-column video')).toBeVisible();
+  await expect.poll(()=>viewer.locator('video').evaluate(video=>(video as HTMLVideoElement).videoWidth),{timeout:15000}).toBe(1280);
   expect(await viewer.evaluate(()=>(window as unknown as {mediaProbe:{peers:unknown[]}}).mediaProbe.peers.length)).toBe(peers);
   const measured=await viewer.evaluate(async()=>{ const probe=(window as unknown as {mediaProbe:{peers:RTCPeerConnection[]}}).mediaProbe; const values:object[]=[];for(const peer of probe.peers)(await peer.getStats()).forEach(s=>{if(s.type==='inbound-rtp'&&s.kind==='video')values.push({width:s.frameWidth,height:s.frameHeight,framesPerSecond:s.framesPerSecond,framesDecoded:s.framesDecoded});});return values;});
   expect(measured.length).toBeGreaterThan(0);await mkdir('.generated/review/two-rooms',{recursive:true});await writeFile('.generated/review/two-rooms/received-video.json',JSON.stringify(measured));await testInfo.attach('received-moving-canvas',{body:JSON.stringify(measured),contentType:'application/json'});

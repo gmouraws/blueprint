@@ -20,7 +20,7 @@ export async function instrument(page: Page) {
   await page.addInitScript(() => {
     const probe = {
       captures: 0, enumerations: 0, tones: 0, failData: false, blockAudio: false, pendingCapture: false,
-      failCapture: '', devices: null as MediaDeviceInfo[] | null,
+      failCapture: '', devices: null as MediaDeviceInfo[] | null, screenWidth: 640, screenHeight: 360,
       releaseCapture: undefined as (() => void) | undefined,
       streams: [] as MediaStream[], peers: [] as RTCPeerConnection[], contexts: [] as AudioContext[],
     };
@@ -50,9 +50,17 @@ export async function instrument(page: Page) {
     RTCDataChannel.prototype.send = function (...args) { if (probe.failData) throw new Error('Controlled data transport failure'); return Reflect.apply(send, this, args); };
     navigator.mediaDevices.getDisplayMedia = async constraints => {
       Object.assign(probe, { screenConstraints: constraints });
-      const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360;
-      const paint = canvas.getContext('2d')!; paint.fillStyle = '#a3e1c5'; paint.fillRect(0, 0, 640, 360);
-      let frame = 0; const moving = setInterval(() => { paint.fillStyle = frame++ % 2 ? '#a3e1c5' : '#26364c'; paint.fillRect(0, 0, 640, 360); }, 33);
+      const canvas = document.createElement('canvas'); canvas.width = probe.screenWidth; canvas.height = probe.screenHeight;
+      const paint = canvas.getContext('2d')!;
+      let frame = 0;
+      const draw = () => {
+        paint.fillStyle = '#26364c'; paint.fillRect(0, 0, canvas.width, canvas.height);
+        paint.strokeStyle = '#a3e1c5'; paint.lineWidth = 1;
+        for (let x = 0; x < canvas.width; x += 32) { paint.beginPath(); paint.moveTo(x + 0.5, 0); paint.lineTo(x + 0.5, canvas.height); paint.stroke(); }
+        paint.fillStyle = '#a3e1c5'; paint.font = '20px monospace'; paint.fillText(`Loopback test · ${canvas.width} × ${canvas.height}`, 24, 40);
+        paint.fillRect((frame++ * 4) % canvas.width, canvas.height - 24, 24, 16);
+      };
+      draw(); const moving = setInterval(draw, 33);
       const video = canvas.captureStream(30).getVideoTracks()[0];
       const context = new AudioContext(); await context.resume();
       const tone = context.createOscillator(); const destination = context.createMediaStreamDestination();

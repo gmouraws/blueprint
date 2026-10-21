@@ -50,11 +50,16 @@ export function useChatImage() {
   }
   return { pending, progress, error, choose, remove, paste, drop, upload };
 }
-export function ImageComposer({ image, disabled }: { image: ReturnType<typeof useChatImage>; disabled: boolean }) {
+export function ImageAttachmentButton({ image, disabled }: { image: ReturnType<typeof useChatImage>; disabled: boolean }) {
   const input = useRef<HTMLInputElement>(null);
-  return <div className="image-composer">
+  return <>
     <input ref={input} type="file" accept={IMAGE_TYPES.join(',')} className="sr-only" tabIndex={-1} aria-label="Selecionar imagem" disabled={disabled} onChange={event => { image.choose(event.target.files?.[0]); event.target.value = ''; }} />
-    <button type="button" className="attachment-button" disabled={disabled} onClick={() => input.current?.click()} title="Anexar imagem de até 5 MB"><Icon name="attachment" />Imagem</button>
+    <button type="button" className="icon-button attachment-button" disabled={disabled} onClick={() => input.current?.click()} aria-label="Anexar imagem" title="Anexar imagem de até 5 MB"><Icon name="attachment" /></button>
+  </>;
+}
+export function ImageComposer({ image, disabled }: { image: ReturnType<typeof useChatImage>; disabled: boolean }) {
+  if (!image.pending && image.progress === null && !image.error) return null;
+  return <div className="image-composer">
     {image.pending && <div className="image-preview"><img src={image.pending.url} alt="Prévia da imagem a enviar" /><span>{image.pending.file.name}</span><button type="button" disabled={disabled} onClick={image.remove} aria-label="Remover imagem antes de enviar"><Icon name="close" /></button></div>}
     {image.progress !== null && <div role="status"><progress max={100} value={image.progress} aria-label="Envio da imagem" /><span>{image.progress < 95 ? 'Enviando imagem… ' + image.progress + '%' : 'Validando imagem…'}</span></div>}
     {image.error && <p className="error" role="alert">{image.error}</p>}

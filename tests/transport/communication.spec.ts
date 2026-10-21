@@ -86,15 +86,16 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
     }
     await expect(alice.getByRole('button', { name: 'Desligar microfone', exact: true })).toBeVisible();
     expect(await captures(alice)).toBe(capturesBefore);
-    await alice.getByText('Configurações de áudio', { exact: true }).click();
+    await alice.getByRole('button', { name: 'Configurações de áudio', exact: true }).click();
     await expect.poll(() => alice.getByLabel('Selecionar microfone', { exact: true }).locator('option').allTextContents()).toContain('Fake Audio Input 1');
     const enumerations = await alice.evaluate(() => (window as unknown as { mediaProbe: { enumerations: number } }).mediaProbe.enumerations);
     expect(enumerations).toBeLessThan(20);
+    await alice.keyboard.press('Escape');
     for (const width of [1440, 768, 375]) {
       await alice.setViewportSize({ width, height: 1000 });
       expect(await alice.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect(await alice.evaluate(() => document.querySelector('.chat-form')!.getBoundingClientRect().bottom <= document.querySelector('.call-controls')!.getBoundingClientRect().top + 1)).toBe(true);
-      expect(await alice.evaluate(() => document.querySelector('.chat-form')!.getBoundingClientRect().bottom <= document.querySelector('.call-settings')!.getBoundingClientRect().top + 1)).toBe(true);
+      expect(await alice.locator('.messages').evaluate(element => element.clientHeight)).toBeGreaterThan(200);
       expect((await new AxeBuilder({ page: alice }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
       await alice.screenshot({ path: `test-results/call-connected-${width}.png`, fullPage: true });
     }
@@ -123,7 +124,9 @@ test('selected screen has one audio path, separate volume, and global mute resto
     await expect(viewer.locator('audio[data-audio-kind="screen_share_audio"]')).toHaveCount(1);
     await expect(viewer.locator('audio[data-audio-owner="Alice"]')).toHaveCount(0);
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.8);
+    await viewer.getByRole('button', { name: 'Opções de visualização' }).click();
     await viewer.getByRole('slider', { name: 'Áudio da tela selecionada' }).fill('45');
+    await viewer.keyboard.press('Escape');
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.45);
     await bob.getByRole('tab', { name: 'Chat', exact: true }).click();
     await viewer.getByRole('tab', { name: 'Chat', exact: true }).click();

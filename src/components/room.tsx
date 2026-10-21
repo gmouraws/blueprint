@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, ConnectionState, Track } from 'livekit-client';
-import { RoomContext, VideoTrack, useAudioPlayback, useConnectionState, useLocalParticipant, useRoomContext, useTracks } from '@livekit/components-react';
+import { RoomContext, useAudioPlayback, useConnectionState, useLocalParticipant, useRoomContext, useTracks } from '@livekit/components-react';
 import { VOICE_ROOMS, type ConnectionDetails, type VoiceRoomId } from '@/lib/room';
 import { closeCallRoom, prepareCallAudio } from '@/lib/client/call-room';
 import { connectRoom, VoiceConnectionTimeout } from '@/lib/client/connect-room';
@@ -14,7 +14,10 @@ import { AudioDevices } from './audio-devices';
 import { useMicrophone } from './microphone';
 import { AudioDiagnostics, IncomingAudio, MembershipSounds, VolumeControl, type VolumeSetting } from './incoming-audio';
 import { VoiceNavigation } from './voice-navigation';
-import { SCREEN_QUALITIES, ScreenMeasurements, type ScreenQuality } from './screen-quality';
+import { SCREEN_QUALITIES, type ScreenQuality } from './screen-quality';
+import { ScreenViewer } from './screen-viewer';
+import { ControlMenu } from './control-menu';
+import { CallAudioControls } from './call-audio-controls';
 
 async function post(path: string, body: object) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store', signal: AbortSignal.timeout(20000) });
@@ -93,7 +96,6 @@ export function RoomView({ error = '', onLeave, onJoin, joining = false, current
   const [miniHidden, setMiniHidden] = useState(false);
   const current = connected ? screens.find(track => track.publication.trackSid === selected) ?? screens[0] : undefined;
   const hasScreenAudio = current && screenAudios.some(ref => ref.participant.identity === current.participant.identity && !ref.publication.isMuted);
-  const viewer = useRef<HTMLDivElement>(null);
   const viewedRoom = useRef(currentRoom);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => {
@@ -118,12 +120,10 @@ export function RoomView({ error = '', onLeave, onJoin, joining = false, current
       if (alive.current) setNotice(failure instanceof Error && ['NotAllowedError', 'AbortError'].includes(failure.name) ? 'Compartilhamento não iniciado. A seleção foi cancelada ou a permissão não foi concedida.' : 'Não foi possível compartilhar nessa qualidade. Tente 1080p / 30 fps ou outra fonte no seletor.');
     } finally { if (!alive.current || room.state === ConnectionState.Disconnected) await room.disconnect(true); screenLock.current = false; if (alive.current) setScreenPending(false); }
   }
-  async function fullscreen() {
-    try { if (document.fullscreenElement) await document.exitFullscreen(); else await viewer.current?.requestFullscreen(); }
-    catch { setNotice('Não foi possível abrir em tela cheia neste navegador.'); }
-  }
   const mini = view === 'chat';
   const showStream = !!current && (mini ? !miniHidden : browsing === currentRoom);
+  const audioControls = { enabled: isMicrophoneEnabled, pending: microphone.pending, disabled: !connected || joining, muted: audioMuted, onMicrophone: microphone.toggle, onCancel: microphone.cancel, onListening: () => setAudioMuted(value => !value) };
+  function changeScreenVolume(setting: VolumeSetting) { setScreenSetting(setting); savePreferences({ screenVolume: setting.volume }); }
   return <main className="room-shell">
     <header className="room-header"><Brand /><span className="connection" role="status"><i className={connected ? 'connected-dot' : ''} /><span>Voz: <span>{status}</span>{connected && ' · ' + name(currentRoom)}</span></span><span className="small-label"><Icon name="lock" /> Sala privada</span></header>
     <div className="room-columns"><aside className="participants-panel"><VoiceNavigation currentRoom={currentRoom} connected={connected} browsing={browsing} busy={voiceBusy || screenPending || microphone.pending} onBrowse={destination => { setBrowsing(destination); setView('sala'); }} onJoin={enter} onChat={() => setView('chat')} chatActive={view === 'chat'} volumes={volumes} onVolume={(identity, value) => setVolumes(previous => ({ ...previous, [identity]: value }))} /></aside>
@@ -132,23 +132,19 @@ export function RoomView({ error = '', onLeave, onJoin, joining = false, current
         <div className={'media-chat-layout ' + (mini ? 'chat-layout' : '')}>
           <section className={mini ? 'stream-mini' : 'stage-column'} id="panel-sala" role={mini ? 'region' : 'tabpanel'} aria-label={mini ? 'Tela em mini-player' : undefined} aria-labelledby={mini ? undefined : 'tab-sala'} hidden={mini && !showStream}>
             {!mini && <div className="stage-heading"><h1>{name(browsing)}</h1>{(!connected || browsing !== currentRoom) && <button disabled={voiceBusy || screenPending || microphone.pending} onClick={() => enter(browsing)}>Entrar nesta voz</button>}</div>}
-            <div className="screen-viewer" ref={viewer}>{showStream ? <>
-              <div className="viewer-toolbar"><label>Tela de <select aria-label="Escolher tela compartilhada" value={current!.publication.trackSid} onChange={event => setSelected(event.target.value)}>{screens.map(track => <option value={track.publication.trackSid} key={track.publication.trackSid}>{track.participant.name || 'Participante'}{track.participant.isLocal ? ' (você)' : ''}</option>)}</select></label>
-                {mini ? <><button className="icon-button" onClick={() => { setBrowsing(currentRoom); setView('sala'); }} title="Voltar à sala" aria-label="Expandir tela e voltar à sala"><Icon name="expand" /></button><button className="icon-button" onClick={() => setMiniHidden(true)} title="Ocultar mini-player" aria-label="Ocultar mini-player sem desligar áudio"><Icon name="close" /></button></> : <button onClick={fullscreen} aria-label="Alternar tela cheia"><Icon name="expand" /><span>Tela cheia</span></button>}
-              </div><VideoTrack trackRef={current!} muted playsInline className="shared-video" />
-            </> : <div className="viewer-empty"><Icon name="screen" width="36" height="36" /><h2>{browsing !== currentRoom || !connected ? 'Você está apenas visualizando esta sala' : 'Nenhuma tela compartilhada'}</h2><p>{browsing !== currentRoom || !connected ? 'Entre na voz para ouvir e ver os compartilhamentos.' : 'As telas compartilhadas aparecem aqui.'}</p></div>}</div>
-            {!mini && current && browsing === currentRoom && <><div className="screen-audio-controls">{current.participant.isLocal ? <p>Sua prévia fica sem som para evitar eco.</p> : hasScreenAudio ? <VolumeControl label="Áudio da tela selecionada" setting={screenSetting} onChange={setting => { setScreenSetting(setting); savePreferences({ screenVolume: setting.volume }); }} /> : <p>Esta tela não tem áudio disponível.</p>}</div><ScreenMeasurements track={current} /></>}
+            {showStream ? <ScreenViewer current={current!} screens={screens} mini={mini} hasAudio={!!hasScreenAudio} setting={screenSetting} onSetting={changeScreenVolume} onSelect={setSelected} onExpand={() => { setBrowsing(currentRoom); setView('sala'); }} onHide={() => setMiniHidden(true)} onNotice={setNotice} audioControls={audioControls} /> : <div className="screen-viewer"><div className="viewer-empty"><Icon name="screen" width="36" height="36" /><h2>{browsing !== currentRoom || !connected ? 'Você está apenas visualizando esta sala' : 'Nenhuma tela compartilhada'}</h2><p>{browsing !== currentRoom || !connected ? 'Entre na voz para ouvir e ver os compartilhamentos.' : 'As telas compartilhadas aparecem aqui.'}</p></div></div>}
           </section>
           <section id="panel-chat" className="chat-view" role="tabpanel" aria-labelledby="tab-chat" hidden={view !== 'chat'}><Chat active={view === 'chat'} onUnread={setUnread} />{mini && miniHidden && current && <button className="show-mini" onClick={() => setMiniHidden(false)}>Mostrar mini-player</button>}</section>
         </div>
-        <details className="call-settings"><summary>Configurações de áudio</summary><AudioDevices room={room} microphoneBusy={microphone.pending || joining} /><label className="checkbox-label"><input type="checkbox" checked={sounds} onChange={event => { setSounds(event.target.checked); savePreferences({ sounds: event.target.checked }); }} />Sons de entrada e saída</label>
-          <label>Qualidade solicitada<select aria-label="Qualidade do compartilhamento" value={quality} disabled={isScreenShareEnabled || screenPending} onChange={event => setQuality(event.target.value as ScreenQuality)}>{Object.entries(SCREEN_QUALITIES).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label><p className="muted">Aplicada no próximo compartilhamento. Até 5 Mbps em 30 fps/720p ou 8 Mbps em 1080p/60 fps; maior qualidade usa mais rede. Áudio da tela depende do navegador e da fonte.</p>
-          {mini && current && !current.participant.isLocal && hasScreenAudio && <VolumeControl label="Áudio da tela selecionada" setting={screenSetting} onChange={setting => { setScreenSetting(setting); savePreferences({ screenVolume: setting.volume }); }} />}
-          <p className="muted">Silenciar mantém a captura reservada. Sair ou trocar de sala libera os dispositivos.</p><AudioDiagnostics canPlay={canPlayAudio} globalMuted={audioMuted} timing={microphone.timing} />
-        </details>
       </div></div>
-    <footer className="call-controls"><div className="microphone-controls">{!connected && onJoin && <button className="primary" disabled={joining || state !== ConnectionState.Disconnected} onClick={() => enter(browsing)}>{joining ? 'Entrando…' : 'Entrar na voz'}</button>}<button onClick={microphone.toggle} disabled={!connected || joining || microphone.pending} aria-pressed={isMicrophoneEnabled}><Icon name={isMicrophoneEnabled ? 'mic' : 'micOff'} className={isMicrophoneEnabled ? '' : 'mic-off'} />{microphone.pending ? 'Ativando…' : isMicrophoneEnabled ? 'Desligar microfone' : 'Ativar microfone'}</button>{microphone.pending && <button onClick={microphone.cancel}>Cancelar ativação</button>}</div>
-      <div className="main-controls"><button aria-pressed={audioMuted} onClick={() => setAudioMuted(value => !value)}><Icon name={audioMuted ? 'audioOff' : 'audio'} />{audioMuted ? 'Ouvir áudio' : 'Silenciar áudio'}</button><button className={isScreenShareEnabled ? 'active' : 'primary'} onClick={share} disabled={!connected || joining || screenPending}><Icon name="screen" />{screenPending ? 'Aguarde…' : isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'}</button></div><button className="leave" disabled={joining || screenPending} onClick={() => { microphone.stop(); onLeave(); }}><Icon name="leave" />Sair da sala</button></footer>
+    <footer className="call-controls"><div className="microphone-controls">{!connected && onJoin && <button className="primary" disabled={joining || state !== ConnectionState.Disconnected} onClick={() => enter(browsing)}>{joining ? 'Entrando…' : 'Entrar na voz'}</button>}<CallAudioControls {...audioControls} /></div>
+      <div className="main-controls"><button className={isScreenShareEnabled ? 'active' : 'primary'} onClick={share} disabled={!connected || joining || screenPending} aria-label={screenPending ? 'Aguarde…' : isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'} title={isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'}><Icon name="screen" /><span className="control-label">{screenPending ? 'Aguarde…' : isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'}</span></button>
+        <ControlMenu label="Configurações de áudio" icon="settings" className="call-settings"><AudioDevices room={room} microphoneBusy={microphone.pending || joining} /><label className="checkbox-label"><input type="checkbox" checked={sounds} onChange={event => { setSounds(event.target.checked); savePreferences({ sounds: event.target.checked }); }} />Sons de entrada e saída</label>
+          <label>Qualidade solicitada<select aria-label="Qualidade do compartilhamento" value={quality} disabled={isScreenShareEnabled || screenPending} onChange={event => setQuality(event.target.value as ScreenQuality)}>{Object.entries(SCREEN_QUALITIES).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label><p className="muted">Aplicada no próximo compartilhamento. Até 5 Mbps em 30 fps/720p ou 8 Mbps em 1080p/60 fps; maior qualidade usa mais rede. Áudio da tela depende do navegador e da fonte.</p>
+          {mini && miniHidden && current && !current.participant.isLocal && hasScreenAudio && <VolumeControl label="Áudio da tela selecionada" setting={screenSetting} onChange={changeScreenVolume} />}
+          <p className="muted">Silenciar mantém a captura reservada. Sair ou trocar de sala libera os dispositivos.</p><AudioDiagnostics canPlay={canPlayAudio} globalMuted={audioMuted} timing={microphone.timing} />
+        </ControlMenu>
+      </div><button className="leave" disabled={joining || screenPending} aria-label="Sair da sala" title="Sair da sala" onClick={() => { microphone.stop(); onLeave(); }}><Icon name="leave" /><span className="control-label">Sair da sala</span></button></footer>
     <IncomingAudio volumes={volumes} screenIdentity={current?.participant.identity} screenSetting={screenSetting} globalMuted={audioMuted} /><MembershipSounds enabled={sounds} muted={audioMuted} />
   </main>;
 }
