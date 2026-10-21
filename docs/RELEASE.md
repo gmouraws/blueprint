@@ -26,6 +26,18 @@ For durable source recovery, create a branch from current main and revert PR #8'
 
 These are release preparation and recovery records, not a claim that deployment or real-media validation has completed. The PR contains the final deployment outcome.
 
-## Current Preview extension
+## Two-room/image release (PR #10)
 
-The two-room/private-image extension (ADR-013) is Preview-only. The currently released Room baseline is main commit `e9eb3e29a6e19fe50413b933579e4e10aeb19f35` from PR #9. This task does not merge, promote, change DNS or modify Production data/configuration. Before a future authorized release, configure isolated Production Blob storage, apply migration 002, verify Cloud admission/revocation and complete physical-device media acceptance. The earlier public-site recovery record above remains historical.
+After reviewing the Preview delivery, the owner explicitly authorized publishing this extension to Production. Release through the existing Git integration after PR checks pass; do not create a duplicate manual deployment or change DNS, paid plans or unrelated projects. The earlier public-site recovery record above remains historical.
+
+The immediate rollback target, recorded before this release, is the PR #9 Room baseline:
+
+- Commit: `e9eb3e29a6e19fe50413b933579e4e10aeb19f35`.
+- READY Production deployment: `dpl_3bMTrFP3ncasGvuwfK5NxCQqKP9K`.
+- URL: https://blueprint-biazh92j2-gmouraws-8238s-projects.vercel.app.
+
+Production preparation creates a separate private Blob store on the existing Hobby plan, binds `BLOB_ENVIRONMENT=production`, and applies migration 002 transactionally to the Production-bound Neon database. See CHAT-STORAGE.md for verified resource state. Existing session, origin and rate-limit protections remain in effect; the voice limit stays eight across both rooms combined.
+
+To recover urgently, roll back this Vercel project to the deployment above and verify the canonical domain. Check automatic domain assignment before the next release. For durable source recovery, revert PR #10's actual merge commit on a recovery branch and merge a normal PR; never rewrite main. Application rollback does not delete or reverse the database migration, history or Blob objects. Old and new deployments use different LiveKit room names, so clients need to reload/rejoin after recovery. Maintain image retention even if the older application is restored.
+
+Automated tests and Preview image persistence passed. Hosted token issuance and leave endpoints returned 200, but a connected Cloud peer was not observed in the in-app browser. Physical-device voice/output routing, room switching with active media, Cloud ninth-participant concurrency, revoked-token reuse and sustained screen quality remain manual acceptance items. Production authorization does not mark those tests passed. Record the actual deployment, canonical-domain and authenticated verification results in PR #10 after release.

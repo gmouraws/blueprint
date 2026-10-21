@@ -1,6 +1,6 @@
 # ADR-013: Two voice rooms and private chat images
 
-Status: owner-approved implementation for Preview only. A separate approval is required before Production.
+Status: owner-approved implementation; the owner subsequently authorized the Production release of PR #10. See docs/RELEASE.md.
 
 This extends ADR-012 with exactly two voice rooms (Sala principal and Sala 2), one shared chat, private JPEG/PNG/WebP images up to 5 MB, safe HTTP(S) links and a stream mini-player. It supersedes the former single-room/no-upload restrictions. The later owner refinement makes screen quality best effort; sustained 60 fps is not a release condition.
 
@@ -18,4 +18,4 @@ Use private Vercel Blob with separate environment stores and Neon metadata. Dire
 
 Message persistence atomically consumes an owner-bound ready attachment. Stable request IDs make retries idempotent. Downloads require a valid application session and an unexpired attached message; raw storage URLs never appear in messages. The existing cleanup mechanism removes abandoned/expired objects before deleting their metadata. Failed deletion retains metadata for retry. Read-time expiration is independent of cleanup timing.
 
-No paid resources, DNS changes or Production release are authorized by this change. See the implementation/verification documentation for actual provisioned state and remaining acceptance.
+No paid resources or DNS changes are authorized. Production release uses the subsequent explicit owner approval recorded in docs/RELEASE.md. See the implementation/verification documentation for actual provisioned state and remaining acceptance.
