@@ -60,3 +60,24 @@ test('shortcuts are unset, validated, persistent and ignore typing, composition 
   await page.getByRole('button', { name: 'Redefinir atalhos', exact: true }).click();
   await expect(page.getByText('Sem atalho', { exact: true })).toHaveCount(3);
 });
+
+test('failed account shortcut save keeps the candidate and does not claim success', async ({page}) => {
+  await installAccount(page);
+  await page.route('**/api/account',async route=>{
+    if(route.request().method()==='POST') return route.fulfill({status:503,json:{error:'Não foi possível salvar os atalhos.'}});
+    await route.fallback();
+  });
+  await page.route('**/api/voice',route=>route.fulfill({json:{rooms:{main:[],second:[]}}}));
+  await page.route('**/api/chat**',route=>route.fulfill({json:{messages:[],hasMore:false,serverTime:new Date().toISOString()}}));
+  await page.goto('/');await authenticate(page);
+  await page.getByRole('button',{name:'Abrir chat',exact:true}).click();
+  await page.getByRole('button',{name:'Configurações de áudio',exact:true}).click();
+  await page.getByText('Atalhos de teclado',{exact:true}).click();
+  await page.getByRole('button',{name:'Definir atalho: Microfone',exact:true}).click();
+  await page.getByRole('button',{name:'Gravar combinação'}).press('Alt+F8');
+  await page.getByRole('button',{name:'Salvar',exact:true}).click();
+  await expect(page.getByText('Não foi possível salvar os atalhos.',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Gravar combinação'})).toHaveText('Alt+F8');
+  await expect(page.getByText('Sem atalho',{exact:true})).toHaveCount(3);
+  await expect(page.getByText('Atalho salvo na conta.',{exact:true})).toHaveCount(0);
+});

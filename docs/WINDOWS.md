@@ -16,6 +16,8 @@ Electron and electron-builder are build-only dependencies in their own lockfile.
 
 ## Security and lifecycle
 
+Version 0.1.2 adds account-authoritative browser/Windows bindings, call-state heartbeat, incompatible-page feedback, and a local thumbnail screen picker. See ADR 019 for reconciliation, permissions and rollback. Close/reopen after leaving an old loaded page to receive new web code; do not refresh an active call automatically.
+
 Exact packaged origin allowlist, no Node integration, context isolation/sandbox, validated top-frame IPC, denied webviews/navigation and HTTP(S)-only external browser links. Cookies use the application's separate persistent partition; remembered login retains the server's 30-day limit, unchecked login retains its browser-session/12-hour limit. No credentials are copied or stored in preferences.
 
 Close/minimize preserve calls. The tray restores the window, mirrors actual call state and offers explicit Exit. Exit destroys renderer media and unregisters shortcuts; abnormal process termination also releases Chromium capture. Server admission/lease cleanup remains governed by existing revocation/reconciliation. Startup is optional, off by default, and cannot join or capture. No auto-updates or signing purchase.

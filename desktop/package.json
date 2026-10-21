@@ -1,6 +1,6 @@
 {
   "name": "blueprint-room-desktop",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Blueprint Room Windows test client",
   "author": "Blueprint",
@@ -30,7 +30,12 @@
       "profile.json",
       "icon.png",
       "package.json",
-      "!node_modules/**/*"
+      "!node_modules/**/*",
+      "screen-picker.mjs",
+      "picker-preload.cjs",
+      "picker.html",
+      "picker.css",
+      "picker.js"
     ],
     "win": {
       "target": [

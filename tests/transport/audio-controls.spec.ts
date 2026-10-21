@@ -8,8 +8,16 @@ test('one dispatcher restores individual states, mutes all playback and works ac
   const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
   const [alice, bob] = await Promise.all(contexts.map(context => context.newPage()));
   try {
-    await alice.addInitScript(() => localStorage.setItem(`blueprint.preferences.v2:00000000-0000-4000-8000-000000000001:${/Win/.test(navigator.platform)?'windows':/Mac/.test(navigator.platform)?'mac':'other'}`, JSON.stringify({ shortcuts: { microphone: 'Ctrl+Shift+M', listening: 'Ctrl+Shift+Y', all: 'Ctrl+Shift+U' } })));
     await prepare(alice, 'Ana', room); await join(alice); await prepare(bob, 'Bruno', room); await join(bob);
+    await alice.getByRole('button', { name: 'Configurações de áudio', exact: true }).click();
+    await alice.getByText('Atalhos de teclado', { exact: true }).click();
+    for (const [label, keys] of [['Microfone', 'Control+Shift+M'], ['Áudio recebido', 'Control+Shift+Y'], ['Silenciar tudo', 'Control+Shift+U']]) {
+      await alice.getByRole('button', { name: `Definir atalho: ${label}`, exact: true }).click();
+      await alice.getByRole('button', { name: 'Gravar combinação' }).press(keys);
+      await alice.getByRole('button', { name: 'Salvar', exact: true }).click();
+      await expect(alice.getByText('Atalho salvo na conta.', { exact: true })).toBeVisible();
+    }
+    await alice.keyboard.press('Escape');
     await bob.getByRole('button', { name: 'Ativar microfone', exact: true }).click();
     await bob.getByRole('button', { name: 'Compartilhar tela', exact: true }).click();
     const controls = alice.locator('.call-controls');

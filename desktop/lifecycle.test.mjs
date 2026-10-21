@@ -15,9 +15,9 @@ async function harness() {
    hide(){this.hidden=true;} show(){this.hidden=false;} focus(){} isFocused(){return !this.hidden;} isMinimized(){return false;} restore(){this.hidden=false;} isDestroyed(){return this.dead;} destroy(){this.dead=true;} loadURL(url){this.loaded=url;return Promise.resolve();}
  }
  class Tray extends EventEmitter {setContextMenu(menu){this.menu=menu;}setToolTip(){}destroy(){this.dead=true;}displayBalloon(){this.balloon=true;}}
- const ses={setPermissionCheckHandler:fn=>permission.check=fn,setPermissionRequestHandler:fn=>permission.request=fn,setDisplayMediaRequestHandler:fn=>permission.display=fn};
+ const ses={getUserAgent:()=>"test",setUserAgent:()=>{},setPermissionCheckHandler:fn=>permission.check=fn,setPermissionRequestHandler:fn=>permission.request=fn,setDisplayMediaRequestHandler:fn=>permission.display=fn};
  const context = { ...policy, app, BrowserWindow:Window,Tray,Menu:{buildFromTemplate:x=>x,setApplicationMenu:()=>{}},dialog:{showMessageBox:async()=>({response:0})},globalShortcut:{register:(key,fn)=>{if(key==='F9')return false;registered.set(key,fn);return true;},unregisterAll:()=>registered.clear()},ipcMain:{handle:(key,fn)=>ipc.set(key,fn),on:(key,fn)=>ipc.set(key,fn)},session:{fromPartition:()=>ses},desktopCapturer:{getSources:async()=>[]},shell:{openExternal:()=>{}},nativeImage:{createFromPath:()=>({resize:()=>({})})},readFileSync:()=>JSON.stringify({name:'preview',origin}),writeFileSync:()=>{},fileURLToPath:()=>'/test/main.mjs',path:{dirname:()=>'/test',join:(...args)=>args.join('/')},process:{platform:'win32',execPath:'/test/app.exe'},console,URL,Date,JSON };
- Object.assign(context, { failurePage, setTimeout: () => 1, clearTimeout: () => {} });
+ Object.assign(context, { failurePage, createScreenPicker:()=>({cancel:()=>{},choose:async()=>null}), setTimeout: () => 1, clearTimeout: () => {}, setInterval:()=>1,clearInterval:()=>{} });
  let source=readFileSync(new URL('./main.mjs',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('import.meta.url',"'file:///test/main.mjs'");
  source+='\nglobalThis.inspect = () => ({win,tray,state});';
  vm.runInNewContext(source,context); await Promise.resolve();
@@ -59,4 +59,16 @@ test('permissions reject other origins/camera and canceled display selection',as
  assert.equal(h.permission.check(h.win.webContents,'media',h.event.senderFrame.url,{mediaType:'video'}),false);
  let allowed=true;await h.permission.request(h.win.webContents,'media',v=>allowed=v,{requestingUrl:h.event.senderFrame.url,isMainFrame:true,mediaTypes:['audio']});assert.equal(allowed,false);
  let result;await h.permission.display({userGesture:false,frame:h.event.senderFrame,securityOrigin:h.event.senderFrame.url},v=>result=v);assert.equal(Object.keys(result).length,0);
+});
+test('tray actions share dispatcher but do not inherit keyboard typing exclusion; navigation clears availability',async()=>{
+ const h=await harness();const active={...policy.inactive,available:true,bindings:{microphone:'Alt+F8',listening:'',all:''}};
+ h.ipc.get('room:configure')(h.event,active);
+ h.ipc.get('room:input')(h.event,{recording:false,typing:true});
+ h.registered.get('Alt+F8')();assert.equal(h.sent.filter(value=>value[0]==='room:action').length,0);
+ const mute=h.context.inspect().tray.menu.find(item=>item.label==='Silenciar microfone');assert.equal(mute.enabled,true);mute.click();assert.equal(h.sent.at(-1)[1],'microphone');
+ h.ipc.get('room:configure')(h.event,{...active,microphone:true,muted:true,combined:true});
+ assert.equal(h.context.inspect().tray.menu.find(item=>item.label==='Silenciar microfone').checked,false);
+ assert.equal(h.context.inspect().tray.menu.find(item=>item.label==='Silenciar tudo').checked,true);
+ h.win.webContents.emit('did-start-navigation',{},h.event.senderFrame.url,false,true);
+ assert.equal(h.registered.size,0);assert.equal(h.context.inspect().tray.menu.find(item=>item.label==='Silenciar tudo').enabled,false);
 });

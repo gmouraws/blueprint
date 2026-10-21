@@ -34,18 +34,18 @@ test('device errors explain failure without echoing underlying messages', () => 
 });
 
 
-test('account defaults, explicit local clearing, import and account switching stay isolated', context => {
+test('account shortcuts override stale local clearing while devices/import/account switching stay isolated', context => {
   const values = new Map<string,string>();
   Object.defineProperty(globalThis, 'localStorage', { configurable:true, value: { getItem:(key:string)=>values.get(key)??null, setItem:(key:string,value:string)=>values.set(key,value) } as unknown as Storage });
   const platform=preferencePlatform();
   configurePreferences('first',{sounds:false,screenVolume:40,shortcuts:{[platform]:{microphone:'Ctrl+Shift+M',listening:'',all:''}}});
   assert.equal(readPreferences().sounds,false);assert.equal(readPreferences().screenVolume,40);
   savePreferences({shortcuts:{microphone:'',listening:'',all:''},output:'usb-headphones'});
-  assert.equal(readPreferences().shortcuts.microphone,'');assert.equal(readPreferences().output,'usb-headphones');
+  assert.equal(readPreferences().shortcuts.microphone,'Ctrl+Shift+M');assert.equal(readPreferences().output,'usb-headphones');
   values.set('blueprint.audio-preferences',JSON.stringify({microphone:'old-input',sounds:true,token:'discard'}));
   assert.equal(canImportPreferences(),true);importPreferences();assert.equal(canImportPreferences(),false);
   assert.equal(readPreferences().microphone,'old-input');assert.equal(readPreferences().output,'usb-headphones');
-  assert.equal(readPreferences().shortcuts.microphone,'');
+  assert.equal(readPreferences().shortcuts.microphone,'Ctrl+Shift+M');
   configurePreferences('second',{sounds:false,screenVolume:20});assert.equal(readPreferences().microphone,'default');assert.equal(readPreferences().screenVolume,20);
   const key=`blueprint.preferences.v2:second:${platform}`;values.set(key,JSON.stringify({token:'discard',sounds:false}));savePreferences({output:'other'});
   assert.equal(JSON.parse(values.get(key)!).token,undefined);
