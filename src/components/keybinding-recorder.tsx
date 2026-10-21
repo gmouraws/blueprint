@@ -3,10 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import { actionLabels, audioActions, bindingFromEvent, emptyShortcuts, type Shortcuts } from '@/lib/client/shortcuts';
 import type { AudioAction } from '@/lib/client/audio-controller';
 
-export function KeybindingRecorder({ bindings, change }: { bindings: Shortcuts; change: (value: Shortcuts) => void }) {
+export function KeybindingRecorder({ bindings, change }: { bindings: Shortcuts; change: (value: Shortcuts) => void | Promise<void> }) {
   const [editing, setEditing] = useState<AudioAction | null>(null);
   const [candidate, setCandidate] = useState('');
   const [notice, setNotice] = useState('');
+  const [busy,setBusy]=useState(false);
+  async function save(value:Shortcuts,message:string){setBusy(true);setNotice('');try{await change(value);setEditing(null);setNotice(message);}catch(error){setNotice(error instanceof Error?error.message:'Não foi possível salvar.');}finally{setBusy(false);}}
   const capture = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!editing) return;
@@ -28,10 +30,10 @@ export function KeybindingRecorder({ bindings, change }: { bindings: Shortcuts; 
     return () => { window.removeEventListener('keydown', record, true); window.dispatchEvent(new CustomEvent('blueprint-recording', { detail: false })); };
   }, [editing, bindings]);
   const duplicate = audioActions.some(action => action !== editing && bindings[action] === candidate);
-  return <div data-shortcut-editor className="shortcut-settings">
+  return <fieldset disabled={busy} data-shortcut-editor className="shortcut-settings" style={{border:0,padding:0,margin:0,minWidth:0}}>
     {audioActions.map(action => <div className="shortcut-row" key={action}><span>{actionLabels[action]}<small className="muted">{bindings[action] || 'Sem atalho'}</small></span><button type="button" aria-label={`Definir atalho: ${actionLabels[action]}`} onClick={() => { setCandidate(''); setNotice(''); setEditing(action); }}>{bindings[action] ? 'Alterar' : 'Definir atalho'}</button></div>)}
-    {editing && <div className="shortcut-recording"><p>{actionLabels[editing]}</p><button type="button" ref={capture} aria-label="Gravar combinação">{candidate || 'Pressione as teclas desejadas…'}</button><div><button type="button" disabled={!candidate || duplicate} onClick={() => { change({ ...bindings, [editing]: candidate }); setEditing(null); setNotice('Atalho salvo.'); }}>Salvar</button><button type="button" onClick={() => setEditing(null)}>Cancelar</button><button type="button" onClick={() => { change({ ...bindings, [editing]: '' }); setEditing(null); setNotice('Atalho removido.'); }}>Remover atalho</button></div></div>}
-    <button type="button" onClick={() => { change({ ...emptyShortcuts }); setEditing(null); setNotice('Todos os atalhos foram removidos.'); }}>Redefinir atalhos</button>
+    {editing && <div className="shortcut-recording"><p>{actionLabels[editing]}</p><button type="button" ref={capture} aria-label="Gravar combinação">{candidate || 'Pressione as teclas desejadas…'}</button><div><button type="button" disabled={!candidate || duplicate} onClick={() => void save({ ...bindings, [editing]: candidate },'Atalho salvo na conta.')}>Salvar</button><button type="button" onClick={() => setEditing(null)}>Cancelar</button><button type="button" onClick={() => void save({ ...bindings, [editing]: '' },'Atalho removido.')}>Remover atalho</button></div></div>}
+    <button type="button" onClick={() => void save({ ...emptyShortcuts },'Todos os atalhos foram removidos.')}>Redefinir atalhos</button>
     <p className="muted">Escape cancela. Algumas combinações são reservadas pelo navegador ou Windows; nem todos os conflitos podem ser detectados.</p><p role="status" className="muted">{notice}</p>
-  </div>;
+  </fieldset>;
 }

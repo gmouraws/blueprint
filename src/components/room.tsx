@@ -6,7 +6,7 @@ import { RoomContext, useAudioPlayback, useConnectionState, useLocalParticipant,
 import { VOICE_ROOMS, type ConnectionDetails, type VoiceRoomId } from '@/lib/room';
 import { closeCallRoom, prepareCallAudio } from '@/lib/client/call-room';
 import { connectRoom, VoiceConnectionTimeout } from '@/lib/client/connect-room';
-import { readPreferences, savePreferences, currentPreferenceAccount } from '@/lib/client/preferences';
+import { readPreferences, savePreferences, currentPreferenceAccount, configurePreferences } from '@/lib/client/preferences';
 import { playMembershipTone, resumeSounds } from '@/lib/client/call-sounds';
 import { Brand, Icon } from './icons';
 import { AccountProfile, loadProfile } from './account-profile';
@@ -39,18 +39,20 @@ export default function ConnectedRoom({ room, details, onLeave }: { room: Room; 
   const [publisher] = useState(createScreenRoom);
   const [expired, setExpired] = useState(false);
   const [accountRevision, setAccountRevision] = useState(0);
+  const draftOwner = useRef(currentPreferenceAccount());
   const loginDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { if (expired) loginDialog.current?.showModal(); }, [expired]);
   async function restoreAccount() {
-    const previous = currentPreferenceAccount();
+    const previous = draftOwner.current;
     const profile = await loadProfile();
     // Another account must not inherit a draft or in-memory device choices.
     if (previous !== profile.id) setAccountRevision(value => value + 1);
+    draftOwner.current=profile.id;
     setExpired(false);
   }
   useEffect(() => {
     let active = true;
-    const check = async () => { try { const response = await fetch('/api/account', {cache:'no-store'}); if (response.status === 401 && active) { await publisher.disconnect(true); await room.disconnect(true); setExpired(true); } } catch { /* A network failure is not a logout. */ } };
+    const check = async () => { try { const response = await fetch('/api/account', {cache:'no-store'}); if (response.status === 401 && active) { configurePreferences('',{});await publisher.disconnect(true); await room.disconnect(true); setExpired(true); } } catch { /* A network failure is not a logout. */ } };
     const timer = setInterval(() => void check(), 30000);
     return () => { active = false; clearInterval(timer); };
   }, [room, publisher]);

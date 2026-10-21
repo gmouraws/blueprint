@@ -144,6 +144,25 @@ test('owner operations reject members and account defaults use versioned, allowl
   assert.equal((await accountHandler(request({action:'profile',name:'Denied'}))).status,401);
 });
 
+test('custom shortcut API persists per authenticated account/platform and preserves legacy bindings',async context=>{
+ context.mock.method(accountServices,'rateLimit',async()=>{});
+ const first=await signSession('Keys'),second=await signSession('Other');
+ const request=(body:object,token=first.token)=>new NextRequest(fixtureConfig.APP_ORIGIN+'/api/account',{method:'POST',headers:{origin:fixtureConfig.APP_ORIGIN,cookie:ACCOUNT_COOKIE+'='+token,'content-type':'application/json'},body:JSON.stringify(body)});
+ const old={microphone:'Ctrl+Shift+M',listening:'',all:''};
+ await db.query('UPDATE blueprint_user SET preferences=$1 WHERE id=$2',[JSON.stringify({sounds:false,shortcuts:{windows:old}}),first.session.identity]);
+ const bindings={microphone:'Alt+F8',listening:'F9',all:'Ctrl+Delete'};
+ const body={action:'shortcuts',accountId:first.session.identity,version:0,platform:'windowsDesktop',bindings};
+ assert.equal((await accountHandler(request(body,''))).status,401);
+ assert.equal((await accountHandler(request(body,second.token))).status,409);
+ assert.equal((await accountHandler(request({...body,bindings:{...bindings,all:'F9'}}))).status,400);
+ assert.equal((await accountHandler(request(body))).status,200);
+ assert.equal((await accountHandler(request(body))).status,409);
+ assert.equal((await accountHandler(request({...body,version:1,platform:'browser',bindings:old}))).status,200);
+ const saved=(await db.query<{preferences:{sounds:boolean;shortcuts:Record<string,unknown>}}>('SELECT preferences FROM blueprint_user WHERE id=$1',[first.session.identity])).rows[0].preferences;
+ assert.equal(saved.sounds,false);assert.deepEqual(saved.shortcuts.windows,old);assert.deepEqual(saved.shortcuts.browser,old);assert.deepEqual(saved.shortcuts.windowsDesktop,bindings);
+ assert.deepEqual((await db.query<{preferences:object}>('SELECT preferences FROM blueprint_user WHERE id=$1',[second.session.identity])).rows[0].preferences,{});
+});
+
 
 test('expired sessions with outstanding media leases are rejected without losing cleanup records', async context => {
   const {session,token}=await signSession('Expiry');

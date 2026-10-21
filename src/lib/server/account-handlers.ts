@@ -9,12 +9,13 @@ import { lockMember, revokeSessions, cleanRevokedMedia } from './account-media';
 import { json, readBody } from './handlers';
 import { rateLimit, LimitError } from './rate-limit';
 import { normalizeNickname, validNickname } from '../room';
-import { accountPreferencesSchema } from '../account-preferences';
+import { accountPreferencesSchema, bindingsSchema } from '../account-preferences';
 
 export const accountServices = { rateLimit };
 const inputSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('profile'), name: z.string().max(96).transform(normalizeNickname).refine(validNickname) }).strict(),
   z.object({ action: z.literal('preferences'), version: z.number().int().nonnegative(), preferences: accountPreferencesSchema }).strict(),
+  z.object({ action: z.literal('shortcuts'), accountId:z.uuid(), version: z.number().int().nonnegative(), platform: z.enum(['browser','windowsDesktop']), bindings: bindingsSchema }).strict(),
   z.object({ action: z.literal('invite'), email: z.string().trim().toLowerCase().email().max(254) }).strict(),
   z.object({ action: z.literal('revoke-invite'), id: z.uuid() }).strict(),
   z.object({ action: z.enum(['disable', 'reactivate', 'revoke']), id: z.uuid() }).strict(),
@@ -51,7 +52,8 @@ export async function accountHandler(request: NextRequest) {
     const parsed = inputSchema.safeParse(await readBody(request).catch(() => null));
     if (!parsed.success) return json({ error: 'Solicitação inválida.' }, 400);
     const input = parsed.data;
-    const ownerAction = !['profile','preferences'].includes(input.action);
+    if(input.action==='shortcuts' && input.accountId!==session.identity)return json({error:'A conta mudou. Reabra as configurações.'},409);
+    const ownerAction = !['profile','preferences','shortcuts'].includes(input.action);
     if (ownerAction && session.role !== 'owner') return json({ error: 'Acesso restrito ao responsável.' }, 403);
     const result = await accountTransaction(async db => {
       // Global owner lock precedes row locks in bootstrap, signup and management.
@@ -62,6 +64,10 @@ export async function accountHandler(request: NextRequest) {
         const changed = await db.query('UPDATE blueprint_user SET preferences = $1, preference_version = preference_version + 1 WHERE id = $2 AND preference_version = $3 RETURNING preference_version', [JSON.stringify(input.preferences), session.identity, input.version]);
         if (!changed.rows.length) return false;
       }
+      if (input.action === 'shortcuts') {
+        const changed = await db.query(`UPDATE blueprint_user SET preferences = jsonb_set(preferences, '{shortcuts}', COALESCE(preferences->'shortcuts','{}'::jsonb) || jsonb_build_object($1::text,$2::jsonb)), preference_version = preference_version + 1 WHERE id=$3 AND preference_version=$4 RETURNING id, preferences, preference_version`, [input.platform,JSON.stringify(input.bindings),session.identity,input.version]);
+        return changed.rows[0] ?? false;
+      }
       if (input.action === 'invite') {
         await db.query('UPDATE blueprint_invitation SET revoked_at = now() WHERE email = $1 AND accepted_at IS NULL AND revoked_at IS NULL', [input.email]);
         await db.query("INSERT INTO blueprint_invitation(id,email,created_by,expires_at) VALUES($1,$2,$3,now() + interval '7 days')", [randomUUID(),input.email,session.identity]);
@@ -71,6 +77,7 @@ export async function accountHandler(request: NextRequest) {
       return true;
     });
     if (!result) return json({ error: 'As preferências mudaram em outro dispositivo. Reabra o perfil antes de salvar.' }, 409);
+    if (input.action === 'shortcuts') return json(result);
     if (input.action === 'disable' || input.action === 'revoke') return json({ ok: true, ...await revokeSessions(input.id) });
     if (input.action === 'retry-cleanup') return json({ ok: true, ...await cleanRevokedMedia() });
     return json({ ok: true });
