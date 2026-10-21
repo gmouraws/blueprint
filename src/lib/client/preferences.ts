@@ -13,7 +13,18 @@ function overrides(value: unknown): Partial<Preferences> {
   const validated = validatePreferences(value);
   return Object.fromEntries(Object.keys(defaultPreferences).filter(name => Object.hasOwn(value, name)).map(name => [name, validated[name as keyof Preferences]]));
 }
-export function configurePreferences(id: string, value: unknown) { accountId = id; defaults = accountPreferences(value); }
+export function shortcutPlatform(): 'browser'|'windowsDesktop' { return typeof window !== 'undefined' && (window.blueprintDesktop || /BlueprintRoom\//.test(navigator.userAgent)) ? 'windowsDesktop' : 'browser'; }
+export function configurePreferences(id: string, value: unknown) { const changed=accountId!==id;accountId = id; defaults = accountPreferences(value); if(typeof window!=='undefined'){if(changed)void window.blueprintDesktop?.configure({bindings:emptyShortcuts,available:false,microphone:false,muted:false,combined:false}).catch(()=>undefined);window.dispatchEvent(new Event('blueprint-preferences'));} }
+export function legacyLocalShortcuts(): Shortcuts | null { try { const local=JSON.parse(localStorage.getItem(key())??'{}'); return Object.hasOwn(local,'shortcuts') ? validateShortcuts(local.shortcuts) : null; } catch { return null; } }
+export async function saveAccountShortcuts(bindings: Shortcuts) {
+  const expected=accountId;if(!expected)throw new Error('Entre novamente para salvar os atalhos.');
+  const response=await fetch('/api/account',{cache:'no-store'});if(!response.ok)throw new Error('Não foi possível carregar os atalhos da conta.');
+  const current=await response.json();if(current.id!==expected||accountId!==expected)throw new Error('A conta mudou. Reabra as configurações.');
+  const result=await fetch('/api/account',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'shortcuts',accountId:expected,version:current.preference_version,platform:shortcutPlatform(),bindings})});
+  const saved=await result.json();if(!result.ok)throw new Error(saved.error||'Não foi possível salvar os atalhos.');
+  if(accountId!==expected||saved.id!==expected)throw new Error('A conta mudou. Reabra as configurações.');
+  configurePreferences(expected,saved.preferences);
+}
 export function canImportPreferences() { try { return !!accountId && !!localStorage.getItem(legacyKey) && !localStorage.getItem(key() + ':imported'); } catch { return false; } }
 export function importPreferences() { if (!canImportPreferences()) return; try { const old = validatePreferences(JSON.parse(localStorage.getItem(legacyKey)!)); const current = overrides(JSON.parse(localStorage.getItem(key()) ?? '{}')); localStorage.setItem(key(), JSON.stringify({ ...old, ...current })); localStorage.setItem(key() + ':imported', 'true'); } catch { /* Optional storage. */ } }
 export function validatePreferences(value: unknown): Preferences {
@@ -28,8 +39,9 @@ export function validatePreferences(value: unknown): Preferences {
   };
 }
 export function readPreferences(): Preferences {
-  const base = { ...defaultPreferences, ...defaults, shortcuts: defaults.shortcuts?.[preferencePlatform()] ?? emptyShortcuts };
-  try { return validatePreferences({ ...base, ...overrides(JSON.parse(localStorage.getItem(key()) ?? '{}')) }); } catch { return validatePreferences(base); }
+  const shortcuts = accountId ? defaults.shortcuts?.[shortcutPlatform()] ?? defaults.shortcuts?.[preferencePlatform()] ?? emptyShortcuts : emptyShortcuts;
+  const base = { ...defaultPreferences, ...defaults, shortcuts };
+  try { return validatePreferences({ ...base, ...overrides(JSON.parse(localStorage.getItem(key()) ?? '{}')), shortcuts }); } catch { return validatePreferences(base); }
 }
 export function savePreferences(change: Partial<Preferences>) {
   try {
