@@ -56,7 +56,7 @@ test('shortcut preferences reject malformed, reserved and duplicated bindings', 
   assert.deepEqual(validateShortcuts(null), emptyShortcuts);
   assert.deepEqual(validateShortcuts({ microphone: 'Ctrl+Shift+M', listening: 'Ctrl+Shift+M', all: 'Ctrl+Shift+T' }), { ...emptyShortcuts, microphone: 'Ctrl+Shift+M' });
   assert.equal(bindingFromEvent({ key: 'm', ctrlKey: true, shiftKey: true, altKey: false, metaKey: false }), 'Ctrl+Shift+M');
-  assert.equal(bindingFromEvent({ key: 'm', ctrlKey: true, shiftKey: true, altKey: true, metaKey: false }), '');
+  assert.equal(bindingFromEvent({ key: 'm', ctrlKey: true, shiftKey: true, altKey: true, metaKey: false }), 'Ctrl+Alt+Shift+M');
 });
 
 test('listening can be toggled during pending microphone permission without losing completion state', async () => {

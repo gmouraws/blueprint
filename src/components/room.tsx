@@ -23,6 +23,7 @@ import { CallAudioControls } from './call-audio-controls';
 import { createScreenRoom, useScreenObserver, useScreenOutput } from './screen-connection';
 import { useCallAudio } from './use-call-audio';
 import { AudioShortcuts, useAudioShortcuts } from './audio-shortcuts';
+import { DesktopSettings } from './desktop-settings';
 import { useMicrophoneProcessing } from './microphone-processing';
 
 async function post(path: string, body: object): Promise<ConnectionDetails & { error?: string }> {
@@ -132,8 +133,9 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
   const processing = useMicrophoneProcessing(room);
   const audio = useCallAudio(room, microphone, !connected || joining || processing.pending);
   const audioMuted = audio.muted;
-  const shortcuts = useAudioShortcuts(audio.dispatch);
+
   const { isMicrophoneEnabled } = useLocalParticipant();
+  const shortcuts = useAudioShortcuts(audio.dispatch, connected && !joining && !expired && !processing.pending && !microphone.pending, { microphone: isMicrophoneEnabled, muted: audio.muted, combined: audio.combined });
   const { localParticipant: screenParticipant, isScreenShareEnabled } = useLocalParticipant({ room: publisher });
   const { canPlayAudio, startAudio } = useAudioPlayback();
   const screenPlayback = useAudioPlayback(screenRoom);
@@ -204,7 +206,7 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
     <footer className="call-controls"><div className="microphone-controls">{!connected && onJoin && <button className="primary" disabled={joining || state !== ConnectionState.Disconnected} onClick={() => enter(browsing)}>{joining ? 'Entrando…' : 'Entrar na sala'}</button>}<CallAudioControls {...audioControls} /></div>
       <div className="main-controls"><button className={isScreenShareEnabled ? 'active' : 'primary'} onClick={share} disabled={!connected || publisherState !== ConnectionState.Connected || joining || screenPending} aria-label={screenPending ? 'Aguarde…' : isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'} title={isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'}><Icon name="screen" /><span className="control-label">{screenPending ? 'Aguarde…' : isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'}</span></button>
         <ControlMenu label="Configurações de áudio" icon="settings" className="call-settings"><AudioDevices room={room} microphoneBusy={microphone.pending || joining || processing.pending} processing={processing} /><label className="checkbox-label"><input type="checkbox" checked={sounds} onChange={event => { setSounds(event.target.checked); savePreferences({ sounds: event.target.checked }); }} />Sons de entrada e saída</label>
-          <p className="muted">Silenciar tudo guarda os estados anteriores. Alterar um controle individual encerra esse modo e mantém o outro silenciado.</p><AudioShortcuts {...shortcuts} /><label>Qualidade solicitada<select aria-label="Qualidade do compartilhamento" value={quality} disabled={isScreenShareEnabled || screenPending} onChange={event => setQuality(event.target.value as ScreenQuality)}>{Object.entries(SCREEN_QUALITIES).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label><p className="muted">Aplicada no próximo compartilhamento. Até 5 Mbps em 30 fps/720p ou 8 Mbps em 1080p/60 fps; maior qualidade usa mais rede. Áudio da tela depende do navegador e da fonte.</p>
+          <p className="muted">Silenciar tudo guarda os estados anteriores. Alterar um controle individual encerra esse modo e mantém o outro silenciado.</p><AudioShortcuts {...shortcuts} /><DesktopSettings /><label>Qualidade solicitada<select aria-label="Qualidade do compartilhamento" value={quality} disabled={isScreenShareEnabled || screenPending} onChange={event => setQuality(event.target.value as ScreenQuality)}>{Object.entries(SCREEN_QUALITIES).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label><p className="muted">Aplicada no próximo compartilhamento. Até 5 Mbps em 30 fps/720p ou 8 Mbps em 1080p/60 fps; maior qualidade usa mais rede. Áudio da tela depende do navegador e da fonte.</p>
           {mini && miniHidden && current && !current.participant.isLocal && hasScreenAudio && <VolumeControl label="Áudio da tela selecionada" setting={screenSetting} onChange={changeScreenVolume} />}
           <p className="muted">Silenciar mantém a captura reservada. Sair ou trocar de sala libera os dispositivos.</p><AudioDiagnostics canPlay={canPlayAudio} globalMuted={audioMuted} timing={microphone.timing} />
         </ControlMenu>

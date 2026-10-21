@@ -13,14 +13,22 @@ test('shortcuts are unset, validated, persistent and ignore typing, composition 
   }
   async function settings() { await page.getByRole('button', { name: 'Configurações de áudio', exact: true }).click(); await page.getByText('Atalhos de teclado', { exact: true }).click(); }
   await enter(); await settings();
-  const microphone = page.getByLabel('Atalho: Microfone', { exact: true });
-  const listening = page.getByLabel('Atalho: Áudio recebido', { exact: true });
-  const all = page.getByLabel('Atalho: Silenciar tudo', { exact: true });
-  await expect(microphone).toHaveValue('Não definido');
-  await microphone.press('Control+Shift+M'); await expect(microphone).toHaveValue('Ctrl+Shift+M');
-  await listening.press('Control+Shift+M'); await expect(page.getByText('Esse atalho já está atribuído a outro controle.')).toBeVisible();
-  await listening.press('Control+Shift+T'); await expect(listening).toHaveValue('Não definido');
-  await listening.press('Control+Shift+Y'); await all.press('Control+Shift+U');
+  async function record(label: string, keys: string, save = true) {
+    await page.getByRole('button', { name: `Definir atalho: ${label}`, exact: true }).click();
+    await page.getByRole('button', { name: 'Gravar combinação' }).press(keys);
+    if (save) await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  }
+  await expect(page.getByText('Sem atalho', { exact: true })).toHaveCount(3);
+  await record('Microfone', 'Control+Shift+M');
+  await record('Áudio recebido', 'Control+Shift+M', false);
+  await expect(page.getByText('Esse atalho já está atribuído a outro controle.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Salvar', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Gravar combinação' }).press('Escape');
+  await record('Áudio recebido', 'Control+Shift+Y');
+  await record('Silenciar tudo', 'Alt+F8', false);
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await expect(page.getByText('Alt+F8', { exact: true })).toHaveCount(0);
+  await record('Silenciar tudo', 'Control+Shift+U');
   await mkdir('.generated/review/shortcuts', { recursive: true });
   for (const width of [1440, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -44,7 +52,11 @@ test('shortcuts are unset, validated, persistent and ignore typing, composition 
   await toggle.focus(); await page.keyboard.press('Control+Shift+U');
   await expect(page.getByRole('button', { name: 'Restaurar estados anteriores' })).toBeVisible();
   await page.keyboard.press('Control+Shift+U'); await expect(toggle).toBeVisible();
-  await enter(); await settings(); await expect(listening).toHaveValue('Ctrl+Shift+Y');
-  await page.getByRole('button', { name: 'Limpar atalho: Microfone', exact: true }).click(); await expect(microphone).toHaveValue('Não definido');
-  await page.getByRole('button', { name: 'Redefinir atalhos', exact: true }).click(); await expect(listening).toHaveValue('Não definido'); await expect(all).toHaveValue('Não definido');
+  await enter(); await settings(); await expect(page.getByText('Ctrl+Shift+Y', { exact: true })).toBeVisible();
+  await record('Microfone', 'Alt+F8');
+  await enter(); await settings(); await expect(page.getByText('Alt+F8', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Definir atalho: Microfone', exact: true }).click();
+  await page.getByRole('button', { name: 'Remover atalho', exact: true }).click();
+  await page.getByRole('button', { name: 'Redefinir atalhos', exact: true }).click();
+  await expect(page.getByText('Sem atalho', { exact: true })).toHaveCount(3);
 });
