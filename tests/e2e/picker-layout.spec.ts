@@ -7,7 +7,7 @@ for (const scale of [1, 1.25, 1.5]) test(`picker keeps many source thumbnails an
   const context=await browser.newContext({deviceScaleFactor:scale});
   const page=await context.newPage();
   await page.addInitScript(() => {
-    Object.assign(window,{screenPicker:{sources:async()=>({audio:true,sources:Array.from({length:24},(_,i)=>({id:`window:${i}`,kind:'window',name:`Aplicativo ${i} — nome muito longo que deve permanecer dentro do cartão sem comprimir as outras fontes`,thumbnail:i===0?null:`data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#28463d"/><text x="40" y="80" fill="white" font-size="40">Janela de teste</text></svg>')}`}))}),cancel:async()=>{},choose:async()=>({ok:true})}});
+    Object.assign(window,{screenPicker:{sources:async()=>({audio:true,applicationAudio:true,sources:Array.from({length:24},(_,i)=>({id:`window:${i+1}:0`,kind:'window',name:`Aplicativo ${i} — nome muito longo que deve permanecer dentro do cartão sem comprimir as outras fontes`,thumbnail:i===0?null:`data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#28463d"/><text x="40" y="80" fill="white" font-size="40">Janela de teste</text></svg>')}`}))}),refresh:async()=>(window as unknown as {screenPicker:{sources:()=>Promise<unknown>}}).screenPicker.sources(),cancel:async()=>{},choose:async()=>({ok:true})}});
   });
   try {
     await page.goto(pathToFileURL(path.resolve('desktop/picker.html')).href);
@@ -33,6 +33,14 @@ for (const scale of [1, 1.25, 1.5]) test(`picker keeps many source thumbnails an
       await page.locator('.source').first().click();
       await expect(page.locator('.source').first()).toHaveAttribute('aria-pressed','true');
       await page.locator('.source').first().press('ArrowRight');await expect(page.locator('.source').nth(1)).toBeFocused();
+      await page.locator('.source').nth(23).click();
+      await expect(page.locator('.source').nth(23)).toHaveAttribute('aria-pressed','true');
+      await page.getByRole('button',{name:'Atualizar',exact:true}).click();
+      await expect(page.locator('.source').nth(23)).toHaveAttribute('aria-pressed','true');
+      await page.getByRole('searchbox').fill('Aplicativo 23');
+      await expect(page.locator('.source')).toHaveCount(1);
+      await expect(page.locator('#count')).toHaveText('1 / 24 fontes');
+      await page.getByRole('searchbox').fill('');
       await page.screenshot({path:`.generated/review/picker/${width}-${scale}.png`});
     }
   } finally {await context.close();}
