@@ -2,8 +2,8 @@
 
 The owner explicitly approved replacing the public engineering lab with one private browser-based voice and screen-sharing room at the root of blueprint.app.br. This is a product replacement, not an extra section. Preserve the repository, Git history, Vercel project and domain association.
 
-- One fixed room, at most eight participants, enforced by LiveKit's server configuration.
-- One shared plain-text channel, # geral, persisted in PostgreSQL for 30 days. Authenticated members can read and write without joining voice. Sala/Chat views share the same media connection; switching never disconnects audio or resets local volumes.
+- Exactly two voice rooms, Sala principal and Sala 2, with at most eight simultaneous voice participants combined. Server-side Redis admission and LiveKit Cloud revocation enforce capacity; browsers cannot choose arbitrary rooms.
+- One shared channel with plain text, safe HTTP(S) links and private images, # geral, persisted in PostgreSQL for 30 days. Authenticated members can read and write without joining voice. Sala/Chat views share the same media connection; switching never disconnects audio or resets local volumes.
 - Shared password, server-generated identity, nickname chosen at password login and fixed for that authenticated session.
 - Optional remembered access: unchecked by default, with a 12-hour browser session or an opt-in 30-day persistent cookie. Returning users explicitly join with the microphone off. Leaving disconnects media; a separate entry-screen action forgets authentication. Password rotation invalidates old sessions.
 - Microphone selection, mute, local incoming-audio mute, screen selection, screen sharing and fullscreen.
@@ -12,6 +12,8 @@ The owner explicitly approved replacing the public engineering lab with one priv
 - UI exclusively pt-BR; Chrome/Edge on Windows are the primary target.
 - Desktop sharing first, with accessible smaller-screen layouts.
 - Owner-approved call improvements: optional silent microphone test, input/output selection where supported, per-participant and selected-screen playback volumes, optional membership tones, validated local preferences, and real SDK connection/quality feedback. These changes require Preview review before production release.
-- No webcam, recordings, transcription, AI, analytics, advertisements, accounts database, extra channels, uploads, reactions, editing or read receipts.
+- No webcam, recordings, transcription, AI, analytics, advertisements, accounts database, extra voice rooms beyond the two approved rooms, other file uploads, reactions, editing or read receipts.
 
 Only the owner-approved implementation is authorized. Do not add professional content, external biographies or unrelated repository context. Preview review precedes any production replacement.
+
+The Preview extension in ADR-013 adds compact collapsible room navigation, independent voice rooms, private JPEG/PNG/WebP attachments (5 MB each), and one stream mini-player while chatting. Browsing or collapsing a room never joins it. Switching rooms releases old capture and joins microphone-off while preserving chat. Screen quality is best effort; no sustained 60 fps claim is approved. Production remains unchanged until a separate approval.

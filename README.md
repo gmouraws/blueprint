@@ -1,8 +1,8 @@
 # Blueprint Room
 
-A private browser room for up to eight friends: voice, screen sharing, and one ephemeral text channel. All application UI is Brazilian Portuguese. Code and repository documentation are English.
+A private browser room for up to eight friends: voice, screen sharing, and one shared text channel with 30-day history and private images. All application UI is Brazilian Portuguese. Code and repository documentation are English.
 
-Next.js App Router on the existing Vercel project serves the UI, signed sessions, and token endpoints. Official LiveKit SDKs connect browsers directly to LiveKit Cloud. Upstash Redis stores short-lived authentication rate-limit counters only. No webcam, recordings, transcription, AI, analytics, or chat database.
+Next.js App Router on the existing Vercel project serves the UI, signed sessions, and token endpoints. Official LiveKit SDKs connect browsers directly to LiveKit Cloud. Upstash Redis enforces authentication rate limits and combined admission across two voice rooms. Neon PostgreSQL stores chat and attachment metadata; private Vercel Blob stores validated images. No webcam, recordings, transcription, AI or analytics. The two-room/image extension is Preview-only until separately approved.
 
 ```sh
 npm ci

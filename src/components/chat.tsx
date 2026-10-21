@@ -6,6 +6,8 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState, type FormEven
 import { CHAT_TOPIC, MAX_MESSAGE_BYTES, encodeMessage } from '@/lib/room';
 import { mergeMessages, type ChatMessage, type ChatPage } from '@/lib/chat';
 import { Icon } from './icons';
+import { ImageComposer, MessageImage, useChatImage } from './chat-images';
+import { messageParts } from '@/lib/client/message-links';
 
 async function request(path: string, init?: RequestInit) {
   const response = await fetch(path, { ...init, cache: 'no-store', signal: AbortSignal.timeout(15000) });
@@ -23,13 +25,14 @@ export function Chat({ active, onUnread }: { active: boolean; onUnread: (count: 
   const [hasOlder, setHasOlder] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const image = useChatImage();
   const records = useRef<ChatMessage[]>([]);
   const latest = useRef('0');
   const earliest = useRef('');
   const initialized = useRef(false);
   const alive = useRef(false);
   const sending = useRef(false);
-  const retry = useRef<{ body: string; requestId: string } | null>(null);
+  const retry = useRef<{ body: string; requestId: string; imageId?: string } | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const nearBottom = useRef(true);
   const unread = useRef(0);
@@ -109,14 +112,15 @@ export function Chat({ active, onUnread }: { active: boolean; onUnread: (count: 
     event.preventDefault();
     if (sending.current) return;
     const payload = encodeMessage(text);
-    if (!payload) { setError(`Escreva uma mensagem de até ${MAX_MESSAGE_BYTES} bytes.`); return; }
-    const body = new TextDecoder().decode(payload);
-    if (!retry.current || retry.current.body !== body) retry.current = { body, requestId: crypto.randomUUID() };
+    if ((!payload && !image.pending) || (text.trim() && !payload)) { setError(`Escreva uma mensagem de até ${MAX_MESSAGE_BYTES} bytes ou selecione uma imagem.`); return; }
+    const body = payload ? new TextDecoder().decode(payload) : '';
     sending.current = true; setIsSending(true); setError(''); setSaved(false);
     try {
+      const imageId = await image.upload();
+      if (!retry.current || retry.current.body !== body || retry.current.imageId !== imageId) retry.current = { body, requestId: crypto.randomUUID(), ...(imageId ? { imageId } : {}) };
       const result: { message: ChatMessage } = await request('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(retry.current) });
       if (!alive.current) return;
-      accept([result.message]); setText(''); retry.current = null; setSaved(true);
+      accept([result.message]); setText(''); image.remove(); retry.current = null; setSaved(true);
       // Hint failure cannot undo a durable save; polling catches up.
       if (room.state === ConnectionState.Connected) void room.localParticipant.publishData(new Uint8Array([1]), { reliable: true, topic: CHAT_TOPIC }).catch(() => undefined);
       refreshNow.current();
@@ -128,8 +132,8 @@ export function Chat({ active, onUnread }: { active: boolean; onUnread: (count: 
     <div className="messages" ref={scroll} onScroll={() => { const element = scroll.current; if (element) nearBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48; }} role="log" aria-label="Mensagens da sala" aria-live={active ? 'polite' : 'off'} tabIndex={0}>
       {hasOlder && <button className="load-older" disabled={older} onClick={loadOlder}>{older ? 'Carregando…' : 'Carregar anteriores'}</button>}
       {!messages.length && !loading && !error && <div className="chat-empty"><span aria-hidden="true">#</span><p>Nenhuma mensagem nos últimos 30 dias.</p></div>}
-      {messages.map(message => <div className="message" key={message.id} data-message-id={message.id}><div className="message-meta"><strong>{message.name}{message.own ? ' (você)' : ''}</strong><time dateTime={message.createdAt}>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(message.createdAt))}</time></div><p>{message.body}</p></div>)}
+      {messages.map(message => <div className="message" key={message.id} data-message-id={message.id}><div className="message-meta"><strong>{message.name}{message.own ? ' (você)' : ''}</strong><time dateTime={message.createdAt}>{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(message.createdAt))}</time></div>{message.body && <p>{messageParts(message.body).map((part, index) => part.href ? <a key={index} href={part.href} target="_blank" rel="noopener noreferrer">{part.text}</a> : part.text)}</p>}{message.image && <MessageImage image={message.image} />}</div>)}
     </div>
-    <form className="chat-form" onSubmit={submit}><label htmlFor="message">Mensagem</label><textarea id="message" rows={2} maxLength={MAX_MESSAGE_BYTES} value={text} onChange={event => { setText(event.target.value); setSaved(false); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Escreva para # geral…" disabled={isSending} /><p className="chat-keyboard muted">Enter envia · Shift+Enter quebra a linha</p><div className="chat-send"><span className="muted">{new TextEncoder().encode(text).length}/{MAX_MESSAGE_BYTES} bytes</span><span role="status">{saved ? 'Salva no histórico' : ''}</span><button className="primary" disabled={isSending || !text.trim()} aria-label="Enviar mensagem"><Icon name="send" />{isSending ? 'Salvando…' : 'Enviar'}</button></div>{error && <div className="error" role="alert"><p>{error}</p><button type="button" onClick={() => refreshNow.current()}>Atualizar histórico</button></div>}</form>
+    <form className="chat-form" onSubmit={submit} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }} onDrop={event => { if (!isSending) image.drop(event); }}><label htmlFor="message">Mensagem</label><textarea id="message" rows={2} maxLength={MAX_MESSAGE_BYTES} value={text} onChange={event => { setText(event.target.value); setSaved(false); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} onPaste={image.paste} placeholder="Escreva para # geral…" disabled={isSending} /><p className="chat-keyboard muted">Enter envia · Shift+Enter quebra a linha</p><ImageComposer image={image} disabled={isSending} /><div className="chat-send"><span className="muted">{new TextEncoder().encode(text).length}/{MAX_MESSAGE_BYTES} bytes</span><span role="status">{saved ? 'Salva no histórico' : ''}</span><button className="primary" disabled={isSending || (!text.trim() && !image.pending)} aria-label="Enviar mensagem"><Icon name="send" />{isSending ? 'Salvando…' : 'Enviar'}</button></div>{error && <div className="error" role="alert"><p>{error}</p><button type="button" onClick={() => refreshNow.current()}>Atualizar histórico</button></div>}</form>
   </section>;
 }

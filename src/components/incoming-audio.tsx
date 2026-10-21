@@ -4,12 +4,13 @@ import { AudioTrack, useConnectionQualityIndicator, useRoomContext, useTracks } 
 import { ConnectionState, RoomEvent, Track, type Participant, type RemoteParticipant } from 'livekit-client';
 import { useEffect, useRef, useState } from 'react';
 import { incomingVolume } from '@/lib/client/preferences';
-import { playMembershipTone } from '@/lib/client/call-sounds';
+import { playMembershipTone, setSoundPolicy } from '@/lib/client/call-sounds';
 
 export type VolumeSetting = { volume: number; muted: boolean };
 export const defaultVolume: VolumeSetting = { volume: 100, muted: false };
+export const volumeIdentity = (identity: string) => identity.split(':')[0];
 export function VolumeControl({ label, setting, onChange }: { label: string; setting: VolumeSetting; onChange: (value: VolumeSetting) => void }) {
-  return <div className="volume-control"><label>{label}<input type="range" min="0" max="100" step="5" value={setting.volume} aria-label={label} aria-valuetext={`${setting.volume}%`} onChange={event => onChange({ ...setting, volume: Number(event.target.value) })} /></label><span className="volume-number">{setting.volume}%</span><button aria-label={`${setting.muted ? 'Ouvir' : 'Silenciar'} ${label.toLowerCase()}`} aria-pressed={setting.muted} onClick={() => onChange({ ...setting, muted: !setting.muted })}>{setting.muted ? 'Ouvir' : 'Silenciar'}</button></div>;
+  return <div className="volume-control"><label>{label}<input type="range" min="0" max="100" step="5" value={setting.volume} aria-label={label} aria-valuetext={`${setting.volume}%`} onChange={event => onChange({ ...setting, volume: Number(event.target.value) })} /></label><span className="volume-number">{setting.volume}%</span><button aria-label={`${setting.muted ? 'Ouvir' : 'Silenciar'} ${label.toLowerCase()} apenas para mim`} aria-pressed={setting.muted} onClick={() => onChange({ ...setting, muted: !setting.muted })}>{setting.muted ? 'Ouvir' : 'Silenciar para mim'}</button></div>;
 }
 export function ParticipantQuality({ participant }: { participant: Participant }) {
   const { quality } = useConnectionQualityIndicator({ participant });
@@ -20,18 +21,19 @@ export function IncomingAudio({ volumes, screenIdentity, screenSetting, globalMu
   const tracks = useTracks([Track.Source.Microphone, Track.Source.ScreenShareAudio], { onlySubscribed: true });
   const audible = tracks.filter(ref => !ref.participant.isLocal && (ref.source === Track.Source.Microphone || ref.participant.identity === screenIdentity));
   return <div className="incoming-audio" hidden>{audible.map(ref => {
-    const setting = ref.source === Track.Source.Microphone ? volumes[ref.participant.identity] ?? defaultVolume : screenSetting;
+    const setting = ref.source === Track.Source.Microphone ? volumes[volumeIdentity(ref.participant.identity)] ?? defaultVolume : screenSetting;
     return <AudioTrack key={`${ref.participant.identity}:${ref.publication.trackSid}`} trackRef={ref} volume={incomingVolume(globalMuted, setting.muted, setting.volume)} data-audio-kind={ref.source} data-audio-owner={ref.participant.identity} />;
   })}</div>;
 }
 export function MembershipSounds({ enabled, muted }: { enabled: boolean; muted: boolean }) {
   const room = useRoomContext();
   const options = useRef({ enabled, muted });
-  useEffect(() => { options.current = { enabled, muted }; }, [enabled, muted]);
+  useEffect(() => { options.current = { enabled, muted }; setSoundPolicy(room, options.current); }, [room, enabled, muted]);
   useEffect(() => {
     let ready = room.state === ConnectionState.Connected;
     let known = new Set(room.remoteParticipants.keys());
     const snapshot = () => { known = new Set(room.remoteParticipants.keys()); ready = true; };
+    const connected = () => { snapshot(); void playMembershipTone(room, true); };
     const pause = () => { ready = false; };
     const joined = (participant: RemoteParticipant) => {
       const newIdentity = !known.has(participant.identity); known.add(participant.identity);
@@ -41,8 +43,8 @@ export function MembershipSounds({ enabled, muted }: { enabled: boolean; muted: 
       const existed = known.delete(participant.identity);
       if (existed && ready && room.state === ConnectionState.Connected && options.current.enabled && !options.current.muted && room.canPlaybackAudio) playMembershipTone(room, false);
     };
-    room.on(RoomEvent.Connected, snapshot).on(RoomEvent.Reconnected, snapshot).on(RoomEvent.Reconnecting, pause).on(RoomEvent.SignalReconnecting, pause).on(RoomEvent.Disconnected, pause).on(RoomEvent.ParticipantConnected, joined).on(RoomEvent.ParticipantDisconnected, left);
-    return () => { room.off(RoomEvent.Connected, snapshot).off(RoomEvent.Reconnected, snapshot).off(RoomEvent.Reconnecting, pause).off(RoomEvent.SignalReconnecting, pause).off(RoomEvent.Disconnected, pause).off(RoomEvent.ParticipantConnected, joined).off(RoomEvent.ParticipantDisconnected, left); };
+    room.on(RoomEvent.Connected, connected).on(RoomEvent.Reconnected, snapshot).on(RoomEvent.Reconnecting, pause).on(RoomEvent.SignalReconnecting, pause).on(RoomEvent.Disconnected, pause).on(RoomEvent.ParticipantConnected, joined).on(RoomEvent.ParticipantDisconnected, left);
+    return () => { room.off(RoomEvent.Connected, connected).off(RoomEvent.Reconnected, snapshot).off(RoomEvent.Reconnecting, pause).off(RoomEvent.SignalReconnecting, pause).off(RoomEvent.Disconnected, pause).off(RoomEvent.ParticipantConnected, joined).off(RoomEvent.ParticipantDisconnected, left); };
   }, [room]);
   return null;
 }

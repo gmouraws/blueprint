@@ -6,8 +6,9 @@ import { COOKIE_NAME, cookieOptions, passwordMatches, signSession, verifySession
 import { rateLimit, LimitError } from './rate-limit';
 import { createRoomToken, ensureRoom, roomService, RoomFullError } from './livekit';
 import { normalizeNickname, validNickname, ROOM_FULL_MESSAGE } from '../room';
+import { admissionService, AdmissionBusy } from './voice-admission';
 
-export const services = { getConfig, rateLimit, ensureRoom, createRoomToken, roomService };
+export const services = { getConfig, rateLimit, ensureRoom, createRoomToken, roomService, admissionService };
 type Services = typeof services;
 const credentials = z.object({ nickname: z.string().max(96).transform(normalizeNickname).refine(validNickname), password: z.string().min(1).max(256), remember: z.boolean().default(false) }).strict();
 export function json(value: object, status = 200, headers?: Record<string, string>) {
@@ -48,20 +49,21 @@ export function handlers(deps: Services = services) {
       const session = await verifySession(request.cookies.get(COOKIE_NAME)?.value, config);
       if (action === 'logout') {
         // SDK disconnect releases devices; server removal also revokes the LiveKit token.
-        if (session) await deps.roomService(config).removeParticipant(config.LIVEKIT_ROOM_NAME, session.identity).catch(() => undefined);
-        const response = json({ ok: true });
+        const mediaRevoked = session ? await deps.admissionService(config).leave(session).then(() => true, () => false) : true;
+        // Forgetting browser access must remain possible during a media-service outage.
+        const response = json({ ok: true, mediaRevoked });
         response.cookies.set(COOKIE_NAME, '', { ...cookieOptions(config), maxAge: 0 });
         return response;
       }
       if (!session) return json({ error: 'Sua sessão expirou. Entre novamente.' }, 401);
       const body = await readBody(request).catch(() => null);
-      if (!z.object({}).strict().safeParse(body).success) return json({ error: 'Solicitação inválida.' }, 400);
+      const parsed = z.object({ room: z.enum(['main', 'second']).default('main') }).strict().safeParse(body);
+      if (!parsed.success) return json({ error: 'Solicitação inválida.' }, 400);
       await deps.rateLimit(config, 'token', session.identity);
-      await deps.ensureRoom(config);
-      const token = await deps.createRoomToken(config, session);
-      return json({ token, serverUrl: config.LIVEKIT_URL, identity: session.identity, nickname: session.nickname });
+      return json(await deps.admissionService(config).join(session, parsed.data.room));
     } catch (error) {
       if (error instanceof RoomFullError) return json({ error: ROOM_FULL_MESSAGE }, 409);
+      if (error instanceof AdmissionBusy) return json({ error: 'Outra entrada está em andamento. Aguarde e tente novamente.' }, 409);
       if (error instanceof LimitError) return json({ error: error.status === 429 ? 'Muitas tentativas. Aguarde antes de tentar novamente.' : 'A proteção de acesso está indisponível. Tente novamente mais tarde.' }, error.status, { 'Retry-After': String(error.retryAfter) });
       return json({ error: 'Sala indisponível. A configuração dos serviços precisa ser verificada pelo responsável.' }, 503);
     }

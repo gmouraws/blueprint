@@ -24,6 +24,7 @@
     "@neondatabase/serverless": "1.2.0",
     "@upstash/ratelimit": "2.2.0",
     "@upstash/redis": "1.39.0",
+    "@vercel/blob": "2.8.2",
     "jose": "6.2.13",
     "livekit-client": "2.22.0",
     "livekit-server-sdk": "2.19.1",
@@ -31,6 +32,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "0.0.1",
+    "sharp": "0.35.5",
     "zod": "4.6.5"
   },
   "devDependencies": {

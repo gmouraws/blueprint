@@ -1,4 +1,8 @@
 export const MAX_PARTICIPANTS = 8;
+export const VOICE_ROOMS = [{ id: 'main', name: 'Sala principal' }, { id: 'second', name: 'Sala 2' }] as const;
+export type VoiceRoomId = typeof VOICE_ROOMS[number]['id'];
+export type VoiceMember = { identity: string; name: string; muted: boolean };
+export type VoiceRoster = Record<VoiceRoomId, VoiceMember[]>;
 export const ROOM_FULL_MESSAGE = `A sala está cheia: ${MAX_PARTICIPANTS} pessoas já estão conectadas. Tente novamente quando alguém sair.`;
 export const CHAT_TOPIC = 'blueprint.chat';
 export const MAX_MESSAGE_BYTES = 2000;
@@ -26,4 +30,4 @@ export function decodeMessage(bytes: Uint8Array): string | null {
   } catch { return null; }
 }
 
-export type ConnectionDetails = { token: string; serverUrl: string; identity: string; nickname: string };
+export type ConnectionDetails = { token: string; serverUrl: string; identity: string; nickname: string; voiceRoom?: VoiceRoomId };

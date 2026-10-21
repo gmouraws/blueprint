@@ -22,3 +22,12 @@ Automated tests do not establish real-device, multi-network or provider-quota be
 - [ ] Cross-origin login/token requests fail. Redis outage/timeout and quota exhaustion fail closed. Verify secret values absent from browser assets/network responses (except intended participant token).
 - [ ] Review keyboard focus, form errors, screen-reader labels, 320px reflow and long nicknames/messages. Validate actual media controls with assistive tech as needed.
 - [ ] Preview shows no analytics, sitemap or old site pages; robots and response headers prohibit indexing. Only after owner approval, configure Production and merge.
+
+## Two-room/image Preview acceptance
+
+- Expand/collapse both room sections and browse either room: the current call must remain connected.
+- Switch rooms repeatedly while sharing. Previous capture/audio must stop, the destination microphone stays off, and chat/drafts remain intact. Across both rooms the ninth voice participant must be refused.
+- Confirm red crossed-out microphones reflect sender mute; listener mute is separately labeled and changes only local playback. Open/close participant options by keyboard.
+- Confirm one local join/switch/leave tone, remote tones only for the current room, no initial-snapshot/reconnect duplicates, and preference/global-mute suppression.
+- Send JPEG/PNG/WebP by paste, file picker and drop; remove the preview, retry failures, reload and enlarge the image. Reject malformed/oversized/unauthorized/expired uploads or retrieval. Confirm links open safely and other content remains plain text.
+- Watch a moving stream while chatting. Hide/restore/expand the mini-player without duplicate audio or a second connection. Switching voice rooms clears the previous stream. Check measured quality; do not infer 60 fps from the requested preset.

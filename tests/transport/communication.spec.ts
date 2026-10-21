@@ -13,11 +13,11 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
     await prepare(alice, 'Alice', room); await join(alice);
     await prepare(bob, 'Bruno', room);
     await bob.getByRole('button', { name: 'Abrir chat sem entrar na voz' }).click();
-    await expect(bob.getByText('Você não está conectado à voz.')).toBeVisible();
+    await expect(bob.getByText('Desconectado', { exact: true })).toBeVisible();
     expect(await captures(bob)).toBe(0);
     await bob.getByRole('button', { name: 'Entrar na voz', exact: true }).click();
     await expect(bob.getByText('Conectado', { exact: true })).toBeVisible();
-    await expect(alice.getByText('Bruno', { exact: true })).toBeVisible();
+    await expect(alice.getByRole('button', { name: 'Opções de Bruno', exact: true })).toBeVisible();
     expect(await captures(alice)).toBe(0); expect(await captures(bob)).toBe(0);
     await alice.getByRole('tab', { name: 'Chat', exact: true }).click();
     await bob.getByRole('tab', { name: 'Chat', exact: true }).click();
@@ -58,7 +58,9 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
     const first = await energy(bob); await expect.poll(() => energy(bob)).toBeGreaterThan(first);
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBe(1);
     expect(await captures(bob)).toBe(0);
+    await bob.getByRole('button', { name: 'Opções de Alice' }).click();
     await bob.getByRole('slider', { name: 'Voz de Alice' }).fill('35');
+    await bob.getByRole('button', { name: 'Fechar', exact: true }).click();
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBeCloseTo(0.35);
     const peersBefore = await bob.evaluate(() => (window as unknown as { mediaProbe: { peers: unknown[] } }).mediaProbe.peers.length);
     await bob.getByRole('tab', { name: 'Sala', exact: true }).click();
@@ -66,9 +68,11 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
     expect(await bob.evaluate(() => (window as unknown as { mediaProbe: { peers: unknown[] } }).mediaProbe.peers.length)).toBe(peersBefore);
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBeCloseTo(0.35);
     const beforeViewAudio = await energy(bob); await expect.poll(() => energy(bob)).toBeGreaterThan(beforeViewAudio);
-    await bob.getByRole('button', { name: 'Silenciar voz de alice', exact: true }).click();
+    await bob.getByRole('button', { name: 'Opções de Alice' }).click();
+    await bob.getByRole('button', { name: 'Silenciar voz de alice apenas para mim', exact: true }).click();
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBe(0);
-    await bob.getByRole('button', { name: 'Ouvir voz de alice', exact: true }).click();
+    await bob.getByRole('button', { name: 'Ouvir voz de alice apenas para mim', exact: true }).click();
+    await bob.getByRole('button', { name: 'Fechar', exact: true }).click();
     await bob.getByRole('button', { name: 'Silenciar áudio', exact: true }).click();
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBe(0);
     await bob.getByRole('button', { name: 'Ouvir áudio', exact: true }).click();

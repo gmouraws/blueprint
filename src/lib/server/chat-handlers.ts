@@ -11,7 +11,7 @@ import { encodeMessage } from '../room';
 
 const cursor = z.string().refine(value => /^(?:0|[1-9][0-9]{0,18})$/.test(value) && BigInt(value) <= 9223372036854775807n);
 const querySchema = z.object({ before: cursor.optional(), after: cursor.optional() }).strict().refine(value => !(value.before && value.after));
-const writeSchema = z.object({ body: z.string().max(2000).transform(value => value.trim()).refine(value => !!encodeMessage(value) && !value.includes('\0')), requestId: z.uuid() }).strict();
+const writeSchema = z.object({ body: z.string().max(2000).transform(value => value.trim()).refine(value => !value.includes('\0') && (!value || !!encodeMessage(value))), requestId: z.uuid(), imageId: z.uuid().optional() }).strict().refine(value => !!value.body || !!value.imageId);
 export const chatServices = { getConfig, rateLimit, readChat, saveChat, cleanChat };
 export function chatHandlers(deps = chatServices) {
   async function handle(request: NextRequest, write: boolean) {
@@ -25,7 +25,7 @@ export function chatHandlers(deps = chatServices) {
       if (write) {
         const parsed = writeSchema.safeParse(await readBody(request, 16384).catch(() => null));
         if (!parsed.success) return json({ error: 'Mensagem inválida. Use texto de até 2000 bytes.' }, 400);
-        return json({ message: await deps.saveChat(session, parsed.data.body, parsed.data.requestId) });
+        return json({ message: await deps.saveChat(session, parsed.data.body, parsed.data.requestId, parsed.data.imageId) });
       }
       const params = request.nextUrl.searchParams;
       const parsed = querySchema.safeParse(Object.fromEntries(params));

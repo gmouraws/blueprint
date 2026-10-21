@@ -17,7 +17,7 @@ Use the repository's Node 22 baseline (22.17+); npm ci installs the pinned lockf
 3. Set LIVEKIT_ROOM_NAME=blueprint-room-preview for preview/local testing. It is a fixed server-side name, not a client choice. Use a separate Cloud project for production if the free account allows it, or at least a distinct room name such as blueprint-room-production. Preview participants must never join the live production room.
 4. Do not enable agents, recording, egress, transcription or AI. The app creates/recreates the room with an eight-person cap. If an existing room has a different cap (including the former five-person limit), let everyone leave and wait for automatic deletion, or delete the empty room in the intended project, then retry. Never remove the cap to fix admission.
 
-## Upstash Redis (durable rate limits only)
+## Upstash Redis (rate limits and voice admission)
 
 1. Create an account at https://console.upstash.com and a **Free**, single-region Redis database near the Vercel functions. The published free tier is $0 with 500K commands/month and 250MB storage at implementation time; verify https://upstash.com/pricing/redis before setup.
 2. Copy its REST URL and REST token into UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN. Use the single-region database for authoritative counters. Do not configure eventual-consistency multi-region limits.
@@ -62,7 +62,7 @@ APP_ORIGIN must remain an exact HTTPS origin without a trailing slash, path, que
 
 ## Verification and limits
 
-npm run check runs lint, route type generation, TypeScript and focused security tests. npm run build performs the optimized Next build and verifies expected routes, runtime-only entry rendering, removal of public editorial output/analytics and absence of configured secret values in browser assets. CI supplies eight harmless canaries to verify isolation without real credentials. npm run test:e2e serves the same optimized build with valid and invalid runtime configurations and verifies diagnostics do not disclose values. Chromium/axe tests and network fixtures cover UI errors and the real disconnected room layout, **not successful media connectivity**. It never connects to a real LiveKit service with test credentials.
+npm run check runs lint, route type generation, TypeScript and focused security tests. npm run build performs the optimized Next build and verifies expected routes, runtime-only entry rendering, removal of public editorial output/analytics and absence of configured secret values in browser assets. CI supplies nine harmless canaries to verify isolation without real credentials. npm run test:e2e serves the same optimized build with valid and invalid runtime configurations and verifies diagnostics do not disclose values. Chromium/axe tests and network fixtures cover UI errors and the real disconnected room layout, **not successful media connectivity**. It never connects to a real LiveKit service with test credentials.
 
 The production dependency audit is clean at implementation time. npm reports five inherited high-severity development-tool findings through eslint-config-next → fast-glob → micromatch → braces (GHSA-vfj7-8cjw-p6xm), without a compatible patched version reported. Do not force-downgrade the Next ESLint configuration to another major. Recheck before production.
 
@@ -71,3 +71,7 @@ The production dependency audit is clean at implementation time. npm reports fiv
 Original current-main commit: `9cebdeb8e924c69ca16d92be8bb2774c217f682e` (before the private room replacement). There were no uncommitted user files at the start. Git history is preserved.
 
 To inspect the former site without changing production: create a separate local branch from that SHA (`git switch -c codex/recover-public-site 9cebdeb8e924c69ca16d92be8bb2774c217f682e`). To restore production after an eventual merge, revert the replacement PR's actual merge commit with `git revert -m 1 <merge-commit-sha>` on a new branch, review its PR, then merge through the normal Git integration. For a squash merge use `git revert <squash-sha>` instead. Do not reset/force-push main. Verify the restored site before deleting private-room provider credentials/resources.
+
+## Two-room/image Preview extension
+
+The media names now append `-v2-main` and `-v2-second` to LIVEKIT_ROOM_NAME. Keep Preview and Production bases distinct. Redis also stores the persistent admission ledger; do not clear it to bypass capacity. See ADR-013 and CHAT-STORAGE.md for private Blob configuration and migration 002. Both migrations and Preview-only storage must be verified before testing images. The existing daily production cleanup is not a Preview scheduler; invoke the authenticated cleanup endpoint or CLI against Preview for retention maintenance. This extension is not approved for production deployment.
