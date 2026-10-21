@@ -1,6 +1,6 @@
 {
   "name": "blueprint-room-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Blueprint Room Windows test client",
   "author": "Blueprint",
@@ -23,6 +23,7 @@
     },
     "files": [
       "main.mjs",
+      "startup.mjs",
       "preload.cjs",
       "policy.mjs",
       "keybindings.mjs",

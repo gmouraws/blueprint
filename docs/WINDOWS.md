@@ -6,6 +6,12 @@ Accounts dependency: PR #15 merged in main (b0477d7), OTP verified; no pending R
 
 Run `npm ci` at the repository root, `npm ci --prefix desktop`, then `npm run build --prefix desktop` on Windows x64. The default installer is Preview-only. `npm run build --prefix desktop -- --production` deliberately produces a different profile/installer, but does not publish it. Never put a Preview binary on the Production download.
 
+For an unambiguous Production build in PowerShell, run `node build.mjs --production` from `desktop`; inspect the packaged `profile.json` before distribution. Version 0.1.1 is authorized for private testing against the canonical Production application only. PR #17 isolates the web bridge/recorder from the desktop PR; it adds no public download or database changes.
+
+Startup failures (network, timeout, renderer, preload, blocked redirect) replace the failed page with a script-free recovery screen. Retry can load only the packaged origin. Diagnostics show the profile/version, an allowlisted category and optional numeric Chromium error code; no exception text, request URLs or credentials are persisted. A failed renderer clears native actions. A successful page load does not prove authentication or media readiness.
+
+The Production 0.1.1 packaged executable opened the real HTTPS entry page in an automated Windows smoke test with the preload bridge present, sandbox/context isolation enabled and Node integration disabled. An injected DNS failure displayed recovery and Retry returned to the entry page. This did not install through NSIS, authenticate, or test physical devices/global keys. The earlier blank-window cause was not reproduced and remains unconfirmed.
+
 Electron and electron-builder are build-only dependencies in their own lockfile. Only the explicit shell files are packaged; no Next.js server, environment files or production dependencies. The existing SVG is rasterized into PNG/ICO during build. `desktop/dist/SHA256SUMS-preview.txt` accompanies the unsigned NSIS installer. `desktop/dist` and generated assets are ignored by Git. Windows CI builds/uploads review artifacts without publishing releases or deploying Vercel.
 
 ## Security and lifecycle

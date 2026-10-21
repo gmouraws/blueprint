@@ -1,6 +1,6 @@
 # ADR 018: Windows test shell and custom shortcuts
 
-Status: approved for isolated feature implementation and Preview; no installer publication or Production deployment authorization.
+Status: approved for isolated feature implementation and private Production-targeted testing. The owner authorized only the minimal required web compatibility release through normal checks; the desktop PR and public installer/download remain unreleased.
 
 PR #15 is merged at b0477d7; real OTP and the Production owner session were verified. The desktop branch starts from main and does not change account authentication.
 

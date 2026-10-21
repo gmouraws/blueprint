@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { trusted, external, validState, inactive, accelerator, actions } from './policy.mjs';
+import { failurePage } from './startup.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const profile = JSON.parse(readFileSync(path.join(here, 'profile.json'), 'utf8'));
 const origins = { production: 'https://www.blueprint.app.br', preview: 'https://blueprint-git-codex-windows-room-gmouraws-8238s-projects.vercel.app' };
@@ -45,10 +46,25 @@ function register() {
   return conflicts;
 }
 let conflicts = [];
+let loadTimer, failed = false;
+function fail(category, code) {
+  if (quitting || failed || !win || win.isDestroyed()) return;
+  failed = true; clearTimeout(loadTimer);
+  state = { ...inactive }; register(); updateTray();
+  // Do not persist URLs, exception messages, cookies, or authentication data.
+  void win.loadURL(failurePage(profile, app.getVersion(), category, code)).catch(() => {
+    if (!quitting) void dialog.showMessageBox(win, { type: 'error', message: 'Blueprint Room não conseguiu abrir a tela de recuperação.', detail: 'Encerre o aplicativo pela bandeja e tente novamente.' });
+  });
+}
+function loadApplication() {
+  failed = false; clearTimeout(loadTimer);
+  loadTimer = setTimeout(() => fail('timeout'), 30000);
+  void win.loadURL(profile.origin).catch(() => fail('network'));
+}
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', restore);
-  app.on('before-quit', () => { quitting = true; state = { ...inactive }; globalShortcut.unregisterAll(); tray?.destroy(); if (win && !win.isDestroyed()) win.destroy(); });
+  app.on('before-quit', () => { quitting = true; clearTimeout(loadTimer); state = { ...inactive }; globalShortcut.unregisterAll(); tray?.destroy(); if (win && !win.isDestroyed()) win.destroy(); });
   app.on('will-quit', () => globalShortcut.unregisterAll());
   app.whenReady().then(() => {
     const ses = session.fromPartition(`persist:blueprint-${profile.name}`);
@@ -56,12 +72,19 @@ else {
     Menu.setApplicationMenu(null);
     tray = new Tray(nativeImage.createFromPath(path.join(here, 'icon.png')).resize({ width: 32, height: 32 })); tray.setToolTip('Blueprint Room'); tray.on('double-click', restore); updateTray();
     win.on('close', event => { if (quitting) return; event.preventDefault(); win.hide(); if (!preferences.closeExplained) { preferences.closeExplained = true; try { writeFileSync(prefsPath, JSON.stringify(preferences)); } catch { /* Optional preference. */ } tray.displayBalloon({ title: 'Blueprint Room continua aberto', content: 'A chamada continua na bandeja. Para encerrar a mídia, use “Sair do aplicativo”.' }); } });
-    win.webContents.on('will-navigate', (event, url) => { if (!trusted(url, profile.origin)) event.preventDefault(); });
-    win.webContents.on('will-redirect', (event, url) => { if (!trusted(url, profile.origin)) event.preventDefault(); });
+    win.webContents.on('will-navigate', (event, url) => {
+      if (failed && (url === profile.origin || url === profile.origin + '/')) { event.preventDefault(); loadApplication(); }
+      else if (!trusted(url, profile.origin)) event.preventDefault();
+    });
+    win.webContents.on('will-redirect', (event, url) => { if (!trusted(url, profile.origin)) { event.preventDefault(); fail('redirect'); } });
     win.webContents.setWindowOpenHandler(({ url }) => { if (external(url)) void shell.openExternal(url); return { action: 'deny' }; });
     win.webContents.on('will-attach-webview', event => event.preventDefault());
     win.webContents.on('did-start-navigation', (_event, _url, _inPlace, main) => { if (main) { state = { ...inactive }; inputBlocked = false; register(); updateTray(); } });
-    win.webContents.on('render-process-gone', () => { state = { ...inactive }; register(); updateTray(); });
+    win.webContents.on('render-process-gone', () => fail('renderer'));
+    win.webContents.on('preload-error', () => fail('preload'));
+    win.webContents.on('did-fail-load', (_event, code, _description, _url, main) => { if (main && code !== -3) fail('network', code); });
+    win.webContents.on('did-finish-load', () => { if (trusted(win.webContents.getURL(), profile.origin)) clearTimeout(loadTimer); });
+    win.on('unresponsive', () => fail('renderer'));
     ses.setPermissionCheckHandler((contents, permission, origin, details) => contents === win.webContents && trusted(origin, profile.origin) && (permission === 'media' ? details.mediaType === 'audio' : ['display-capture', 'speaker-selection'].includes(permission)));
     ses.setPermissionRequestHandler(async (contents, permission, callback, details) => {
       if (contents !== win.webContents || !trusted(details.requestingUrl, profile.origin) || details.isMainFrame === false) { callback(false); return; }
@@ -85,6 +108,6 @@ else {
     ipcMain.on('room:input', (event, value) => { if (sender(event) && value && typeof value.typing === 'boolean' && typeof value.recording === 'boolean') { inputBlocked = value.typing; recording = value.recording; win.webContents.send('room:conflicts', register()); } });
     ipcMain.handle('room:settings', event => { if (!sender(event)) throw new Error('Invalid origin'); return { startup: app.getLoginItemSettings().openAtLogin, profile: profile.name, version: app.getVersion() }; });
     ipcMain.handle('room:startup', (event, enabled) => { if (!sender(event) || typeof enabled !== 'boolean' || !app.isPackaged) throw new Error('Invalid request'); app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath }); return app.getLoginItemSettings().openAtLogin; });
-    void win.loadURL(profile.origin);
+    loadApplication();
   });
 }
