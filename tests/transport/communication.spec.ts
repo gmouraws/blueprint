@@ -73,9 +73,9 @@ test('real peers exchange chat and audio; independent volumes, device labels, cl
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBe(0);
     await bob.getByRole('button', { name: 'Ouvir voz de alice apenas para mim', exact: true }).click();
     await bob.getByRole('button', { name: 'Fechar', exact: true }).click();
-    await bob.getByRole('button', { name: 'Silenciar áudio', exact: true }).click();
+    await bob.getByRole('button', { name: 'Silenciar todo o áudio', exact: true }).click();
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBe(0);
-    await bob.getByRole('button', { name: 'Ouvir áudio', exact: true }).click();
+    await bob.getByRole('button', { name: 'Restaurar áudio', exact: true }).click();
     await expect.poll(() => gain(bob, 'microphone', 'Alice')).toBeCloseTo(0.35);
     await bob.getByRole('button', { name: 'Ativar microfone', exact: true }).click();
     await expect.poll(() => energy(alice)).toBeGreaterThan(0);
@@ -119,13 +119,21 @@ test('selected screen has one audio path, separate volume, and global mute resto
     await alice.getByRole('button', { name: 'Compartilhar tela', exact: true }).click();
     await expect(viewer.locator('audio[data-audio-kind="screen_share_audio"][data-audio-owner="Alice"]')).toHaveCount(1);
     await bob.getByRole('button', { name: 'Compartilhar tela', exact: true }).click();
-    await expect(viewer.getByLabel('Escolher tela compartilhada').locator('option')).toHaveCount(2);
-    await viewer.getByLabel('Escolher tela compartilhada').selectOption({ label: 'Bruno' });
+    await viewer.getByRole('button', {name: 'Escolher tela compartilhada'}).click();
+    await expect(viewer.getByRole('radiogroup', {name:'Telas disponíveis'}).getByRole('radio')).toHaveCount(2);
+    await viewer.getByRole('radio', {name:'Alice',exact:true}).focus(); await viewer.keyboard.press('ArrowDown');
+    await expect(viewer.getByRole('radio', {name:'Bruno',exact:true})).toBeChecked();
+    await mkdir('.generated/review/audio', {recursive:true});
+    for (const width of [1440,375]) {
+      await viewer.setViewportSize({width,height:900});
+      await viewer.screenshot({path:`.generated/review/audio/selector-${width}.png`,fullPage:true});
+    }
+    await viewer.setViewportSize({width:1280,height:720});
+    await viewer.keyboard.press('Escape');
     await expect(viewer.locator('audio[data-audio-kind="screen_share_audio"]')).toHaveCount(1);
     await expect(viewer.locator('audio[data-audio-owner="Alice"]')).toHaveCount(0);
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.8);
-    await viewer.getByRole('button', { name: 'Opções de visualização' }).click();
-    await viewer.getByRole('slider', { name: 'Áudio da tela selecionada' }).fill('45');
+    await viewer.getByRole('slider', { name: /Volume da tela de/ }).fill('45');
     await viewer.keyboard.press('Escape');
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.45);
     await bob.getByRole('tab', { name: 'Chat', exact: true }).click();
@@ -133,15 +141,31 @@ test('selected screen has one audio path, separate volume, and global mute resto
     await expect(bob.getByRole('button', { name: 'Parar compartilhamento', exact: true })).toBeVisible();
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.45);
     await viewer.getByRole('tab', { name: 'Sala', exact: true }).click();
-    await viewer.getByRole('button', { name: 'Silenciar áudio', exact: true }).click();
+    await viewer.getByRole('button', { name: 'Silenciar todo o áudio', exact: true }).click();
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBe(0);
-    await viewer.getByRole('button', { name: 'Ouvir áudio', exact: true }).click();
+    // A new remote microphone and a replaced selected screen must start deafened.
+    await bob.getByRole('button', { name: 'Ativar microfone', exact: true }).click();
+    await expect(viewer.locator('audio')).toHaveCount(0);
+    await bob.getByRole('button', { name: 'Parar compartilhamento', exact: true }).click();
+    await expect(viewer.locator('audio[data-audio-owner="Bruno"][data-audio-kind="screen_share_audio"]')).toHaveCount(0);
+    await expect(viewer.getByRole('button', {name:'Escolher tela compartilhada'})).toContainText('Alice');
+    await bob.getByRole('button', { name: 'Compartilhar tela', exact: true }).click();
+    await viewer.getByRole('button', {name:'Escolher tela compartilhada'}).click();
+    // Pointer users activate the visible label, not the clipped sr-only input.
+    await viewer.getByRole('radiogroup',{name:'Telas disponíveis'}).getByText('Bruno',{exact:true}).click();
+    await expect(viewer.getByRole('radio',{name:'Bruno',exact:true})).toBeChecked();
+    await viewer.keyboard.press('Escape');
+    await expect(viewer.locator('audio')).toHaveCount(0);
+    await viewer.getByRole('button', { name: 'Restaurar áudio', exact: true }).click();
     await expect.poll(() => gain(viewer, 'screen_share_audio', 'Bruno')).toBeCloseTo(0.45);
+    await expect.poll(() => gain(viewer, 'microphone', 'Bruno')).toBe(1);
+    await bob.getByRole('button', { name: 'Desligar microfone', exact: true }).click();
     expect(await captures(viewer)).toBe(0); await expect.poll(() => energy(viewer)).toBeGreaterThan(0);
     await expect(alice.locator('audio[data-audio-owner="Alice"]')).toHaveCount(0);
     await bob.getByRole('button', { name: 'Parar compartilhamento', exact: true }).click();
-    await expect(viewer.locator('audio[data-audio-owner="Bruno"]')).toHaveCount(0);
+    await expect(viewer.locator('audio[data-audio-owner="Bruno"][data-audio-kind="screen_share_audio"]')).toHaveCount(0);
     await expect(viewer.locator('audio[data-audio-kind="screen_share_audio"]')).toHaveCount(1);
+    await bob.getByRole('button', { name: 'Sair da sala', exact: true }).click();
     await expect.poll(() => liveTracks(bob)).toBe(0);
   } finally { await Promise.all(contexts.map(context => context.close())); await service.deleteRoom(room); }
 });

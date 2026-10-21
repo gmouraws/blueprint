@@ -5,26 +5,45 @@ import { NextRequest } from 'next/server';
 import { chatHandlers, chatServices, cleanupHandler } from '../src/lib/server/chat-handlers';
 import { COOKIE_NAME, signSession } from '../src/lib/server/session';
 import { LimitError } from '../src/lib/server/rate-limit';
-import { ChatConflict } from '../src/lib/server/chat-store';
+import { ChatConflict, ChatUnavailable } from '../src/lib/server/chat-store';
 
 const config = {
   APP_ORIGIN: 'https://room.example.test', ROOM_PASSWORD: 'test-only-password-not-a-secret', SESSION_SECRET: 'test-only-signing-key-long-enough-for-tests',
   LIVEKIT_URL: 'wss://fixture.livekit.cloud', LIVEKIT_API_KEY: 'test-api-key', LIVEKIT_API_SECRET: 'test-api-secret-long-enough-for-tests', LIVEKIT_ROOM_NAME: 'test-fixed-room',
   UPSTASH_REDIS_REST_URL: 'https://fixture.upstash.io', UPSTASH_REDIS_REST_TOKEN: 'test-only-redis-token',
 };
-function request(method: 'GET' | 'POST', token?: string, body?: object, query = '', origin = config.APP_ORIGIN) {
-  return new NextRequest(`${config.APP_ORIGIN}/api/chat${query}`, { method, headers: { origin, 'content-type': 'application/json', ...(token ? { cookie: `${COOKIE_NAME}=${token}` } : {}) }, ...(method === 'POST' ? { body: JSON.stringify(body) } : {}) });
+function request(method: 'GET' | 'POST' | 'DELETE', token?: string, body?: object, query = '', origin = config.APP_ORIGIN) {
+  return new NextRequest(`${config.APP_ORIGIN}/api/chat${query}`, { method, headers: { origin, 'content-type': 'application/json', ...(token ? { cookie: `${COOKIE_NAME}=${token}` } : {}) }, ...(method !== 'GET' ? { body: JSON.stringify(body) } : {}) });
 }
 const deps = { ...chatServices, getConfig: () => config, rateLimit: async () => {} };
+test('delete authenticates, rate limits, rejects ownership spoofing and distinguishes unavailable content from cleanup pending', async () => {
+  const {token,session}=await signSession('Ana',config); let deletes=0;
+  const api=chatHandlers({...deps,rateLimit:async(_config,kind,id)=>{assert.equal(kind,'chat-write');assert.equal(id,session.identity);},deleteChat:async(sender,id,target)=>{
+    assert.deepEqual(sender,session);assert.equal(id,'2');assert.equal(target,'image');deletes++;return {change:{id,kind:target},cleanupPending:true};
+  }});
+  const body={id:'2',target:'image'};
+  for(const extra of [{senderId:session.identity},{name:'Ana'},{own:true}])assert.equal((await api.DELETE(request('DELETE',token,{...body,...extra}))).status,400);
+  assert.equal((await api.DELETE(request('DELETE',token,body,'','https://attacker.test'))).status,403);
+  assert.equal(deletes,0);
+  const response=await api.DELETE(request('DELETE',token,body));assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');assert.equal((await response.json()).cleanupPending,true);assert.equal(deletes,1);
+  for(const [failure,status] of [[new ChatUnavailable(),404],[new Error('secret-canary'),503],[new LimitError(429),429],[new LimitError(503),503]] as const){
+    const failed=chatHandlers({...deps,deleteChat:async()=>{throw failure;}});
+    const result=await failed.DELETE(request('DELETE',token,body));assert.equal(result.status,status);assert.ok(!(await result.text()).includes('secret-canary'));
+  }
+  const blocked=chatHandlers({...deps,rateLimit:async()=>{throw new LimitError(429);},deleteChat:async()=>{throw new Error('must not execute');}});
+  assert.equal((await blocked.DELETE(request('DELETE',token,body))).status,429);
+});
 test('chat rejects absent, altered, expired and password-rotated sessions before storage', async context => {
   let touches = 0;
   const api = chatHandlers({ ...deps, rateLimit: async () => { touches++; }, readChat: async () => { touches++; throw new Error('unreachable'); }, saveChat: async () => { touches++; throw new Error('unreachable'); } });
   const { token } = await signSession('Ana', config, true);
-  for (const value of [undefined, token + 'x']) for (const method of ['GET', 'POST'] as const) assert.equal((await api[method](request(method, value))).status, 401);
+  for (const value of [undefined, token + 'x']) for (const method of ['GET', 'POST', 'DELETE'] as const) assert.equal((await api[method](request(method, value))).status, 401);
   const rotated = chatHandlers({ ...deps, getConfig: () => ({ ...config, ROOM_PASSWORD: 'rotated-password-for-tests' }), readChat: async () => { touches++; throw new Error(); } });
   assert.equal((await rotated.GET(request('GET', token))).status, 401);
+  assert.equal((await rotated.DELETE(request('DELETE', token))).status, 401);
   context.mock.timers.enable({ apis: ['Date'], now: Date.now() + 2592000001 });
   assert.equal((await api.POST(request('POST', token))).status, 401);
+  assert.equal((await api.DELETE(request('DELETE', token))).status, 401);
   assert.equal(touches, 0);
 });
 test('chat derives identity/name on server, rejects spoofed fields and persists before acknowledgement', async () => {

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './icons';
 
-export function ControlMenu({ label, children, icon = 'more', className = '' }: {
-  label: string; children: ReactNode; icon?: 'more' | 'settings'; className?: string;
+export function ControlMenu({ label, children, icon = 'more', className = '', triggerContent, triggerClassName = '' }: {
+  label: string; children: ReactNode; icon?: 'more' | 'settings'; className?: string; triggerContent?: ReactNode; triggerClassName?: string;
 }) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -23,7 +23,7 @@ export function ControlMenu({ label, children, icon = 'more', className = '' }: 
     return () => window.removeEventListener('resize', reposition);
   }, [open, reposition]);
   return <>
-    <button ref={trigger} type="button" className="icon-button" popoverTarget={id} aria-label={label} title={label} aria-expanded={open}><Icon name={icon} /></button>
+    <button ref={trigger} type="button" className={triggerContent ? triggerClassName : 'icon-button'} popoverTarget={id} aria-label={label} title={label} aria-expanded={open}>{triggerContent ?? <Icon name={icon} />}</button>
     <div ref={panel} id={id} popover="auto" className={`control-menu ${className}`} style={position} role="group" aria-label={label} onToggle={event => {
       const visible = event.newState === 'open'; setOpen(visible);
       if (visible) reposition();

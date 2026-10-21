@@ -6,15 +6,16 @@ import { allowedOrigins, getConfig } from './config';
 import { COOKIE_NAME, verifySession } from './session';
 import { json, readBody } from './handlers';
 import { rateLimit, LimitError } from './rate-limit';
-import { ChatConflict, readChat, saveChat, cleanChat } from './chat-store';
+import { ChatConflict, ChatUnavailable, readChat, saveChat, cleanChat, deleteChat } from './chat-store';
 import { encodeMessage } from '../room';
 
 const cursor = z.string().refine(value => /^(?:0|[1-9][0-9]{0,18})$/.test(value) && BigInt(value) <= 9223372036854775807n);
-const querySchema = z.object({ before: cursor.optional(), after: cursor.optional() }).strict().refine(value => !(value.before && value.after));
+const querySchema = z.object({ before: cursor.optional(), after: cursor.optional(), changesAfter: cursor.optional() }).strict().refine(value => !(value.before && value.after));
+const deleteSchema = z.object({ id: cursor.refine(value => value !== '0'), target: z.enum(['message', 'image']) }).strict();
 const writeSchema = z.object({ body: z.string().max(2000).transform(value => value.trim()).refine(value => !value.includes('\0') && (!value || !!encodeMessage(value))), requestId: z.uuid(), imageId: z.uuid().optional() }).strict().refine(value => !!value.body || !!value.imageId);
-export const chatServices = { getConfig, rateLimit, readChat, saveChat, cleanChat };
+export const chatServices = { getConfig, rateLimit, readChat, saveChat, cleanChat, deleteChat };
 export function chatHandlers(deps = chatServices) {
-  async function handle(request: NextRequest, write: boolean) {
+  async function handle(request: NextRequest, write: boolean, remove = false) {
     try {
       const config = deps.getConfig();
       const origin = request.headers.get('origin');
@@ -22,6 +23,11 @@ export function chatHandlers(deps = chatServices) {
       const session = await verifySession(request.cookies.get(COOKIE_NAME)?.value, config);
       if (!session) return json({ error: 'Seu acesso expirou. Volte à entrada e entre novamente.' }, 401);
       await deps.rateLimit(config, write ? 'chat-write' : 'chat-read', session.identity);
+      if (remove) {
+        const parsed = deleteSchema.safeParse(await readBody(request).catch(() => null));
+        if (!parsed.success) return json({ error: 'Solicitação de exclusão inválida.' }, 400);
+        return json(await deps.deleteChat(session, parsed.data.id, parsed.data.target));
+      }
       if (write) {
         const parsed = writeSchema.safeParse(await readBody(request, 16384).catch(() => null));
         if (!parsed.success) return json({ error: 'Mensagem inválida. Use texto de até 2000 bytes.' }, 400);
@@ -32,12 +38,13 @@ export function chatHandlers(deps = chatServices) {
       if (!parsed.success || new Set(params.keys()).size !== [...params].length) return json({ error: 'Página inválida.' }, 400);
       return json(await deps.readChat(session, parsed.data));
     } catch (error) {
+      if (error instanceof ChatUnavailable) return json({ error: 'Conteúdo indisponível para exclusão nesta sessão.' }, 404);
       if (error instanceof ChatConflict) return json({ error: 'Essa tentativa já foi usada para outro texto. Confira o histórico antes de enviar uma nova mensagem.' }, 409);
       if (error instanceof LimitError) return json({ error: error.status === 429 ? 'Muitas solicitações. Aguarde antes de tentar novamente.' : 'A proteção do chat está indisponível. Tente novamente.' }, error.status, { 'Retry-After': String(error.retryAfter) });
-      return json({ error: write ? 'Não foi possível confirmar o salvamento no histórico. Tente novamente.' : 'O histórico está indisponível. Tente novamente mais tarde.' }, 503);
+      return json({ error: remove ? 'Não foi possível confirmar a exclusão. Tente novamente.' : write ? 'Não foi possível confirmar o salvamento no histórico. Tente novamente.' : 'O histórico está indisponível. Tente novamente mais tarde.' }, 503);
     }
   }
-  return { GET: (request: NextRequest) => handle(request, false), POST: (request: NextRequest) => handle(request, true) };
+  return { GET: (request: NextRequest) => handle(request, false), POST: (request: NextRequest) => handle(request, true), DELETE: (request: NextRequest) => handle(request, true, true) };
 }
 export async function cleanupHandler(request: NextRequest, clean = cleanChat, secret = process.env.CRON_SECRET) {
   const hash = (value: string) => createHash('sha256').update(value).digest();

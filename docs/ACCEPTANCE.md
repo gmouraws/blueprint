@@ -29,6 +29,7 @@ Automated tests do not establish real-device, multi-network or provider-quota be
 - Switch rooms repeatedly while sharing. Previous capture/audio must stop, the destination microphone stays off, and chat/drafts remain intact. Across both rooms the ninth voice participant must be refused.
 - Confirm red crossed-out microphones reflect sender mute; listener mute is separately labeled and changes only local playback. Open/close participant options by keyboard.
 - Confirm one local join/switch/leave tone, remote tones only for the current room, no initial-snapshot/reconnect duplicates, and preference/global-mute suppression.
+- Confirm visual entry/exit notices name only participants in your joined voice room, also while viewing Chat. Notices remain with tones disabled/deafen; keyboard dismissal and automatic expiry work. Chat-only browsing and other-room activity produce none, and temporary reconnection does not announce false departures/arrivals.
 - Send JPEG/PNG/WebP by paste, file picker and drop; remove the preview, retry failures, reload and enlarge the image. Reject malformed/oversized/unauthorized/expired uploads or retrieval. Confirm links open safely and other content remains plain text.
 - Watch a moving stream while chatting. Hide/restore/expand the mini-player without duplicate audio or a second connection. Switching voice rooms clears the previous stream. Check measured quality; do not infer 60 fps from the requested preset.
 
@@ -40,3 +41,11 @@ Automated tests do not establish real-device, multi-network or provider-quota be
 - Other-room screen audio starts off. Explicit listening enables only that screen; global mute and output selection still govern all playback, while participant and screen volumes remain independent.
 - Repeatedly select rooms, switch voice, hide/restore the mini-player, stop a stream and interrupt/recover networking. Check no duplicate sound, microphone leakage, stale player or lingering observer.
 - Fill the combined eight voice slots while viewers are present; reject the ninth voice admission. Confirm Cloud revokes both publisher identities when switching/leaving, including absent pending tokens.
+
+## Deletion and audio controls (Preview only)
+
+- In two chat-only clients, remove your image while retaining its text, then remove the whole message. Confirm Cancel leaves it unchanged, other senders have no action, the other client reconciles within a polling interval and the attachment URL returns 404. Repeat after reload, with older paginated history and after an interrupted acknowledgement. A new identity with the same nickname must not own earlier messages.
+- Exercise a Blob cleanup failure privately; access must stay revoked and a later maintenance run must delete both objects and retained cleanup metadata. Preview maintenance remains manual, including the upload-token grace window.
+- Toggle native noise suppression on a physical microphone, change devices, reconnect and compare speech/noise. Confirm the preference persists and the reported setting matches the browser; unsupported/unreported processing must remain honestly labeled. Screen audio must remain unchanged.
+- Use the dark stream selector by keyboard and touch, with long names and presenters stopping. Check one selected audio path and visible volume controls at desktop/mobile widths.
+- Deafen with microphones, a selected screen and tones active. Start/replace tracks while deafened; all must remain silent. Restore audio and confirm earlier individual mute/volume settings and local microphone state are preserved. Verify both joined and view-only screen connections and the other-room opt-in.

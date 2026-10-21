@@ -1,6 +1,8 @@
 import type { SVGProps } from 'react';
 
 const paths = {
+  headphones: <><path d="M3 14v-2a9 9 0 0118 0v2" /><rect x="3" y="12" width="4" height="9" rx="2" /><rect x="17" y="12" width="4" height="9" rx="2" /></>,
+  headphonesOff: <><path d="m3 3 18 18M3 14v-2a9 9 0 012-5M9 3.5A9 9 0 0121 12v3" /><rect x="3" y="12" width="4" height="9" rx="2" /><path d="M17 17v2a2 2 0 002 2" /></>,
   mic: <><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10v2a7 7 0 0014 0v-2M12 19v3M8 22h8" /></>,
   micOff: <><path d="m3 3 18 18M9 9v2a3 3 0 005 2M9 5V4a3 3 0 016 0v5M5 10v2a7 7 0 0012 5M19 10v2M12 19v3M8 22h8" /></>,
   audioOff: <><path d="m11 4-6 5H2v6h3l6 5V4ZM16 9l6 6m0-6-6 6" /></>,

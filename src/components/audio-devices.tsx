@@ -39,7 +39,7 @@ export function DeviceOptions({ devices, kind }: { devices: MediaDeviceInfo[]; k
 }
 
 type OutputPicker = MediaDevices & { selectAudioOutput?: () => Promise<MediaDeviceInfo> };
-export function AudioDevices({ room, microphoneBusy }: { room: Room; microphoneBusy: boolean }) {
+export function AudioDevices({ room, microphoneBusy, processing }: { room: Room; microphoneBusy: boolean; processing: ReturnType<typeof import('./microphone-processing').useMicrophoneProcessing> }) {
   const { devices, refresh, error } = useAudioDevices();
   const [input, setInput] = useState(() => room.getActiveDevice('audioinput') || readPreferences().microphone);
   const [output, setOutput] = useState(room.getActiveDevice('audiooutput') || 'default');
@@ -100,6 +100,8 @@ export function AudioDevices({ room, microphoneBusy }: { room: Room; microphoneB
     <label>Microfone<select aria-label="Selecionar microfone" value={input} disabled={pending || microphoneBusy} onChange={event => void select('audioinput', event.target.value)}><DeviceOptions devices={devices} kind="audioinput" /></select></label>
     {supported ? <label>Saída de áudio<select aria-label="Selecionar saída de áudio" value={output} disabled={pending} onChange={event => void select('audiooutput', event.target.value)}><DeviceOptions devices={devices} kind="audiooutput" /></select></label> : <p>A seleção de saída não é suportada neste navegador. O áudio segue o padrão do sistema operacional.</p>}
     {supported && pickerSupported && <button onClick={pickOutput} disabled={pending}>Escolher saída de áudio</button>}
+    <label className="checkbox-label"><input type="checkbox" checked={processing.enabled} disabled={!processing.supported || pending || microphoneBusy} onChange={event => void processing.change(event.target.checked)} />Supressão de ruído</label>
+    <p className="muted" role="status">{processing.status}</p>
     <p className="muted">Os nomes disponíveis são informados pelo navegador. Após permitir o microfone, a lista é atualizada. Você não precisa permitir o microfone para ouvir.</p>
     {(notice || error) && <p role="status">{notice || error}</p>}
   </div>;

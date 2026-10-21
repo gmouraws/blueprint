@@ -20,7 +20,7 @@ test('original sizing, contextual controls and fullscreen preserve one media pat
     await expect.poll(() => energy(page)).toBeGreaterThan(0);
     const hostVideoBounds = await host.locator('video').boundingBox();
     await host.locator('.screen-viewer').hover(); await host.mouse.move(0, 0);
-    await expect(host.locator('.viewer-toolbar')).toHaveCSS('opacity', '0', { timeout: 5000 });
+    await expect(host.locator('.viewer-toolbar')).toHaveCSS('opacity', '1', { timeout: 5000 });
     expect(await host.locator('video').boundingBox()).toEqual(hostVideoBounds);
     await host.locator('.screen-viewer').hover();
     await expect(host.locator('.viewer-toolbar')).toHaveCSS('opacity', '1');
@@ -38,17 +38,19 @@ test('original sizing, contextual controls and fullscreen preserve one media pat
     expect(right - left + 1).toBeGreaterThanOrEqual(638); expect(right - left + 1).toBeLessThanOrEqual(642);
     expect(Math.abs(left - (info.width - right - 1))).toBeLessThanOrEqual(2);
     await viewer.hover(); await page.mouse.move(0, 0);
-    await expect(viewer).toHaveAttribute('data-controls-visible', 'false', { timeout: 5000 });
+    await expect(page.locator('.viewer-toolbar')).toHaveCSS('opacity', '1');
     expect(await video.boundingBox()).toEqual(dimensions);
     await viewer.focus(); await page.keyboard.press('Tab');
-    await expect(page.getByLabel('Escolher tela compartilhada')).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Escolher tela compartilhada' })).toBeFocused();
     await expect(page.locator('.viewer-toolbar')).toHaveCSS('opacity', '1');
     expect(await video.boundingBox()).toEqual(dimensions);
     await page.getByRole('button', { name: 'Opções de visualização' }).tap();
     await page.getByRole('button', { name: 'Ajustar à área', exact: true }).click();
     await expect(video).toHaveCSS('object-fit', 'contain');
     await page.getByRole('button', { name: 'Tamanho original', exact: true }).click();
-    await page.getByRole('slider', { name: 'Áudio da tela selecionada' }).fill('45');
+    await page.keyboard.press('Escape');
+    await page.getByRole('slider', { name: /Volume da tela de/ }).fill('45');
+    await page.getByRole('button', { name: 'Opções de visualização' }).click();
     await page.getByRole('button', { name: 'Alternar tela cheia' }).click();
     await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
     await page.keyboard.press('Escape'); // Dismiss the options popover, retaining fullscreen.
@@ -56,10 +58,10 @@ test('original sizing, contextual controls and fullscreen preserve one media pat
     await expect(full.getByRole('button', { name: 'Ativar microfone', exact: true })).toBeVisible();
     await full.getByRole('button', { name: 'Ativar microfone', exact: true }).click();
     await expect(full.getByRole('button', { name: 'Desligar microfone', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await full.getByRole('button', { name: 'Silenciar áudio', exact: true }).click();
+    await full.getByRole('button', { name: 'Silenciar todo o áudio', exact: true }).click();
     await expect.poll(() => gain(page, 'screen_share_audio', 'Alice')).toBe(0);
     await expect(full.getByRole('button', { name: 'Desligar microfone', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await full.getByRole('button', { name: 'Ouvir áudio', exact: true }).click();
+    await full.getByRole('button', { name: 'Restaurar áudio', exact: true }).click();
     await expect.poll(() => gain(page, 'screen_share_audio', 'Alice')).toBeCloseTo(0.45);
     await full.getByRole('button', { name: 'Desligar microfone', exact: true }).click();
     await viewer.hover(); await page.getByRole('button', { name: 'Opções de visualização' }).click();

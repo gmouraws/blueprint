@@ -12,13 +12,14 @@ import { Brand, Icon } from './icons';
 import { Chat } from './chat';
 import { AudioDevices } from './audio-devices';
 import { useMicrophone } from './microphone';
-import { AudioDiagnostics, IncomingAudio, MembershipSounds, VolumeControl, type VolumeSetting } from './incoming-audio';
+import { AudioDiagnostics, IncomingAudio, MembershipNotifications, VolumeControl, type VolumeSetting } from './incoming-audio';
 import { VoiceNavigation } from './voice-navigation';
 import { SCREEN_QUALITIES, type ScreenQuality } from './screen-quality';
 import { ScreenViewer } from './screen-viewer';
 import { ControlMenu } from './control-menu';
 import { CallAudioControls } from './call-audio-controls';
 import { createScreenRoom, useScreenObserver, useScreenOutput } from './screen-connection';
+import { useMicrophoneProcessing } from './microphone-processing';
 
 async function post(path: string, body: object) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store', signal: AbortSignal.timeout(20000) });
@@ -107,6 +108,7 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
   const [sounds, setSounds] = useState(() => readPreferences().sounds);
   const alive = useRef(false);
   const microphone = useMicrophone(room);
+  const processing = useMicrophoneProcessing(room);
   const { isMicrophoneEnabled } = useLocalParticipant();
   const { localParticipant: screenParticipant, isScreenShareEnabled } = useLocalParticipant({ room: publisher });
   const { canPlayAudio, startAudio } = useAudioPlayback();
@@ -159,12 +161,13 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
   const mini = view === 'chat';
   const showStream = !!current && (!mini || !miniHidden);
   const viewingStatus = !foreign ? 'Na voz' : observer.error ? 'Visualização indisponível' : screenState === ConnectionState.Connected ? 'Visualizando' : 'Abrindo telas…';
-  const audioControls = { enabled: isMicrophoneEnabled, pending: microphone.pending, disabled: !connected || joining, muted: audioMuted, onMicrophone: microphone.toggle, onCancel: microphone.cancel, onListening: () => setAudioMuted(value => !value) };
+  const audioControls = { enabled: isMicrophoneEnabled, pending: microphone.pending, disabled: !connected || joining || processing.pending, muted: audioMuted, onMicrophone: microphone.toggle, onCancel: microphone.cancel, onListening: () => setAudioMuted(value => !value) };
   function changeScreenVolume(setting: VolumeSetting) { setScreenSetting(setting); savePreferences({ screenVolume: setting.volume }); }
   return <main className="room-shell">
     <header className="room-header"><Brand /><span className="connection" role="status"><i className={connected ? 'connected-dot' : ''} /><span>Voz: <span>{status}</span>{connected && ' · ' + name(currentRoom)}</span></span><span className="small-label"><Icon name="lock" /> Sala privada</span></header>
     <div className="room-columns"><aside className="participants-panel"><VoiceNavigation currentRoom={currentRoom} connected={connected} browsing={browsing} busy={voiceBusy || screenPending || microphone.pending} onBrowse={browse} onJoin={enter} onChat={() => setView('chat')} chatActive={view === 'chat'} volumes={volumes} onVolume={(identity, value) => setVolumes(previous => ({ ...previous, [identity]: value }))} /></aside>
       <div className="workspace-main"><div className="view-tabs" role="tablist" aria-label="Visualização">{(['sala', 'chat'] as const).map(tab => <button key={tab} role="tab" id={'tab-' + tab} aria-controls={'panel-' + tab} aria-selected={view === tab} tabIndex={view === tab ? 0 : -1} onClick={() => { if (tab === 'sala') setViewed(true); setView(tab); }} onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 'sala' : event.key === 'End' ? 'chat' : tab === 'sala' ? 'chat' : 'sala'; if (next === 'sala') setViewed(true); setView(next); document.getElementById('tab-' + next)?.focus(); } }}>{tab === 'sala' ? 'Sala' : 'Chat'}{tab === 'chat' && unread > 0 && view !== 'chat' && <span className="pill" aria-label={unread + ' mensagens novas'}>{unread > 99 ? '99+' : unread}</span>}</button>)}</div>
+        <MembershipNotifications enabled={sounds} muted={audioMuted} roomName={name(currentRoom)} />
         <div className="workspace-notices">{error && <p className="error banner" role="alert">{error}</p>}{observer.error && <p className="error banner" role="alert">{observer.error} <button onClick={observer.retry}>Tentar visualização novamente</button></p>}{[notice, microphone.notice, screenOutput.error].filter(Boolean).map(message => <p className="notice banner" role="status" key={message}>{message}</p>)}{((!canPlayAudio && connected) || (!screenPlayback.canPlayAudio && hasScreenAudio && screenListening)) && <button className="audio-unlock" onClick={unlock}>Ativar áudio</button>}</div>
         <div className={'media-chat-layout ' + (mini ? 'chat-layout' : '')}>
           <section className={mini ? 'stream-mini' : 'stage-column'} id="panel-sala" role={mini ? 'region' : 'tabpanel'} aria-label={mini ? 'Tela em mini-player' : undefined} aria-labelledby={mini ? undefined : 'tab-sala'} hidden={mini && !showStream}>
@@ -176,7 +179,7 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
       </div></div>
     <footer className="call-controls"><div className="microphone-controls">{!connected && onJoin && <button className="primary" disabled={joining || state !== ConnectionState.Disconnected} onClick={() => enter(browsing)}>{joining ? 'Entrando…' : 'Entrar na voz'}</button>}<CallAudioControls {...audioControls} /></div>
       <div className="main-controls"><button className={isScreenShareEnabled ? 'active' : 'primary'} onClick={share} disabled={!connected || publisherState !== ConnectionState.Connected || joining || screenPending} aria-label={screenPending ? 'Aguarde…' : isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'} title={isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'}><Icon name="screen" /><span className="control-label">{screenPending ? 'Aguarde…' : isScreenShareEnabled ? 'Parar compartilhamento' : 'Compartilhar tela'}</span></button>
-        <ControlMenu label="Configurações de áudio" icon="settings" className="call-settings"><AudioDevices room={room} microphoneBusy={microphone.pending || joining} /><label className="checkbox-label"><input type="checkbox" checked={sounds} onChange={event => { setSounds(event.target.checked); savePreferences({ sounds: event.target.checked }); }} />Sons de entrada e saída</label>
+        <ControlMenu label="Configurações de áudio" icon="settings" className="call-settings"><AudioDevices room={room} microphoneBusy={microphone.pending || joining || processing.pending} processing={processing} /><label className="checkbox-label"><input type="checkbox" checked={sounds} onChange={event => { setSounds(event.target.checked); savePreferences({ sounds: event.target.checked }); }} />Sons de entrada e saída</label>
           <label>Qualidade solicitada<select aria-label="Qualidade do compartilhamento" value={quality} disabled={isScreenShareEnabled || screenPending} onChange={event => setQuality(event.target.value as ScreenQuality)}>{Object.entries(SCREEN_QUALITIES).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label><p className="muted">Aplicada no próximo compartilhamento. Até 5 Mbps em 30 fps/720p ou 8 Mbps em 1080p/60 fps; maior qualidade usa mais rede. Áudio da tela depende do navegador e da fonte.</p>
           {mini && miniHidden && current && !current.participant.isLocal && hasScreenAudio && <VolumeControl label="Áudio da tela selecionada" setting={screenSetting} onChange={changeScreenVolume} />}
           <p className="muted">Silenciar mantém a captura reservada. Sair ou trocar de sala libera os dispositivos.</p><AudioDiagnostics canPlay={canPlayAudio} globalMuted={audioMuted} timing={microphone.timing} />
@@ -184,6 +187,5 @@ export function RoomView({ publisher: providedPublisher, error = '', onLeave, on
       </div><button className="leave" disabled={joining || screenPending} aria-label="Sair da sala" title="Sair da sala" onClick={() => { microphone.stop(); onLeave(); }}><Icon name="leave" /><span className="control-label">Sair da sala</span></button></footer>
     <IncomingAudio volumes={volumes} screenSetting={screenSetting} globalMuted={audioMuted} />
     <RoomContext.Provider value={screenRoom}><IncomingAudio volumes={{}} screenOnly screenIdentity={screenListening ? current?.participant.identity : undefined} screenSetting={screenSetting} globalMuted={audioMuted || !screenOutput.ready} /></RoomContext.Provider>
-    <MembershipSounds enabled={sounds} muted={audioMuted} />
   </main>;
 }

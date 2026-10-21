@@ -4,6 +4,7 @@ import { createLocalAudioTrack, RoomEvent, Track, ConnectionState, type LocalAud
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { microphoneError, readPreferences, savePreferences } from '@/lib/client/preferences';
 import { DeviceOptions, useAudioDevices } from './audio-devices';
+import { microphoneProcessing } from '@/lib/client/microphone-processing';
 
 type Operation = { cancelled: boolean; track?: LocalAudioTrack };
 export function useMicrophone(room: Room) {
@@ -90,7 +91,7 @@ export const MicrophoneCheck = forwardRef<MicrophoneCheckHandle, { disabled: boo
     try {
       // Resume during the explicit gesture; this graph never connects to the speakers.
       context = new AudioContext(); pendingContext.current = context; void context.resume().catch(() => undefined);
-      track = await createLocalAudioTrack({ deviceId: selected, echoCancellation: true, noiseSuppression: true, autoGainControl: true });
+      track = await createLocalAudioTrack({ deviceId: selected, ...microphoneProcessing(readPreferences().noiseSuppression, navigator.mediaDevices.getSupportedConstraints()) });
       if (!alive.current || version !== generation.current) { track.stop(); if (context.state !== 'closed') await context.close(); return; }
       pendingContext.current = null;
       const source = context.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
