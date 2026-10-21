@@ -296,3 +296,8 @@ button.listening-muted { border-color: #d9ba78; color: #f3d9a5; background: #302
   .room-header .profile-trigger { grid-column:3; grid-row:1; width:44px; padding:10px; }
   .room-header .profile-trigger span { display:none; }
 }
+
+.shortcut-row > span { flex: 1; min-width: 0; }
+.shortcut-row small { display: block; overflow-wrap: anywhere; }
+.shortcut-recording { border-left: 2px solid var(--accent); padding-left: 10px; }
+.shortcut-recording > div { display: flex; flex-wrap: wrap; gap: 6px; }

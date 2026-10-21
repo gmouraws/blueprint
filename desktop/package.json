@@ -1,0 +1,55 @@
+{
+  "name": "blueprint-room-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Blueprint Room Windows test client",
+  "author": "Blueprint",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "node build.mjs",
+    "test": "node --test *.test.mjs"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "br.app.blueprint.room.preview",
+    "productName": "Blueprint Room Preview",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.mjs",
+      "preload.cjs",
+      "policy.mjs",
+      "keybindings.mjs",
+      "profile.json",
+      "icon.png",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.ico",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "artifactName": "Blueprint-Room-Preview-${version}-x64-setup.${ext}",
+    "npmRebuild": false
+  }
+}
