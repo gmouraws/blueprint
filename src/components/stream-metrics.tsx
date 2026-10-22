@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { streamVideoSample, validStreamNumber } from '@/lib/client/stream-sample';
 import { ConnectionState, LocalVideoTrack, LocalAudioTrack, RemoteVideoTrack, RemoteAudioTrack, type Room } from 'livekit-client';
 type Day = { day: string; connectedSeconds: number; sentVideo: number; sentAudio: number; receivedVideo: number; receivedAudio: number; samples: number; width: number; height: number; fps: number };
 const key = 'blueprint:stream-usage:v1';
 function validate(rows: unknown): Day[] {
   if (!Array.isArray(rows)) return [];
-  return rows.filter((row): row is Day => !!row && typeof row.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row.day) && ['connectedSeconds','sentVideo','sentAudio','receivedVideo','receivedAudio','samples','width','height','fps'].every(field => Number.isFinite(row[field]) && row[field] >= 0)).slice(-28).map(row => ({day: row.day, connectedSeconds: row.connectedSeconds, sentVideo: row.sentVideo, sentAudio: row.sentAudio, receivedVideo: row.receivedVideo, receivedAudio: row.receivedAudio, samples: row.samples, width: row.width, height: row.height, fps: row.fps}));
+  return rows.filter((row): row is Day => !!row && typeof row.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row.day) && ['connectedSeconds','sentVideo','sentAudio','receivedVideo','receivedAudio','samples','width','height','fps'].every(field => validStreamNumber(row[field]))).slice(-28).map(row => ({day: row.day, connectedSeconds: row.connectedSeconds, sentVideo: row.sentVideo, sentAudio: row.sentAudio, receivedVideo: row.receivedVideo, receivedAudio: row.receivedAudio, samples: row.samples, width: row.width, height: row.height, fps: row.fps}));
 }
 async function read(): Promise<Day[]> {
   try {
@@ -31,13 +32,14 @@ export function StreamMetrics({ room }: { room: Room }) {
           let bytes = 0;
           let field: 'sentVideo' | 'sentAudio' | 'receivedVideo' | 'receivedAudio';
           if (track instanceof LocalVideoTrack) {
-            const stats = await track.getSenderStats(); bytes = stats.reduce((sum, layer) => sum + (layer.bytesSent ?? 0), 0); field = 'sentVideo';
-            const layer = stats.reduce<(typeof stats)[number] | undefined>((largest, value) => !largest || value.frameWidth * value.frameHeight > largest.frameWidth * largest.frameHeight ? value : largest, undefined);
-            if (layer) { row.samples++; row.width = layer.frameWidth; row.height = layer.frameHeight; row.fps = layer.framesPerSecond; }
+            const measured = streamVideoSample(await track.getSenderStats());
+            bytes = measured.bytes; field = 'sentVideo';
+            if (measured.samples) { row.samples++; row.width = measured.width; row.height = measured.height; row.fps = measured.fps; }
           } else if (track instanceof LocalAudioTrack) { bytes = (await track.getSenderStats())?.bytesSent ?? 0; field = 'sentAudio'; }
           else if (track instanceof RemoteVideoTrack) { bytes = (await track.getReceiverStats())?.bytesReceived ?? 0; field = 'receivedVideo'; }
           else if (track instanceof RemoteAudioTrack) { bytes = (await track.getReceiverStats())?.bytesReceived ?? 0; field = 'receivedAudio'; }
           else continue;
+          if (!validStreamNumber(bytes)) continue;
           const old = previous.get(publication.trackSid); previous.set(publication.trackSid, bytes);
           if (old !== undefined && bytes >= old) row[field] += bytes - old;
         }
@@ -46,8 +48,9 @@ export function StreamMetrics({ room }: { room: Room }) {
         const day = history.find(item => item.day === row.day);
         if (day) { for (const field of ['connectedSeconds','sentVideo','sentAudio','receivedVideo','receivedAudio','samples'] as const) day[field] += row[field]; if (row.samples) { day.width = row.width; day.height = row.height; day.fps = row.fps; } }
         else history.push(row);
-        try { if (window.blueprintStreamDesktop?.usageWrite) await window.blueprintStreamDesktop.usageWrite(history.slice(-28)); else localStorage.setItem(key, JSON.stringify(history.slice(-28))); } catch { /* Optional device-local estimates. */ }
-        setRows(history);
+        const sanitized = validate(history);
+        try { if (window.blueprintStreamDesktop?.usageWrite) await window.blueprintStreamDesktop.usageWrite(sanitized); else localStorage.setItem(key, JSON.stringify(sanitized)); } catch { /* Optional device-local estimates. */ }
+        if (active) setRows(sanitized);
       } catch { /* Missing browser stats must never interrupt media. */ }
       finally { busy = false; }
     }
