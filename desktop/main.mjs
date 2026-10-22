@@ -106,7 +106,7 @@ else {
       const registered=app.setAsDefaultProtocolClient(scheme,process.execPath,[]);
       diagnostic(registered && app.isDefaultProtocolClient(scheme,process.execPath,[]) ? 'protocol_registered' : 'protocol_registration_failed');
     }
-    streamWindow=createStreamWindow({profile,here,helper:path.join(app.isPackaged?process.resourcesPath:path.join(here,'native/dist'),'process-audio.exe'),version:app.getVersion(),diagnostic,onChange:updateTray,onHide:()=>{if(!quitting && tray && !tray.isDestroyed())tray.displayBalloon({title:'Transmissão na bandeja',content:'Use Abrir transmissão para voltar ou Sair do aplicativo para encerrar a mídia.'});}});
+    streamWindow=createStreamWindow({profile,here,helper:path.join(app.isPackaged?process.resourcesPath:path.join(here,'native/dist'),'process-audio.exe'),version:app.getVersion(),usageFile:path.join(app.getPath('userData'),'stream-usage.json'),diagnostic,onChange:updateTray,onHide:()=>{if(!quitting && tray && !tray.isDestroyed())tray.displayBalloon({title:'Transmissão na bandeja',content:'Use Abrir transmissão para voltar ou Sair do aplicativo para encerrar a mídia.'});}});
     const ses = session.fromPartition(`persist:blueprint-${profile.name}`);
     ses.setUserAgent(ses.getUserAgent()+` BlueprintRoom/${app.getVersion()}`);
     win = new BrowserWindow({ width: 1180, height: 800, minWidth: 375, minHeight: 560, title: `Blueprint Room${profile.name === 'preview' ? ' · Preview' : ''}`, icon: path.join(here, 'icon.png'), backgroundColor: '#10151b', webPreferences: { session: ses, preload: path.join(here, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false } });

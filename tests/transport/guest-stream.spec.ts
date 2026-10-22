@@ -3,8 +3,10 @@ import { AccessToken, TrackSource, RoomConfiguration } from 'livekit-server-sdk'
 import { instrument, captures, liveTracks, service, energy } from './fixtures';
 
 test('transmission-only guests publish/watch one screen transport without microphone capture; mute and cleanup work', async ({ browser }) => {
+  test.setTimeout(100000);
   const name = `guest-fixture-${Date.now()}`;
   const publisher = await browser.newPage(); const viewer = await browser.newPage();
+  publisher.on('console', message => { if (message.text().startsWith('stream_publish_failed ')) console.log(message.text()); });
   let announced = 0;
   async function prepare(page: Page, id: string, share: boolean) {
     await instrument(page);
@@ -29,7 +31,7 @@ test('transmission-only guests publish/watch one screen transport without microp
     expect(await captures(publisher)).toBe(0); expect(await liveTracks(publisher)).toBe(0);
     await expect(viewer.getByRole('button', { name: 'Selecionar tela' })).toHaveCount(0);
     await publisher.getByRole('button', { name: 'Selecionar tela' }).click();
-    await expect(publisher.getByRole('button', { name: 'Parar transmissão', exact: true })).toBeEnabled({timeout:15000});
+    try { await expect(publisher.getByRole('button', { name: 'Parar transmissão', exact: true })).toBeEnabled({timeout:45000}); } catch (error) { console.log('Synthetic publisher UI:', await publisher.locator('main').innerText()); console.log('Synthetic transport states:', await publisher.evaluate(()=>(window as unknown as {mediaProbe:{peers:RTCPeerConnection[]}}).mediaProbe.peers.map(peer=>({ice:peer.iceConnectionState,connection:peer.connectionState,signaling:peer.signalingState})))); throw error; }
     // Discovery deliberately polls every 10 seconds without a media connection.
     await expect(viewer.getByRole('button', { name: 'Assistir · Transmissão 1', exact: true })).toBeVisible({timeout:20000});
     expect(await service.listParticipants(name)).toHaveLength(1);

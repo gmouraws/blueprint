@@ -2,7 +2,7 @@
 
 ## Mission
 
-Blueprint Room is a private browser-based voice, screen-sharing, and shared chat room with 30-day history for up to eight friends. The owner explicitly approved replacing the public engineering lab and releasing it through the existing production Git integration; see docs/adr/009-private-room-replacement.md and docs/RELEASE.md. Future production releases still require explicit owner authorization.
+Blueprint is a private screen/audio streaming space for up to eight friends, with Discord handling voice and chat (ADR 025). Existing accounts and historical chat/attachments remain stored under their established retention policy. The owner explicitly approved replacing the public engineering lab and releasing it through the existing production Git integration; see docs/adr/009-private-room-replacement.md and docs/RELEASE.md. Future production releases still require explicit owner authorization.
 
 Blueprint is not a résumé, employment portfolio, company history, or showcase of proprietary professional work.
 

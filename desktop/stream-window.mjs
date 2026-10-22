@@ -1,5 +1,6 @@
 import { BrowserWindow, session, ipcMain, dialog, shell } from 'electron';
 import path from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { streamPage } from './stream-links.mjs';
 import { external, trusted } from './policy.mjs';
 import { createScreenPicker } from './screen-picker.mjs';
@@ -7,7 +8,7 @@ import { createProcessAudio } from './process-audio.mjs';
 import { failurePage } from './startup.mjs';
 
 // A separate WebContents/session never receives the account cookie or account IPC.
-export function createStreamWindow({ profile, here, helper, version, onChange = () => {}, onHide = () => {}, diagnostic = () => {} }) {
+export function createStreamWindow({ profile, here, helper, version, usageFile, onChange = () => {}, onHide = () => {}, diagnostic = () => {} }) {
   let disposed=false;
   let win, picker, audio, ticket, loading, heartbeat, lastSync = 0, failed = false, selected = false, available = false, expires = 0, opening = false;
   const sender = event => !disposed && win && !win.isDestroyed() && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame && streamPage(event.senderFrame.url, profile.origin);
@@ -50,9 +51,27 @@ export function createStreamWindow({ profile, here, helper, version, onChange = 
     if(!sender(event) || !['ticket_redeemed','ticket_rejected','media_connected','media_failed'].includes(stage))return;
     diagnostic(stage);
   });
+  const usageFields = ['connectedSeconds','sentVideo','sentAudio','receivedVideo','receivedAudio','samples','width','height','fps'];
+  function validateUsage(rows) {
+    if (!Array.isArray(rows) || rows.length > 28) throw Error('Invalid usage data');
+    return rows.map(row => {
+      if (!row || typeof row !== 'object' || Object.keys(row).length !== 10 || Object.keys(row).some(key => key !== 'day' && !usageFields.includes(key)) || typeof row.day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.day) || !Number.isFinite(Date.parse(row.day)) || usageFields.some(key => !Number.isFinite(row[key]) || row[key] < 0 || row[key] > 1e15)) throw Error('Invalid usage data');
+      return Object.fromEntries(['day', ...usageFields].map(key => [key, row[key]]));
+    });
+  }
+  ipcMain.handle('stream:usage-read', event => {
+    if (!sender(event)) throw Error('Invalid stream origin');
+    try { return usageFile ? validateUsage(JSON.parse(readFileSync(usageFile, 'utf8'))) : []; } catch { return []; }
+  });
+  ipcMain.handle('stream:usage-write', (event, rows) => {
+    if (!sender(event)) throw Error('Invalid stream origin');
+    const values = validateUsage(rows);
+    if (usageFile) writeFileSync(usageFile, JSON.stringify(values));
+    return true;
+  });
   function dispose(){
     if(disposed)return; disposed=true; destroy();
-    for(const channel of ['stream:invite','stream:configure','stream:diagnostic','stream-capture:claim','stream-capture:pull','stream-capture:stop'])ipcMain.removeHandler(channel);
+    for(const channel of ['stream:invite','stream:configure','stream:diagnostic','stream:usage-read','stream:usage-write','stream-capture:claim','stream-capture:pull','stream-capture:stop'])ipcMain.removeHandler(channel);
   }
   return {
     dispose, restore, destroy, exists: () => !!win && !win.isDestroyed(),

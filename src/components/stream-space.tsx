@@ -257,6 +257,7 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
   async function publish() {
     if (busyRef.current || !share || (desktop && !nativeReady)) return;
     busyRef.current = true; setBusy(true); onNotice('');
+    let phase = 'capture';
     try {
       if (publishing.current) {
         await room.localParticipant.setScreenShareEnabled(false); publishing.current = false;
@@ -268,7 +269,8 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
         const tracks = await room.localParticipant.createScreenTracks({ audio: true, resolution: { width: target.width, height: target.height, frameRate: fps } });
         pending.current.push(...tracks);
         if (!alive.current || tracks.some(track => track.mediaStreamTrack.readyState !== 'live')) throw Error('cancelled');
-        await connect();
+        phase = 'connect'; await connect();
+        phase = 'publish';
         for (const track of tracks) {
           if (!alive.current || track.mediaStreamTrack.readyState !== 'live') throw Error('cancelled');
           await room.localParticipant.publishTrack(track, { source: track.kind === Track.Kind.Video ? Track.Source.ScreenShare : Track.Source.ScreenShareAudio, screenShareEncoding: { maxBitrate: target.bitrate, maxFramerate: fps }, degradationPreference: 'balanced' });
@@ -277,7 +279,9 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
         pending.current.splice(0); publishing.current = true;
         void post({ action: 'announce', attempt: crypto.randomUUID() }).catch(() => undefined);
       }
-    } catch {
+    } catch (error) {
+      const category = error instanceof Error && ['NotAllowedError','NotFoundError','TrackInvalidError','PublishTrackError','PublishPermissionError','ConnectionError','TypeError','Error'].includes(error.name) ? error.name : 'unknown';
+      console.warn('stream_publish_failed', phase, category);
       for (const track of pending.current.splice(0)) track.stop();
       await room.localParticipant.setScreenShareEnabled(false).catch(() => undefined); publishing.current = false;
       if (selectedLabel.current === null) { cleanup.current = disconnect(); await cleanup.current; }
