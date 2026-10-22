@@ -17,8 +17,8 @@ test('home is stream-only, accessible and never joins or captures; admin is a di
   const media: string[] = [];
   await page.route('**/api/**', route => { media.push(route.request().url()); return route.abort(); });
   await page.goto('/');
-  await expect(page.getByRole('heading',{name:'Compartilhe sua tela'})).toBeVisible();
-  await expect(page.getByRole('link',{name:'Administração'})).toHaveAttribute('href','/admin');
+  await expect(page.getByRole('heading',{name:'Screen sharing, built for private spaces.'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Private access'})).toHaveAttribute('href','/admin?lang=en');
   await expect(page.getByRole('button',{name:/Entrar na sala|Abrir chat|microfone/i})).toHaveCount(0);
   for (const width of [1440,375,320]) {
     await page.setViewportSize({width,height:900});

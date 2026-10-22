@@ -44,7 +44,7 @@ Vercel supplies VERCEL, VERCEL_URL and VERCEL_BRANCH_URL; do not spoof these loc
 
 ## Existing Vercel integration
 
-The existing project is blueprint (prj_hNhWNMGea9fQLySMr6CfR92BodNS), associated with blueprint.app.br; retain it. No DNS, domain or production project settings need to change. There is no static-export setting; Next.js functions serve the API. Production remains main. GitHub Actions runs quality gates, not deployment commands.
+The existing project is blueprint ([identifier retained in provider dashboard]), associated with blueprint.app.br; retain it. No DNS, domain or production project settings need to change. There is no static-export setting; Next.js functions serve the API. Production remains main. GitHub Actions runs quality gates, not deployment commands.
 
 1. Push/review the feature PR. The existing Git integration creates a **preview**; never use --prod or promote during this phase.
 2. In this project's Settings → Environment Variables, set the nine values for **Preview** (optionally scoped to this branch). Use the preview room name and isolated secrets. APP_ORIGIN can be the exact preview alias; generated Vercel deployment origins are also accepted.

@@ -102,11 +102,16 @@ test('avatar validation uses real decoding, strips metadata and respects size/ty
   await assert.rejects(normalizeAvatar(input,'image/png'));await assert.rejects(normalizeAvatar(Buffer.alloc(MAX_AVATAR_BYTES+1),'image/jpeg'));await assert.rejects(normalizeAvatar(Buffer.from('not an image'),'image/png'));
 });
 test('generic code response does not reveal membership; rate failures prevent email and reject unexpected fields',async context=>{
-  context.mock.method(accountAuthServices,'rateLimit',async()=>{});
+  const checks: {kind:string;identifier:string}[]=[];
+  context.mock.method(accountAuthServices,'rateLimit',async(_config:typeof fixtureConfig,kind:string,identifier:string)=>{checks.push({kind,identifier});});
   const request=(body:object)=>new NextRequest(fixtureConfig.APP_ORIGIN+'/api/account/code',{method:'POST',headers:{origin:fixtureConfig.APP_ORIGIN,'content-type':'application/json'},body:JSON.stringify(body)});
   const missing=`${randomUUID()}@example.test`;const response=await accountAuthHandler(request({email:missing}));assert.equal(response.status,200);assert.equal(mail.has(missing),false);
+  assert.deepEqual(checks.map(item=>item.kind),['login','otp-send']);assert.equal(checks[1].identifier,missing);
+  const known=`${randomUUID()}@example.test`;await invite(known);
+  const accepted=await accountAuthHandler(request({email:known}));assert.equal(accepted.status,response.status);assert.deepEqual(await accepted.json(),await response.json());assert.ok(mail.has(known));
   assert.equal((await accountAuthHandler(request({email:missing,role:'owner'}))).status,400);
   context.mock.method(accountAuthServices,'rateLimit',async()=>{throw new LimitError(429);});assert.equal((await accountAuthHandler(request({email:missing}))).status,429);
+  context.mock.method(accountAuthServices,'rateLimit',async()=>{throw new LimitError(503);});assert.equal((await accountAuthHandler(request({email:missing}))).status,503);
 });
 
 

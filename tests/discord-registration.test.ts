@@ -4,21 +4,22 @@ import { readFileSync } from 'node:fs';
 // The one-off registration CLI is intentionally plain Node ESM.
 import { registerDiscordCommand, registrationDiagnostic } from '../scripts/register-discord-command.mjs';
 test('registration is a single named guild upsert, never a bulk overwrite or permission change',async()=>{
- const env={NODE_ENV:'test' as const,DISCORD_APPLICATION_ID:'1562592101659836516',DISCORD_GUILD_ID:'466392379667120129',DISCORD_BOT_TOKEN:'test-only-registration'};
+ const env={NODE_ENV:'test' as const,DISCORD_APPLICATION_ID:'100000000000000001',DISCORD_GUILD_ID:'100000000000000002',DISCORD_BOT_TOKEN:'test-only-registration'};
  const calls: string[]=[];
  const request: typeof fetch=async(url,init)=>{calls.push(String(url));assert.equal(init!.method,'POST');assert.deepEqual(JSON.parse(String(init!.body)),{type:1,name:'blueprint',description:'Abrir o espaço privado de transmissão do Blueprint',options:[]});return Response.json({type:1,name:'blueprint',application_id:env.DISCORD_APPLICATION_ID,guild_id:env.DISCORD_GUILD_ID});};
- await registerDiscordCommand(env,request);await registerDiscordCommand(env,request);assert.equal(calls.length,2);assert.equal(calls[0],calls[1]);assert.ok(calls[0].endsWith('/guilds/466392379667120129/commands'));
+ await registerDiscordCommand(env,request);await registerDiscordCommand(env,request);assert.equal(calls.length,2);assert.equal(calls[0],calls[1]);assert.ok(calls[0].endsWith('/guilds/100000000000000002/commands'));
  await assert.rejects(registerDiscordCommand({...env,DISCORD_BOT_TOKEN:''},request),/DISCORD_BOT_TOKEN/);
 });
 
-const diagnosticEnv={NODE_ENV:'test' as const,DISCORD_APPLICATION_ID:'1562592101659836516',DISCORD_GUILD_ID:'466392379667120129',DISCORD_BOT_TOKEN:'secret-canary-never-print'};
+const diagnosticEnv={NODE_ENV:'test' as const,DISCORD_APPLICATION_ID:'100000000000000001',DISCORD_GUILD_ID:'100000000000000002',DISCORD_BOT_TOKEN:'secret-canary-never-print'};
 async function diagnostic(request: typeof fetch) {
  try { await registerDiscordCommand(diagnosticEnv,request);assert.fail('Expected failure'); }
  catch(error) { const output=registrationDiagnostic(error);assert.ok(!output.includes(diagnosticEnv.DISCORD_BOT_TOKEN));assert.ok(!output.includes('Authorization'));return output; }
 }
-test('registration IDs match the approved repository setup',()=>{
+test('registration configuration is documented without publishing operational IDs',()=>{
  const documentation=readFileSync(new URL('../docs/DISCORD.md',import.meta.url),'utf8');
- for(const [key,value] of Object.entries(diagnosticEnv).filter(([key])=>['DISCORD_APPLICATION_ID','DISCORD_GUILD_ID'].includes(key)))assert.ok(documentation.includes('`'+key+'`: `'+value+'`'));
+ for(const [key,value] of [['DISCORD_APPLICATION_ID','<application-id>'],['DISCORD_GUILD_ID','<guild-id>']])assert.ok(documentation.includes('`'+key+'`: `'+value+'`'));
+ assert.ok(!/`\d{17,20}`/.test(documentation));
 });
 test('HTTP diagnostics expose only status, numeric code and allowlisted descriptions',async()=>{
  const malicious={code:50001,message:'Authorization: Bot '+diagnosticEnv.DISCORD_BOT_TOKEN,errors:{token:diagnosticEnv.DISCORD_BOT_TOKEN}};
