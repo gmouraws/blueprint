@@ -30,10 +30,10 @@ test('entry is Portuguese, accessible, private and responsive', async ({ page, r
   await expect(page.getByRole('heading', { name: 'Entrar na sala', level: 1 })).toBeVisible();
   await expect(page.getByText(/Boa companhia|Uma tela em comum|Entre, a sala é nossa|Feito para estar junto/)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Receber código' })).toBeEnabled();
-  await expect(page.getByRole('link', { name: 'Baixar para Windows', exact: true })).toHaveAttribute('href', 'https://github.com/gmouraws/blueprint/releases/download/windows-v0.1.5/Blueprint-Room-production-0.1.5-x64-setup.exe');
-  await expect(page.getByText('0.1.5 · Windows x64 · Versão de teste sem assinatura')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Baixar para Windows', exact: true })).toHaveAttribute('href', 'https://github.com/gmouraws/blueprint/releases/download/windows-v0.1.6/Blueprint-Room-production-0.1.6-x64-setup.exe');
+  await expect(page.getByText('0.1.6 · Windows x64 · Versão de teste sem assinatura')).toBeVisible();
   await page.getByText('Checksum do instalador', { exact: true }).click();
-  await expect(page.locator('.windows-download code')).toHaveText('91469f6ac305bf39ad8044865a748a824e04467c4a7f9e5a4db2270356dda6b5');
+  await expect(page.locator('.windows-download code')).toHaveText('e01c3db9a3b85c6a378b3e047292a3dca847892b9f00a8d3716dec52ef1f8e55');
   for (const width of [1440, 1024, 768, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
