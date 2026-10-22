@@ -47,6 +47,17 @@ test('transmission-only guests publish/watch one screen transport without microp
     await viewer.getByRole('button', { name: 'Silenciar áudio da tela de Visitante 1' }).click();
     await expect(viewer.locator('audio')).toHaveCount(0);
     expect(await captures(viewer)).toBe(0); expect(await captures(publisher)).toBe(0);
+    const outbound = () => publisher.evaluate(async () => {
+      const peers = (window as unknown as {mediaProbe:{peers:RTCPeerConnection[]}}).mediaProbe.peers;
+      const reports = await Promise.all(peers.map(peer => peer.getStats()));
+      return reports.flatMap(report => [...report.values()]).find(stat => stat.type === 'outbound-rtp' && stat.kind === 'video' && stat.framesPerSecond > 0);
+    });
+    await expect.poll(async () => (await outbound())?.framesPerSecond ?? 0).toBeGreaterThan(0);
+    const first = await outbound(); await publisher.waitForTimeout(1100); const second = await outbound();
+    expect(second.frameWidth).toBe(640); expect(second.frameHeight).toBe(360); expect(second.framesPerSecond).toBeLessThanOrEqual(30);
+    const measuredMbps = (second.bytesSent-first.bytesSent)*8/((second.timestamp-first.timestamp)*1000);
+    expect(measuredMbps).toBeGreaterThan(0);
+    console.log(`Synthetic outbound: ${second.frameWidth}x${second.frameHeight}, ${second.framesPerSecond} fps, ${measuredMbps.toFixed(3)} video Mbps; audio and overhead separate.`);
     const people = await service.listParticipants(name); expect(people).toHaveLength(2);
     expect(people.flatMap(p => p.tracks).every(t => [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO].includes(t.source))).toBe(true);
     expect(announced).toBe(1);
