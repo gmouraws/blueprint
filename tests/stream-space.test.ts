@@ -196,7 +196,7 @@ test('viewer totals use confirmed video subscriptions on active admissions, not 
   const a=await api.join(p1.secret),b=await api.join(p2.secret),c=await api.join(v.secret),d=await api.join(idle.secret);
   state.people=[new ParticipantInfo({identity:`stream:${a.connectionId}`,state:2,tracks:[new TrackInfo({sid:'TR_one',source:TrackSource.SCREEN_SHARE})]}),new ParticipantInfo({identity:`stream:${b.connectionId}`,state:2,tracks:[new TrackInfo({sid:'TR_two',source:TrackSource.SCREEN_SHARE})]}),new ParticipantInfo({identity:`stream:${c.connectionId}`,state:2}),new ParticipantInfo({identity:`stream:${d.connectionId}`,state:2})];
   media.updateParticipant=async(_room,identity,options)=>{const person=state.people.find(p=>p.identity===identity)!;Object.assign(person.attributes,typeof options==='object'?options.attributes:{});return person;};
-  const counts=async()=>(await api.discover(v.secret)).streams.map(s=>s.viewers);
+  const counts=async()=>(await api.discover(p1.secret)).streams.map(s=>s.viewers);
   assert.deepEqual(await counts(),[0,0]);
   await api.viewing(v.secret,c.connectionId,'TR_one');assert.deepEqual(await counts(),[1,0]);
   await api.viewing(v.secret,c.connectionId,'TR_two');assert.deepEqual(await counts(),[0,1]);
@@ -206,6 +206,8 @@ test('viewer totals use confirmed video subscriptions on active admissions, not 
   state.people[0].attributes[STREAM_VIEW_ATTRIBUTE]='TR_one';assert.deepEqual(await counts(),[2,0]); // Publisher is excluded.
   state.people.find(p=>p.identity===`stream:${d.connectionId}`)!.state=3;assert.deepEqual(await counts(),[1,0]);
   state.people.push(new ParticipantInfo({identity:'unknown',state:2,attributes:{[STREAM_VIEW_ATTRIBUTE]:'TR_one'}}));assert.deepEqual(await counts(),[1,0]);
-  await api.leave(v.secret,c.connectionId);assert.deepEqual(await counts(),[0,0]);
+  state.outage=true;assert.equal((await api.manage('revoke',{id:v.link.id})).cleanupPending,true);
+  assert.deepEqual(await counts(),[1,0]); // Do not claim the viewer left while provider removal failed.
+  state.outage=false;await api.cleanup();assert.deepEqual(await counts(),[0,0]);
   await api.manage('revoke',{id:idle.link.id});await assert.rejects(api.viewing(idle.secret,d.connectionId,'TR_one'));
 });

@@ -214,7 +214,8 @@ export function streamService(config: Config, store = streamStore(config), media
         const publisher = state.guests.find(item => item.identity === person.identity);
         if (!publisher || publisher.expires <= now() || !validInvite(state, invitation(state, publisher)) || invitation(state, publisher)?.role !== 'share') return [];
         const screen = person.tracks.find(track => track.source === TrackSource.SCREEN_SHARE);
-        const viewers = screen ? people.filter(viewer => viewer.identity !== person.identity && viewer.state === ParticipantInfo_State.ACTIVE && viewer.attributes[STREAM_VIEW_ATTRIBUTE] === screen.sid && state.guests.some(item => item.identity === viewer.identity && item.expires > now() && validInvite(state, invitation(state, item)))).length : 0;
+        // A failed provider removal can leave a revoked viewer receiving media: keep counting until it leaves.
+        const viewers = screen ? people.filter(viewer => viewer.identity !== person.identity && viewer.state === ParticipantInfo_State.ACTIVE && viewer.attributes[STREAM_VIEW_ATTRIBUTE] === screen.sid && state.guests.some(item => item.identity === viewer.identity)).length : 0;
         return screen ? [{ identity: person.identity, sid: screen.sid, label: publisher.label, name: streamDisplayName(publisher.name), viewers }] : [];
       });
       return { expires: guest.expires, role: invitation(state, guest)!.role, streams };
