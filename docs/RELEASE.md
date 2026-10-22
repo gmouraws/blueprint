@@ -138,3 +138,9 @@ Actual unpacked Windows 0.1.6 smoke tests opened `/stream?intent=share` at cold 
 Release through the normal PR checks and version-gated Windows publication workflow. Verify published assets before updating the homepage manifest. Recovery: hide the download by setting the manifest to null, or restore the previous manifest; revert the web deployment through the existing Vercel recovery procedure. Installed clients require a manual reinstall to change the shell. Preserve profile/account/chat data. The prior installer retains the reported defects, so prefer a forward correction.
 
 The local NSIS 0.1.6 installer completed with exit code 0 and its registry association points to the quoted installed executable under Program Files, followed by the quoted URL argument. This directly verifies installation/association, separately from unit mocks. The pre-publication local binary hash is not the release asset hash; consumers must use the published checksum.
+
+### Published 0.1.6 evidence
+
+PR #26 merged as `58972d9c0e87f4e69adfd63b762d98b6808f31ca`. PR Quality/Windows and main Quality/publication workflows passed. The Vercel Git deployment for that commit succeeded; canonical entry and `/stream` returned 200, invalid capabilities and protected endpoints returned 401, and `/stream` retained microphone denial/no-referrer headers.
+
+The actual public Production installer (112192283 bytes) was downloaded and matched both `SHA256SUMS-production.txt` and GitHub's asset digest: `e01c3db9a3b85c6a378b3e047292a3dca847892b9f00a8d3716dec52ef1f8e55`. The download manifest is updated only after this verification. Browser continuation remains available. Installed/unpacked fixture tests and local NSIS installation evidence above do not establish real invitation admission, an active call, tray-menu clicks, or physical audio. Complete those acceptance checks manually. No data migration or configuration change is required.
