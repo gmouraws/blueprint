@@ -25,10 +25,12 @@ test('transmission-only guests publish/watch one screen transport without microp
   try {
     await prepare(publisher, 'guest-publisher', true); await prepare(viewer, 'guest-viewer', false);
     await expect(publisher.getByRole('button', { name: 'Selecionar tela' })).toBeEnabled();
+    expect(await service.listRooms([name])).toHaveLength(0);
     expect(await captures(publisher)).toBe(0); expect(await liveTracks(publisher)).toBe(0);
     await expect(viewer.getByRole('button', { name: 'Selecionar tela' })).toHaveCount(0);
     await publisher.getByRole('button', { name: 'Selecionar tela' }).click();
     await expect(viewer.getByRole('button', { name: 'Assistir · Transmissão 1', exact: true })).toBeVisible();
+    expect(await service.listParticipants(name)).toHaveLength(1);
     await viewer.getByRole('button', { name: 'Assistir · Transmissão 1', exact: true }).click();
     await expect.poll(() => viewer.locator('video').evaluate(el => (el as HTMLVideoElement).videoWidth)).toBe(640);
     await expect(viewer.locator('audio')).toHaveCount(0);
@@ -50,6 +52,8 @@ test('transmission-only guests publish/watch one screen transport without microp
     expect(announced).toBe(1);
     await publisher.getByRole('button', { name: 'Parar transmissão' }).click();
     await expect.poll(() => liveTracks(publisher)).toBe(0); await expect(viewer.locator('video')).toHaveCount(0);
+    await expect.poll(async () => (await service.listParticipants(name)).length).toBe(1);
+    await expect.poll(async () => (await service.listParticipants(name)).length, {timeout:40000}).toBe(0);
     await publisher.getByRole('button', { name: 'Sair', exact: true }).click(); await viewer.getByRole('button', { name: 'Sair', exact: true }).click();
     await expect.poll(async () => (await service.listParticipants(name)).length).toBe(0);
   } finally { await publisher.close(); await viewer.close(); await service.deleteRoom(name).catch(() => undefined); }
