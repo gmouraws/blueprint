@@ -27,6 +27,9 @@ export default function StreamSpace() {
   const invite = useRef<string | null>(null);
   const [openingApp, setOpeningApp] = useState(false);
   const [appChoice, setAppChoice] = useState(false);
+  const preparedHandoff = useRef<{ credential: string; expires: number } | null>(null);
+  const [handoffStage, setHandoffStage] = useState('');
+  const nativeDiagnostic = (stage: 'ticket_redeemed' | 'ticket_rejected' | 'media_connected' | 'media_failed') => { void window.blueprintStreamDesktop?.diagnostic?.(stage).catch(() => undefined); };
   const automaticAttempted = useRef(false), browserChosen = useRef(false), intendedAction = useRef('watch');
   useEffect(() => {
     if (left) return;
@@ -50,14 +53,21 @@ export default function StreamSpace() {
         const desktop = !!window.blueprintDesktop;
         if (desktop && !nativeStream) void window.blueprintDesktop!.configure({ available: false, microphone: false, muted: true, combined: false, bindings: { microphone: '', listening: '', all: '' } }).catch(() => undefined);
         setNotice('Validando convite…');
-        if (invite.current) { await post({ action: 'exchange', credential: invite.current }); invite.current = null; }
+        if (invite.current) {
+          try { await post({ action: 'exchange', credential: invite.current }); nativeDiagnostic('ticket_redeemed'); }
+          catch (error) { nativeDiagnostic('ticket_rejected'); throw error; }
+          invite.current = null;
+        }
         if (cancelled) return;
         if (!desktop && !nativeStream && /Win/i.test(navigator.platform) && !browserChosen.current && desktopScheme()) {
           setAppChoice(true);
           if (!automaticAttempted.current) {
             automaticAttempted.current = true; setOpeningApp(true);
             try {
+              setHandoffStage('Solicitando código temporário…');
               const handoff = await post({ action: 'handoff' });
+              preparedHandoff.current = { credential: handoff.credential, expires: Date.now() + 50000 };
+              setHandoffStage('Código criado. Abertura solicitada ao Windows; recebimento pelo aplicativo ainda não confirmado.');
               if (!cancelled) { setNotice('Confirme a abertura no Windows. Não é possível detectar se o aplicativo está instalado. Você pode tentar novamente ou continuar no navegador.'); launchDesktop(handoff.credential, intent); }
             } catch { if (!cancelled) setNotice('A abertura automática não foi concluída. Use Abrir no aplicativo ou continue no navegador.'); }
             finally { setOpeningApp(false); }
@@ -71,8 +81,8 @@ export default function StreamSpace() {
         await connectRoom(room, result.serverUrl, result.token, 35000, false);
         if (cancelled) { await room.disconnect(true); return; }
         for (const participant of room.remoteParticipants.values()) for (const publication of participant.trackPublications.values()) subscribe(publication);
-        setNotice('');
-      } catch (error) { if (!cancelled) setNotice(error instanceof StreamRequestError ? error.message : 'Não foi possível conectar. Confira sua conexão e tente novamente.'); }
+        nativeDiagnostic('media_connected'); setNotice('');
+      } catch (error) { nativeDiagnostic('media_failed'); if (!cancelled) setNotice(error instanceof StreamRequestError ? error.message : 'Não foi possível conectar. Confira sua conexão e tente novamente.'); }
     })();
     let closing: Promise<void> | undefined;
     const close = () => {
@@ -106,21 +116,28 @@ export default function StreamSpace() {
     if (openingApp || window.blueprintDesktop) return;
     const scheme = desktopScheme();
     if (!scheme) { setNotice('A abertura no aplicativo está disponível pelo convite no domínio de Production. Continue no navegador neste Preview.'); return; }
-    setOpeningApp(true);
+    // A fresh prepared ticket lets the explicit click navigate synchronously, preserving user activation.
+    if (!connection && preparedHandoff.current && preparedHandoff.current.expires > Date.now()) {
+      try { launchDesktop(preparedHandoff.current.credential, intendedAction.current); setHandoffStage('Abertura solicitada ao Windows; recebimento pelo aplicativo ainda não confirmado.'); }
+      catch { setHandoffStage('O navegador bloqueou a abertura. Continue no navegador ou atualize o aplicativo.'); }
+      preparedHandoff.current = null; return;
+    }
+    setOpeningApp(true); setHandoffStage('Solicitando código temporário…');
     try {
       const result = await post({ action: 'handoff' });
       if (!/^[A-Za-z0-9_-]{43}$/.test(result.credential)) throw Error('invalid');
-      const intent = intendedAction.current;
       await leave();
       setAppChoice(true); automaticAttempted.current = true;
       setNotice('Confirme a abertura no Windows. Não é possível detectar se o aplicativo está instalado. Continue no navegador se preferir.');
-      launchDesktop(result.credential, intent);
+      preparedHandoff.current = { credential: result.credential, expires: Date.now() + 50000 };
+      setHandoffStage('Código criado. Clique novamente em Abrir no aplicativo para confirmar a abertura no Windows.');
     } catch { setNotice('Não foi possível abrir no aplicativo. Continue no navegador ou tente novamente.'); }
     finally { setOpeningApp(false); }
   }
   return <main className="stream-space"><header className="stream-header"><Brand/><span className="muted">Transmissão privada · até 8 pessoas</span>{!left && <button onClick={() => void leave()}>Sair</button>}</header>
-    {(appChoice || (connection && !connection.desktop && !left)) && <div className="stream-actions"><button disabled={openingApp} onClick={() => void openApp()}>Abrir no aplicativo</button>{appChoice && <button onClick={() => { browserChosen.current = true; setAppChoice(false); setLeft(false); setRetry(value => value + 1); }}>Continuar no navegador</button>}<span className="muted">Windows 0.1.5 ou posterior. A seleção e confirmação da tela continuam obrigatórias.</span></div>}
+    {(appChoice || (connection && !connection.desktop && !left)) && <div className="stream-actions"><button disabled={openingApp} onClick={() => void openApp()}>Abrir no aplicativo</button>{appChoice && <button onClick={() => { browserChosen.current = true; setAppChoice(false); setLeft(false); setRetry(value => value + 1); }}>Continuar no navegador</button>}<span className="muted">Windows 0.1.6 ou posterior para corrigir a abertura. A seleção e confirmação da tela continuam obrigatórias.</span></div>}
     {appChoice && <WindowsDownload/>}
+    {handoffStage && <p aria-live="polite" className="muted">{handoffStage}</p>}
     {notice && <p role="status">{notice}</p>}
     {connection && !left && <RoomContext.Provider value={connection.room}><StreamContent {...connection} onNotice={setNotice}/></RoomContext.Provider>}
     {notice && !appChoice && <button onClick={() => { browserChosen.current = true; setLeft(false); setRetry(value => value + 1); }}>{left ? 'Continuar no navegador' : 'Reabrir espaço'}</button>}

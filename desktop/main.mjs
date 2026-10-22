@@ -6,7 +6,7 @@ import { trusted, external, validState, inactive, accelerator, actions } from '.
 import { failurePage } from './startup.mjs';
 import { createScreenPicker } from './screen-picker.mjs';
 import { createProcessAudio } from './process-audio.mjs';
-import { streamLinkFromArgs } from './stream-links.mjs';
+import { streamLinkFromArgs, streamScheme } from './stream-links.mjs';
 import { createStreamWindow } from './stream-window.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const processAudio=createProcessAudio(path.join(app.isPackaged?process.resourcesPath:path.join(here,'native/dist'),'process-audio.exe'));
@@ -16,6 +16,13 @@ if (origins[profile.name] !== profile.origin) throw new Error('Invalid packaged 
 app.setPath('userData', path.join(app.getPath('appData'), `Blueprint Room-${profile.name}`));
 app.setAppUserModelId(`br.app.blueprint.room.${profile.name}`);
 app.enableSandbox();
+// Fixed stages only; never persist URL arguments, credentials or exception text.
+const diagnosticRows=[];
+const diagnostic = stage => {
+  if(!/^[a-z_-]{1,48}$/.test(stage))return;
+  diagnosticRows.push({stage,at:new Date().toISOString()}); if(diagnosticRows.length>64)diagnosticRows.shift();
+  try { writeFileSync(path.join(app.getPath('userData'),'handoff-status.json'),JSON.stringify({version:app.getVersion(),profile:profile.name,stages:diagnosticRows})); } catch { /* Optional local status. */ }
+};
 let applicationSelection=false;
 let streamWindow;
 let pendingStream=streamLinkFromArgs(process.argv,profile.name);
@@ -23,14 +30,15 @@ let win, tray, picker, watchdog, webReady=false, lastSync=0, quitting = false, i
 const prefsPath = path.join(app.getPath('userData'), 'desktop.json');
 let preferences = { closeExplained: false };
 try { preferences.closeExplained = JSON.parse(readFileSync(prefsPath, 'utf8')).closeExplained === true; } catch { /* First launch. */ }
-function restore() { if (win?.isMinimized()) win.restore(); win?.show(); win?.focus(); }
+function restore() { if (quitting || !win || win.isDestroyed()) return; if (win?.isMinimized()) win.restore(); win?.show(); win?.focus(); }
 function sender(event) { return win && !win.isDestroyed() && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame && trusted(event.senderFrame.url, profile.origin); }
 function sendAction(action, fromShortcut = false) {
-  if (!state.available || recording || quitting || !trusted(win.webContents.getURL(), profile.origin) || (fromShortcut && win.isFocused() && inputBlocked)) return;
+  if (quitting || !win || win.isDestroyed() || !state.available || recording || !trusted(win.webContents.getURL(), profile.origin) || (fromShortcut && win.isFocused() && inputBlocked)) return;
   win.webContents.send('room:action', action);
 }
 function updateTray() {
-  tray?.setContextMenu(Menu.buildFromTemplate([
+  if (quitting || !tray || tray.isDestroyed()) return;
+  tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Abrir Blueprint Room', click: restore }, { type: 'separator' },
     ...(streamWindow?.exists()?[{label:'Abrir transmissão',click:()=>streamWindow.restore()}]:[]),
     { label: !webReady ? 'Aguardando integração da página' : state.available ? 'Chamada conectada' : 'Controles indisponíveis fora da chamada ou durante reconexão', enabled:false },
@@ -41,6 +49,7 @@ function updateTray() {
   ]));
 }
 function register() {
+  if (quitting) { globalShortcut.unregisterAll(); return []; }
   const key = JSON.stringify([state.bindings, state.available, recording]);
   if (key === registrationKey) return conflicts;
   registrationKey = key; globalShortcut.unregisterAll(); conflicts = [];
@@ -56,7 +65,7 @@ function register() {
   return conflicts;
 }
 let conflicts = [];
-let loadTimer, failed = false;
+let loadTimer, integrationTimer, failed = false;
 function fail(category, code) {
   if (quitting || failed || !win || win.isDestroyed()) return;
   failed = true; clearTimeout(loadTimer);
@@ -74,11 +83,34 @@ function loadApplication() {
 }
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  app.on('second-instance', (_event,args) => { const link=streamLinkFromArgs(args,profile.name);if(link){if(streamWindow)void streamWindow.open(link);else pendingStream=link;}else restore(); });
-  app.on('before-quit', () => { quitting = true; clearTimeout(loadTimer);clearInterval(watchdog);streamWindow?.destroy();picker?.cancel();processAudio.stop(); state = { ...inactive }; globalShortcut.unregisterAll(); tray?.destroy(); if (win && !win.isDestroyed()) win.destroy(); });
+  app.on('second-instance', (_event,args) => {
+    if(quitting)return;
+    const link=streamLinkFromArgs(args,profile.name);
+    diagnostic(link ? 'second_instance_accepted' : 'second_instance_no_valid_link');
+    if(link){if(streamWindow)void streamWindow.open(link);else pendingStream=link;}else restore();
+  });
+  app.on('before-quit', () => {
+    if(quitting)return;
+    quitting=true; diagnostic('shutdown_started'); pendingStream=undefined;
+    clearTimeout(loadTimer); clearTimeout(integrationTimer); clearInterval(watchdog);
+    globalShortcut.unregisterAll(); state={...inactive};
+    for(const channel of ['capture:claim','capture:pull','capture:stop','room:configure','room:settings','room:startup'])ipcMain.removeHandler(channel);
+    ipcMain.removeAllListeners('room:input');
+    streamWindow?.dispose(); picker?.dispose(); processAudio.stop();
+    if(win && !win.isDestroyed())win.destroy();
+    const previousTray=tray; tray=undefined;
+    if(previousTray && !previousTray.isDestroyed()){previousTray.removeAllListeners();previousTray.destroy();}
+    diagnostic('shutdown_complete');
+  });
   app.on('will-quit', () => globalShortcut.unregisterAll());
   app.whenReady().then(() => {
-    streamWindow=createStreamWindow({profile,here,helper:path.join(app.isPackaged?process.resourcesPath:path.join(here,'native/dist'),'process-audio.exe'),version:app.getVersion(),onChange:updateTray,onHide:()=>tray?.displayBalloon({title:'Transmissão na bandeja',content:'Use Abrir transmissão para voltar ou Sair do aplicativo para encerrar a mídia.'})});
+    if(quitting)return;
+    if(app.isPackaged && process.platform === 'win32') {
+      const scheme=streamScheme(profile.name);
+      const registered=app.setAsDefaultProtocolClient(scheme,process.execPath,[]);
+      diagnostic(registered && app.isDefaultProtocolClient(scheme,process.execPath,[]) ? 'protocol_registered' : 'protocol_registration_failed');
+    }
+    streamWindow=createStreamWindow({profile,here,helper:path.join(app.isPackaged?process.resourcesPath:path.join(here,'native/dist'),'process-audio.exe'),version:app.getVersion(),diagnostic,onChange:updateTray,onHide:()=>{if(!quitting && tray && !tray.isDestroyed())tray.displayBalloon({title:'Transmissão na bandeja',content:'Use Abrir transmissão para voltar ou Sair do aplicativo para encerrar a mídia.'});}});
     const ses = session.fromPartition(`persist:blueprint-${profile.name}`);
     ses.setUserAgent(ses.getUserAgent()+` BlueprintRoom/${app.getVersion()}`);
     win = new BrowserWindow({ width: 1180, height: 800, minWidth: 375, minHeight: 560, title: `Blueprint Room${profile.name === 'preview' ? ' · Preview' : ''}`, icon: path.join(here, 'icon.png'), backgroundColor: '#10151b', webPreferences: { session: ses, preload: path.join(here, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false } });
@@ -101,7 +133,7 @@ else {
     win.webContents.on('render-process-gone', () => fail('renderer'));
     win.webContents.on('preload-error', () => fail('preload'));
     win.webContents.on('did-fail-load', (_event, code, _description, _url, main) => { if (main && code !== -3) fail('network', code); });
-    win.webContents.on('did-finish-load', () => { if (trusted(win.webContents.getURL(), profile.origin)) {clearTimeout(loadTimer);setTimeout(()=>{if(!quitting&&!webReady&&trusted(win.webContents.getURL(),profile.origin))void dialog.showMessageBox(win,{type:'warning',message:'Esta página não iniciou a integração desktop.',detail:'Os atalhos globais e a bandeja não estão disponíveis. Saia da chamada e reabra o aplicativo para carregar a versão atual. Sua chamada não será interrompida automaticamente.'});},15000);} });
+    win.webContents.on('did-finish-load', () => { if (trusted(win.webContents.getURL(), profile.origin)) {clearTimeout(loadTimer);clearTimeout(integrationTimer);integrationTimer=setTimeout(()=>{if(!quitting&&!webReady&&trusted(win.webContents.getURL(),profile.origin))void dialog.showMessageBox(win,{type:'warning',message:'Esta página não iniciou a integração desktop.',detail:'Os atalhos globais e a bandeja não estão disponíveis. Saia da chamada e reabra o aplicativo para carregar a versão atual. Sua chamada não será interrompida automaticamente.'});},15000);} });
     win.on('unresponsive', () => fail('renderer'));
     ses.setPermissionCheckHandler((contents, permission, origin, details) => contents === win.webContents && trusted(origin, profile.origin) && (permission === 'media' ? details.mediaType === 'audio' : ['display-capture', 'speaker-selection'].includes(permission)));
     ses.setPermissionRequestHandler(async (contents, permission, callback, details) => {
@@ -125,6 +157,6 @@ else {
     ipcMain.handle('room:settings', event => { if (!sender(event)) throw new Error('Invalid origin');webReady=true;updateTray(); return { startup: app.getLoginItemSettings().openAtLogin, profile: profile.name, version: app.getVersion() }; });
     ipcMain.handle('room:startup', (event, enabled) => { if (!sender(event) || typeof enabled !== 'boolean' || !app.isPackaged) throw new Error('Invalid request'); app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath }); return app.getLoginItemSettings().openAtLogin; });
     loadApplication();
-    if(pendingStream){const link=pendingStream;pendingStream=undefined;win.hide();void streamWindow.open(link);}
+    if(pendingStream){diagnostic('cold_start_accepted');const link=pendingStream;pendingStream=undefined;win.hide();void streamWindow.open(link);}
   });
 }

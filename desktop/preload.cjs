@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const guestStream=process.argv.includes('--blueprint-stream-window');
 if(guestStream)contextBridge.exposeInMainWorld('blueprintStreamDesktop',{
   version:1,
+  diagnostic:stage=>ipcRenderer.invoke('stream:diagnostic',stage),
   consumeInvite:()=>ipcRenderer.invoke('stream:invite'),
   configure:value=>ipcRenderer.invoke('stream:configure',value),
 });
