@@ -23,7 +23,7 @@ function fixture() {
   const api = streamService(fixtureConfig, store, media, () => state.now);
   const invite = async (role: 'share' | 'watch' = 'share') => (await api.manage('create', { role, hours: 1 })).created!;
   const guest = async (role: 'share' | 'watch' = 'share') => { const link = await invite(role); return { link, ...await api.exchange(link.secret) }; };
-  return { state, api, invite, guest };
+  return { state, api, invite, guest, media };
 }
 test('guest credentials are random hashed capabilities; expiration and revocation reach derived viewer sessions', async () => {
   const { api, state, guest } = fixture(); const one = await guest();
@@ -145,4 +145,26 @@ test('authorized discovery lists only admitted publishers and never allocates a 
   assert.deepEqual((await api.discover(watcher.secret)).streams, []);
   await api.manage('revoke', { id: watcher.link.id });
   await assert.rejects(api.discover(watcher.secret));
+});
+
+
+test('slow discovery cannot block admission and rechecks revocation after provider lookup', async () => {
+  const { api, guest, media, state } = fixture();
+  const watcher = await guest('watch'); const publisher = await guest('share');
+  let release!: () => void, started!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  const entered = new Promise<void>(resolve => { started = resolve; });
+  let calls = 0;
+  media.listParticipants = async () => { if (++calls === 1) { started(); await waiting; } return state.people; };
+  const discovery = api.discover(watcher.secret);
+  // Attach the rejection handler before revocation can finish.
+  const rejected = assert.rejects(discovery, /expirou ou foi revogado/);
+  await entered;
+  try {
+    assert.equal(state.lock, '');
+    const joined = await api.join(publisher.secret);
+    assert.ok(joined.connectionId);
+    await api.manage('revoke', { id: watcher.link.id });
+  } finally { release(); }
+  await rejected;
 });

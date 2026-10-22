@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { NextRequest } from 'next/server';
 import { streamHandler, streamServices, discordTarget, invitationUrl } from '../src/lib/server/stream-handlers';
-import { STREAM_COOKIE, credential, streamService } from '../src/lib/server/stream-space';
+import { STREAM_COOKIE, credential, streamService, StreamError } from '../src/lib/server/stream-space';
 import { fixtureConfig } from './config-fixture';
 import { LimitError } from '../src/lib/server/rate-limit';
 const secret = credential();
@@ -63,4 +63,15 @@ test('persistent management is owner-only and returns copy links without cache o
   const response=await streamHandler(request(body),true,authorized);assert.equal(response.status,role==='owner'?200:403);assert.equal(called,role==='owner'?1:0);
   if(role==='owner'){assert.equal(response.headers.get('cache-control'),'no-store');const result=await response.json();assert.ok(result.urls.share.includes('intent=share#invite='));assert.ok(result.urls.watch.includes('intent=watch#invite='));}
  }
+});
+
+
+test('only lock contention carries the retryable busy code', async () => {
+  for (const [code, message] of [['STREAM_BUSY', 'Outra entrada está em andamento.'], [undefined, 'O espaço está cheio.']] as const) {
+    const mock = { ...deps(), streamService: () => ({ ...service(), join: async () => { throw new StreamError(409, message, code); } }) };
+    const response = await streamHandler(request({ action: 'join' }, `${STREAM_COOKIE}=${secret}`), false, mock);
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).code, code);
+    assert.equal(response.headers.get('retry-after'), code ? '1' : null);
+  }
 });

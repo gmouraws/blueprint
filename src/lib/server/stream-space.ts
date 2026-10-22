@@ -19,7 +19,7 @@ export interface StreamStore {
   save(owner: string, state: StreamState): Promise<boolean>;
   unlock(owner: string): Promise<void>;
 }
-export class StreamError extends Error { constructor(public status: number, message: string) { super(message); } }
+export class StreamError extends Error { constructor(public status: number, message: string, public code?: 'STREAM_BUSY') { super(message); } }
 export function streamStore(config: Config): StreamStore {
   const redis = new Redis({ url: config.UPSTASH_REDIS_REST_URL, token: config.UPSTASH_REDIS_REST_TOKEN, retry: { retries: 0 }, signal: () => AbortSignal.timeout(5000) });
   const key = `blueprint:${config.LIVEKIT_ROOM_NAME}:guest-stream:v1`;
@@ -55,7 +55,7 @@ export function streamService(config: Config, store = streamStore(config), media
   }
   async function exclusive<T>(work: (state: StreamState) => Promise<T>) {
     const lock = randomUUID();
-    if (!await store.lock(lock)) throw new StreamError(409, 'Outra entrada está em andamento. Tente novamente.');
+    if (!await store.lock(lock)) throw new StreamError(409, 'Outra entrada está em andamento. Tente novamente.', 'STREAM_BUSY');
     try {
       const state = await store.read();
       const result = await work(state);
@@ -177,17 +177,21 @@ export function streamService(config: Config, store = streamStore(config), media
     }),
     status: (secret: string) => exclusive(async state => { const cleanupPending = await cleanup(state); const guest = session(state, secret); return { expires: guest.expires, role: invitation(state, guest)!.role, cleanupPending }; }),
     // Discovery validates bearer access but never creates a room, token or media admission.
-    discover: (secret: string) => exclusive(async state => {
-      await cleanup(state);
+    discover: async (secret: string) => {
+      session(await store.read(), secret);
+      // Provider discovery must not hold the admission/revocation lock. Re-read
+      // access after the network call so an intervening revocation fails closed.
+      const people = await active();
+      const state = await store.read();
       const guest = session(state, secret);
-      const streams = (await active()).flatMap(person => {
+      const streams = people.flatMap(person => {
         const publisher = state.guests.find(item => item.identity === person.identity);
         if (!publisher || publisher.expires <= now() || !validInvite(state, invitation(state, publisher)) || invitation(state, publisher)?.role !== 'share') return [];
         const screen = person.tracks.find(track => track.source === TrackSource.SCREEN_SHARE);
         return screen ? [{ identity: person.identity, sid: screen.sid, label: publisher.label }] : [];
       });
       return { expires: guest.expires, role: invitation(state, guest)!.role, streams };
-    }),
+    },
     leave: (secret: string, connectionId: string) => exclusive(async state => { const guest = validCredential(secret) ? state.guests.find(item => item.hash === digest(secret)) : undefined; if (guest?.identity === `stream:${connectionId}`) await revoke(guest); return { ok: true }; }),
     stopped: (secret: string) => exclusive(async state => {
       const guest = session(state, secret);

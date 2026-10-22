@@ -69,7 +69,7 @@ export async function streamHandler(request: NextRequest, owner = false, deps = 
     if (parsed.data.action === 'status' || parsed.data.action === 'discover') return json(await service[parsed.data.action](secret), 200, { 'X-Blueprint-Media-Read': '1' });
     return json(await service[parsed.data.action](secret));
   } catch (error) {
-    if (error instanceof StreamError) return json({ error: error.message }, error.status);
+    if (error instanceof StreamError) return json({ error: error.message, ...(error.code ? { code: error.code } : {}) }, error.status, error.code === 'STREAM_BUSY' ? { 'Retry-After': '1' } : undefined);
     if (error instanceof LimitError) return json({ error: 'Muitas solicitações ou proteção indisponível. Aguarde e tente novamente.' }, error.status, { 'Retry-After': String(error.retryAfter) });
     return json({ error: 'Espaço indisponível. Tente novamente em instantes.' }, 503);
   }
