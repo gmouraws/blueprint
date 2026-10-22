@@ -3,7 +3,7 @@ import { AccessToken, TrackSource, RoomConfiguration } from 'livekit-server-sdk'
 import { instrument, captures, liveTracks, service, energy } from './fixtures';
 
 test('transmission-only guests publish/watch one screen transport without microphone capture; mute and cleanup work', async ({ browser }) => {
-  test.setTimeout(100000);
+  test.setTimeout(120000);
   const name = `guest-fixture-${Date.now()}`;
   const publisher = await browser.newPage(); const viewer = await browser.newPage();
   publisher.on('console', message => { if (message.text().startsWith('stream_publish_failed ')) console.log(message.text()); });
@@ -68,6 +68,21 @@ test('transmission-only guests publish/watch one screen transport without microp
     const measuredMbps = (second.bytesSent-first.bytesSent)*8/((second.timestamp-first.timestamp)*1000);
     expect(measuredMbps).toBeGreaterThan(0);
     console.log(`Synthetic outbound: ${second.frameWidth}x${second.frameHeight}, ${second.framesPerSecond} fps, ${measuredMbps.toFixed(3)} video Mbps; audio and overhead separate.`);
+    // Browser/SDK stats may omit FPS on an inactive encoding. Keep transmitting
+    // through a full usage-sampling interval; an optional metric must not crash UI.
+    const runtimeErrors: string[] = [];
+    publisher.on('pageerror', error => runtimeErrors.push(error.name));
+    await publisher.evaluate(() => {
+      const original = RTCRtpSender.prototype.getStats;
+      RTCRtpSender.prototype.getStats = async function () {
+        const report = await original.call(this);
+        return new Map([...report.entries()].map(([id, stat]) => [id, stat.type === 'outbound-rtp' && stat.kind === 'video' ? { ...stat, framesPerSecond: undefined } : stat])) as RTCStatsReport;
+      };
+    });
+    await publisher.waitForTimeout(12000);
+    expect(runtimeErrors).toEqual([]);
+    await expect(publisher.getByRole('button', { name: 'Parar transmissão', exact: true })).toBeEnabled();
+    await expect(viewer.locator('video')).toHaveCount(1);
     const people = await service.listParticipants(name); expect(people).toHaveLength(2);
     expect(people.flatMap(p => p.tracks).every(t => [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO].includes(t.source))).toBe(true);
     expect(announced).toBe(1);
