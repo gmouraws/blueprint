@@ -18,7 +18,7 @@ test('Windows tries handoff once before media; blocked opening keeps explicit br
  });
  await page.goto(origin+'/stream?intent=share#invite='+capability);
  await expect(page.getByRole('status')).toContainText('abertura automática');expect(handoffs).toBe(1);expect(joins).toBe(0);
- await expect(page.getByRole('button',{name:'Abrir no aplicativo'})).toBeVisible();await expect(page.getByRole('link',{name:'Baixar para Windows',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Abrir no aplicativo'})).toBeVisible();await expect(page.getByRole('link',{name:'Baixar para Windows',exact:true})).toHaveCount(0);await expect(page.getByText('Windows · Distribuição privada. Solicite o instalador ao responsável pelo espaço.')).toBeVisible();
  await page.waitForTimeout(1000);expect(handoffs).toBe(1);expect(joins).toBe(0);
  await page.getByRole('button',{name:'Continuar no navegador',exact:true}).click();await expect(page.getByRole('button',{name:'Selecionar tela'})).toBeEnabled();expect(joins).toBe(0);expect(handoffs).toBe(1);
 });

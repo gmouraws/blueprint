@@ -1,5 +1,17 @@
 # Blueprint Room production release
 
+## Public introduction and private installer — release pending
+
+PR preparation starts from Production main `0491c7c0b0ff996082da86b7bd0c0302dddda494`. Restore that commit's existing successful deployment in Vercel if a later release needs recovery; retain all account/history/private objects. Do not restore public executable distribution as a rollback.
+
+The unchanged 0.1.7 original is 112192552 bytes, SHA-256 `32adea296dcabec2fe0b0bc3a726f51889ada17364b8afac01b91332853daadf`. Separate copies were uploaded to the existing private Production and Preview Blob stores. Their reported size and multipart ETag match the verified original. Anonymous direct reads of both copies return 403. Full authorized application delivery is not yet verified.
+
+The hosted Preview reports `BETTER_AUTH_SECRET` missing, so account entry correctly remains disabled. Do not merge/deploy or withdraw public installers before restoring the existing Preview authentication configuration, redeploying once, and verifying owner-only management plus a complete recipient-bound download/checksum. Do not copy Production's auth secret into Preview or log values. Public installer assets 0.1.3–0.1.7 are still present; withdraw only those executables after the private path is proven. Preserve release records, tags, source and checksum assets.
+
+Local focused checks passed: lint, TypeScript, 26 account/Discord/distribution tests, three landing/access browser tests and a separate handoff fallback browser test. Screenshots cover English desktop/mobile and Portuguese mobile. The supported Webpack production build and output verifier passed; local Turbopack fails starting a CSS subprocess. Existing CI must pass normally before release. Advisory preconditions were checked: installed sharp is 0.35.5 and the generated Server Actions registry is empty; recommend the Next.js maintenance patch separately.
+
+No Production web release, environment change, schema migration, invitation, Discord announcement or executable rebuild has been performed for this work. See ADR 026 for the fail-closed single-use transfer policy.
+
 ## Accounts cutover preparation (PR #15)
 
 The owner authorized the accounts release after successful Preview OTP login. Resend reports the sender domain Verified and the authorized recipient's latest authentication message Delivered; the owner then completed login. Preview owner controls, preferences and chat history were verified, including a new account-owned message surviving reload. Physical multi-user audio and Cloud revocation acceptance remain separate checks.
