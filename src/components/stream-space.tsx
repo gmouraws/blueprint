@@ -11,16 +11,10 @@ import { IncomingAudio, type VolumeSetting } from './incoming-audio';
 import { SCREEN_QUALITIES } from './screen-quality';
 import type {} from '@/lib/desktop';
 import { StreamMetrics } from './stream-metrics';
+import { streamRequest as post, StreamRequestError } from '@/lib/client/stream-request';
 import { WindowsDownload } from './windows-download';
 import { streamDesktopScheme, streamDesktopUrl } from '@/lib/client/stream-desktop';
 
-class StreamRequestError extends Error { constructor(message: string, readonly status: number) { super(message); } }
-async function post(body: object, keepalive = false) {
-  const response = await fetch('/api/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store', keepalive, signal: AbortSignal.timeout(15000) });
-  const result = await response.json();
-  if (!response.ok) throw new StreamRequestError(result.error || 'Espaço indisponível.', response.status);
-  return result;
-}
 export default function StreamSpace() {
   const [connection, setConnection] = useState<{ room: Room; share: boolean; intent: string; desktop: boolean; expires: number } | null>(null);
   const [notice, setNotice] = useState('Validando convite…'); const [retry, setRetry] = useState(0); const [left, setLeft] = useState(false);
