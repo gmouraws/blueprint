@@ -5,22 +5,22 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import * as policy from './policy.mjs';
 import { failurePage } from './startup.mjs';
-import { streamLinkFromArgs } from './stream-links.mjs';
+import { streamLinkFromArgs, streamScheme } from './stream-links.mjs';
 
 async function harness() {
  const registered = new Map(), ipc = new Map(), sent = [], permission = {}, windows = [];
  const origin='https://blueprint-git-codex-windows-room-gmouraws-8238s-projects.vercel.app';
- const app = Object.assign(new EventEmitter(), { getPath:()=>'/test',setPath:()=>{},setAppUserModelId:()=>{},enableSandbox:()=>{},requestSingleInstanceLock:()=>true,whenReady:()=>Promise.resolve(),quit:()=>{app.emit('before-quit');app.emit('will-quit');},getLoginItemSettings:()=>({openAtLogin:app.startup??false}),setLoginItemSettings:({openAtLogin})=>{app.startup=openAtLogin;},getVersion:()=> '0.1.0',isPackaged:true });
+ const app = Object.assign(new EventEmitter(), { getPath:()=>'/test',setPath:()=>{},setAppUserModelId:()=>{},enableSandbox:()=>{},requestSingleInstanceLock:()=>true,setAsDefaultProtocolClient:()=>true,isDefaultProtocolClient:()=>true,whenReady:()=>Promise.resolve(),quit:()=>{app.emit('before-quit');app.emit('will-quit');},getLoginItemSettings:()=>({openAtLogin:app.startup??false}),setLoginItemSettings:({openAtLogin})=>{app.startup=openAtLogin;},getVersion:()=> '0.1.0',isPackaged:true });
  class Window extends EventEmitter {
    constructor(options) { super(); this.options=options; this.hidden=false; this.dead=false; windows.push(this); this.webContents=Object.assign(new EventEmitter(),{mainFrame:{url:origin},getURL:()=>origin,send:(...args)=>sent.push(args),setWindowOpenHandler:handler=>{this.open=handler;}}); }
    hide(){this.hidden=true;} show(){this.hidden=false;} focus(){} isFocused(){return !this.hidden;} isMinimized(){return false;} restore(){this.hidden=false;} isDestroyed(){return this.dead;} destroy(){this.dead=true;} loadURL(url){this.loaded=url;return Promise.resolve();}
  }
- class Tray extends EventEmitter {setContextMenu(menu){this.menu=menu;}setToolTip(){}destroy(){this.dead=true;}displayBalloon(){this.balloon=true;}}
+ class Tray extends EventEmitter {isDestroyed(){return !!this.dead;}setContextMenu(menu){if(this.dead)throw Error("Tray is destroyed");this.menu=menu;}setToolTip(){}destroy(){this.dead=true;}displayBalloon(){this.balloon=true;}}
  const ses={getUserAgent:()=>"test",setUserAgent:()=>{},setPermissionCheckHandler:fn=>permission.check=fn,setPermissionRequestHandler:fn=>permission.request=fn,setDisplayMediaRequestHandler:fn=>permission.display=fn};
- const context = { ...policy, app, BrowserWindow:Window,Tray,Menu:{buildFromTemplate:x=>x,setApplicationMenu:()=>{}},dialog:{showMessageBox:async()=>({response:0})},globalShortcut:{register:(key,fn)=>{if(key==='F9')return false;registered.set(key,fn);return true;},unregisterAll:()=>registered.clear()},ipcMain:{handle:(key,fn)=>ipc.set(key,fn),on:(key,fn)=>ipc.set(key,fn)},session:{fromPartition:()=>ses},desktopCapturer:{getSources:async()=>[]},shell:{openExternal:()=>{}},nativeImage:{createFromPath:()=>({resize:()=>({})})},readFileSync:()=>JSON.stringify({name:'preview',origin}),writeFileSync:()=>{},fileURLToPath:()=>'/test/main.mjs',path:{dirname:()=>'/test',join:(...args)=>args.join('/')},process:{platform:'win32',execPath:'/test/app.exe'},console,URL,Date,JSON };
- Object.assign(context, { streamLinkFromArgs, createStreamWindow:()=>({exists:()=>false,destroy:()=>{},open:async()=>{}}), failurePage, createProcessAudio:()=>({supported:false,stop:()=>{},claim:()=>null,pull:()=>null,release:()=>{}}), createScreenPicker:()=>({cancel:()=>{},choose:async()=>null}), setTimeout: () => 1, clearTimeout: () => {}, setInterval:()=>1,clearInterval:()=>{} });
+ const context = { ...policy, app, BrowserWindow:Window,Tray,Menu:{buildFromTemplate:x=>x,setApplicationMenu:()=>{}},dialog:{showMessageBox:async()=>({response:0})},globalShortcut:{register:(key,fn)=>{if(key==='F9')return false;registered.set(key,fn);return true;},unregisterAll:()=>registered.clear()},ipcMain:{removeHandler:key=>ipc.delete(key),removeAllListeners:()=>{},handle:(key,fn)=>ipc.set(key,fn),on:(key,fn)=>ipc.set(key,fn)},session:{fromPartition:()=>ses},desktopCapturer:{getSources:async()=>[]},shell:{openExternal:()=>{}},nativeImage:{createFromPath:()=>({resize:()=>({})})},readFileSync:()=>JSON.stringify({name:'preview',origin}),writeFileSync:()=>{},fileURLToPath:()=>'/test/main.mjs',path:{dirname:()=>'/test',join:(...args)=>args.join('/')},process:{platform:'win32',execPath:'/test/app.exe'},console,URL,Date,JSON };
+ Object.assign(context, { streamLinkFromArgs, streamScheme, createStreamWindow:({onChange})=>({exists:()=>false,destroy:()=>onChange(),dispose:()=>onChange(),open:async()=>{}}), failurePage, createProcessAudio:()=>({supported:false,stop:()=>{},claim:()=>null,pull:()=>null,release:()=>{}}), createScreenPicker:()=>({cancel:()=>{},dispose:()=>{},choose:async()=>null}), setTimeout: () => 1, clearTimeout: () => {}, setInterval:()=>1,clearInterval:()=>{} });
  let source=readFileSync(new URL('./main.mjs',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('import.meta.url',"'file:///test/main.mjs'");
- source+='\nglobalThis.inspect = () => ({win,tray,state});';
+ source+='\nglobalThis.inspect = () => ({win,tray,state,updateTray});';
  vm.runInNewContext(source,context); await Promise.resolve();
  return {context,app,registered,ipc,sent,permission,win:windows[0],event:{sender:windows[0].webContents,senderFrame:windows[0].webContents.mainFrame}};
 }
@@ -72,4 +72,15 @@ test('tray actions share dispatcher but do not inherit keyboard typing exclusion
  assert.equal(h.context.inspect().tray.menu.find(item=>item.label==='Silenciar tudo').checked,true);
  h.win.webContents.emit('did-start-navigation',{},h.event.senderFrame.url,false,true);
  assert.equal(h.registered.size,0);assert.equal(h.context.inspect().tray.menu.find(item=>item.label==='Silenciar tudo').enabled,false);
+});
+
+test('shutdown fences delayed tray updates and duplicate quit, including minimized window',async()=>{
+ for(const minimized of [false,true]){
+  const h=await harness();h.win.isMinimized=()=>minimized;
+  const tray=h.context.inspect().tray;
+  h.app.quit();assert.ok(tray.dead);assert.ok(h.win.dead);
+  assert.doesNotThrow(()=>h.context.inspect().updateTray());
+  assert.doesNotThrow(()=>h.app.quit());
+  assert.equal(h.registered.size,0);assert.equal(h.ipc.has('room:configure'),false);
+ }
 });

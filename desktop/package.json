@@ -1,6 +1,6 @@
 {
   "name": "blueprint-room-desktop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Blueprint Room Windows test client",
   "author": "Blueprint",
@@ -56,7 +56,8 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "include": "installer.nsh"
     },
     "artifactName": "Blueprint-Room-Preview-${version}-x64-setup.${ext}",
     "npmRebuild": false,

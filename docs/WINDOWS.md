@@ -48,3 +48,9 @@ Version 0.1.3 fixes picker row compression with fixed-ratio thumbnail frames, se
 - Source selection/cancel, screen video/system audio opt-in and graceful denial; room switching, account revocation and explicit exit release all media.
 
 Automated policy/build/browser checks do not prove real device audibility, global OS key delivery, tray interaction or installer operation. Report those separately.
+
+## 0.1.6 handoff diagnostics
+
+NSIS registers the profile-specific protocol explicitly; packaged startup verifies it. `handoff-status.json` in the application profile contains at most 64 fixed stage names and timestamps, with version/profile only. It never records link arguments, tickets, invitations, cookies, credentials or exception messages. Stages distinguish protocol registration, cold/second-instance acceptance, guest page loading, ticket redemption and media connection. Missing stages do not prove an application is absent. Browser launch attempts are not confirmations of successful opening.
+
+The Production profile uses `blueprint-room`, Preview uses `blueprint-room-preview`. Each protocol command quotes the executable and URL argument. Exit marks shutdown before disposing windows and tray, making late callbacks harmless; it does not merely catch the tray exception.

@@ -5,6 +5,7 @@ declare global {
   interface Window {
     blueprintStreamDesktop?: {
       version: 1;
+      diagnostic?(stage: 'ticket_redeemed' | 'ticket_rejected' | 'media_connected' | 'media_failed'): Promise<void>;
       consumeInvite(): Promise<string | null>;
       configure(state: { available: boolean; expires: number }): Promise<{ ready: boolean }>;
     };

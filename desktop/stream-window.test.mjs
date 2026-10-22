@@ -10,6 +10,7 @@ const origin = 'https://www.blueprint.app.br', credential = 'x'.repeat(43);
 test('protocol accepts only one canonical packaged-profile invitation, never arbitrary navigation', () => {
   const good = `blueprint-room://stream?intent=share#invite=${credential}`;
   assert.equal(parseStreamLink(good, 'production').intent, 'share');
+  assert.equal(parseStreamLink(good.replace('stream?', 'stream/?'), 'production').intent, 'share');
   for (const bad of [good+'extra', good+'&url=https://evil.test', good.replace('share','admin'), good.replace('stream?', 'evil?'), good.replace('#invite=', '?invite='), 'https://www.blueprint.app.br/stream', good.replace('blueprint-room:', 'blueprint-room-preview:')]) assert.equal(parseStreamLink(bad,'production'),null);
   assert.equal(streamLinkFromArgs(['app.exe',good,good],'production'),null);
   assert.equal(streamLinkFromArgs(['app.exe',good],'production').credential,credential);
@@ -24,7 +25,7 @@ function harness() {
  }
  const state={now:Date.now(),answer:1,partitions:[]};
  const ses={getUserAgent:()=>'',setUserAgent:()=>{},setPermissionCheckHandler:fn=>permissions.check=fn,setPermissionRequestHandler:fn=>permissions.request=fn,setDisplayMediaRequestHandler:fn=>permissions.display=fn};
- const context={BrowserWindow:Window,session:{fromPartition:name=>{state.partitions.push(name);return ses;}},ipcMain:{handle:(key,fn)=>ipc.set(key,fn)},dialog:{showMessageBox:async()=>({response:state.answer})},shell:{openExternal:()=>{}},path:{join:(...x)=>x.join('/')},streamPage,external,trusted,failurePage,Date:{now:()=>state.now},Number,Error,setTimeout:()=>1,clearTimeout:()=>{},setInterval:fn=>{intervals.push(fn);return 1;},clearInterval:()=>{},createProcessAudio:()=>{const item={supported:true,stopped:0,stop(){this.stopped++;},start:async()=>{},claim:()=>({id:'test'}),pull:()=>null,release:()=>{}};audio.push(item);return item;},createScreenPicker:(_win,options)=>{const item={options,cancel(){},dispose(){this.disposed=true;},choose:async()=>({video:{id:'screen:1'},applicationAudio:true})};pickers.push(item);return item;}};
+ const context={BrowserWindow:Window,session:{fromPartition:name=>{state.partitions.push(name);return ses;}},ipcMain:{removeHandler:key=>ipc.delete(key),handle:(key,fn)=>ipc.set(key,fn)},dialog:{showMessageBox:async()=>({response:state.answer})},shell:{openExternal:()=>{}},path:{join:(...x)=>x.join('/')},streamPage,external,trusted,failurePage,Date:{now:()=>state.now},Number,Error,setTimeout:()=>1,clearTimeout:()=>{},setInterval:fn=>{intervals.push(fn);return 1;},clearInterval:()=>{},createProcessAudio:()=>{const item={supported:true,stopped:0,stop(){this.stopped++;},start:async()=>{},claim:()=>({id:'test'}),pull:()=>null,release:()=>{}};audio.push(item);return item;},createScreenPicker:(_win,options)=>{const item={options,cancel(){},dispose(){this.disposed=true;},choose:async()=>({video:{id:'screen:1'},applicationAudio:true})};pickers.push(item);return item;}};
  const source=readFileSync(new URL('./stream-window.mjs',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export function','function');
  vm.runInNewContext(source+'\nglobalThis.factory=createStreamWindow;',context);
  const api=context.factory({profile:{name:'production',origin},here:'/test',helper:'/helper',version:'0.1.5'});
@@ -57,4 +58,12 @@ test('replacement cancels previous capture and stale window events cannot stop t
  assert.equal(h.audio[1].stopped,stops);assert.equal(next.url,origin+'/stream?intent=share');
  h.state.answer=0;await h.api.open({credential,intent:'watch'});assert.equal(h.windows.length,2);
  h.api.destroy();
+});
+
+test('disposal is idempotent, removes IPC and rejects delayed opens and diagnostics',async()=>{
+ const h=harness();await h.api.open({credential,intent:'watch'});
+ const win=h.windows[0];h.api.dispose();h.api.dispose();
+ assert.ok(win.dead);assert.equal(h.ipc.size,0);
+ await h.api.open({credential,intent:'share'});assert.equal(h.windows.length,1);
+ win.webContents.emit('render-process-gone');assert.ok(h.pickers[0].disposed);
 });

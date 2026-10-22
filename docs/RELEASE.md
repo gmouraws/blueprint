@@ -124,3 +124,17 @@ The owner authorized direct Production release after checks. Baseline main is `c
 Web-only change compatible with installed Windows 0.1.5; no reinstall, new installer, database migration, bot runtime token or paid service. Keep the existing verified download/checksum. The local registration diagnostic improvement is included; it changes no runtime credentials. Normal GitHub Quality and Vercel Git integration remain the release gates.
 
 For recovery, disable only this newly configured LiveKit webhook and revert the web deployment to the baseline above. Preserve the announcement journal and invitation/account/chat storage. Previously edited Discord messages remain ended; rollback does not restore their links. Notifications with ambiguous POST outcomes or pre-upgrade starts without stored message IDs cannot be reconstructed reliably. Test with friends after release: Discord share/watch to app/browser fallback, app closed and in tray with an existing call, explicit capture, short reconnect, stop, close and invitation revocation; confirm one end notice and link removal. No physical audio, game or installed protocol behavior is inferred from mocked browser/Electron tests.
+
+## Windows handoff and shutdown correction (0.1.6)
+
+Recovery baseline: main `d472d23f2414062de45bd10c1fecd999d9197a9b`, Production deployment `dpl_6sh3jYAbswtbd92Q5Na8e9w7VoWf`; installer `windows-v0.1.5`, SHA-256 `91469f6ac305bf39ad8044865a748a824e04467c4a7f9e5a4db2270356dda6b5`. The owner authorized web and installer publication after checks.
+
+The installed 0.1.5 executable existed, but its protocol command was absent from the inspected Windows registry. electron-builder's generic protocols option was not consumed by its NSIS target, and the application did not register itself. Version 0.1.6 explicitly registers the quoted installed path and verifies registration at packaged startup. Browser diagnostics distinguish ticket preparation from an unconfirmed OS launch attempt. Temporary tickets remain single-use and server validated.
+
+Shutdown now fences tray updates before destroying guest/member windows, cancels timers, unregisters shortcuts and removes IPC handlers. A destroyed tray is never updated. No account, schema, data or environment changes.
+
+Actual unpacked Windows 0.1.6 smoke tests opened `/stream?intent=share` at cold startup, through a second instance, while minimized, and with the guest window hidden. The sandboxed bridge was present and shutdown completed in all four cases. These tests used an invalid fixture, not a real invitation or audio call. They do not prove browser confirmation, real guest admission or physical media cleanup.
+
+Release through the normal PR checks and version-gated Windows publication workflow. Verify published assets before updating the homepage manifest. Recovery: hide the download by setting the manifest to null, or restore the previous manifest; revert the web deployment through the existing Vercel recovery procedure. Installed clients require a manual reinstall to change the shell. Preserve profile/account/chat data. The prior installer retains the reported defects, so prefer a forward correction.
+
+The local NSIS 0.1.6 installer completed with exit code 0 and its registry association points to the quoted installed executable under Program Files, followed by the quoted URL argument. This directly verifies installation/association, separately from unit mocks. The pre-publication local binary hash is not the release asset hash; consumers must use the published checksum.
