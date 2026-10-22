@@ -6,10 +6,11 @@ import type { Config } from './config';
 import { getConfig } from './config';
 import { discordTarget, invitationUrl } from './stream-discord';
 import { streamService } from './stream-space';
+import { discordText, streamTitle } from '../stream-labels';
 
 export const END_GRACE_MS = 20000;
 type Delivery = 'ready' | 'sending' | 'sent' | 'uncertain' | 'failed';
-export type Publication = { id: string; key: string; identity: string; label: number; created: number; missing?: number; ended?: number; messageId?: string; start: Delivery; end: Delivery; edited?: boolean; retryAt?: number };
+export type Publication = { id: string; key: string; identity: string; label: number; name?: string; created: number; missing?: number; ended?: number; messageId?: string; start: Delivery; end: Delivery; edited?: boolean; retryAt?: number };
 export interface AnnouncementStore { update<T>(work: (rows: Publication[]) => Promise<T>): Promise<T> }
 export function announcementStore(config: Config): AnnouncementStore {
   const redis = new Redis({ url: config.UPSTASH_REDIS_REST_URL, token: config.UPSTASH_REDIS_REST_TOKEN, retry: { retries: 0 }, signal: () => AbortSignal.timeout(5000) });
@@ -44,9 +45,9 @@ export function announcementService(config: Config, store = announcementStore(co
       }
       for (const active of visible) if (active.authorized && !rows.some(row => !row.ended && row.key === active.key)) {
         if (rows.length >= 512) throw Error('Announcement journal full');
-        rows.push({ id: randomUUID(), key: active.key, identity: active.identity, label: active.label, created: time, start: active.legacy ? 'uncertain' : 'ready', end: 'ready' });
+        rows.push({ id: randomUUID(), key: active.key, identity: active.identity, label: active.label, name: active.name, created: time, start: active.legacy ? 'uncertain' : 'ready', end: 'ready' });
       }
-      const actions: { id: string; kind: 'start' | 'end' | 'edit'; key: string; label: number; messageId?: string }[] = [];
+      const actions: { id: string; kind: 'start' | 'end' | 'edit'; key: string; label: number; name?: string; messageId?: string }[] = [];
       for (const row of rows) {
         if (actions.length >= 4) break;
         if ((row.retryAt ?? 0) > time) continue;
@@ -67,10 +68,11 @@ export function announcementService(config: Config, store = announcementStore(co
     for (const action of work.actions) {
       let messageId: string | undefined, state: Delivery = 'uncertain', edited = false, retryAt: number | undefined;
       try {
-        let content = `Transmissão ${action.label} encerrada`;
+        const title = discordText(streamTitle(action.label, action.name));
+        let content = `${title} encerrada`;
         if (action.kind === 'start') {
           const viewer = await service.announcementViewer(action.key);
-          content = `Transmissão ${action.label} começou. [Assistir](${invitationUrl(config.APP_ORIGIN, viewer.secret, 'watch')})`;
+          content = `${title} começou. [Assistir](${invitationUrl(config.APP_ORIGIN, viewer.secret, 'watch')})`;
         }
         const url = action.kind === 'edit' ? `${target}/messages/${action.messageId}` : `${target}?wait=true`;
         const response = await request(url, { method: action.kind === 'edit' ? 'PATCH' : 'POST', redirect: 'error', signal: AbortSignal.timeout(5000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, components: [], embeds: [], allowed_mentions: { parse: [] }, flags: 4 }) });

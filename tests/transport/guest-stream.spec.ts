@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { AccessToken, TrackSource, RoomConfiguration } from 'livekit-server-sdk';
 import { instrument, captures, liveTracks, service, energy } from './fixtures';
+import { STREAM_VIEW_ATTRIBUTE } from '../../src/lib/stream-labels';
 
 test('transmission-only guests publish/watch one screen transport without microphone capture; mute and cleanup work', async ({ browser }) => {
   test.setTimeout(120000);
@@ -11,14 +12,15 @@ test('transmission-only guests publish/watch one screen transport without microp
   async function prepare(page: Page, id: string, share: boolean) {
     await instrument(page);
     await page.route('**/api/stream', async route => {
-      const { action } = route.request().postDataJSON();
+      const { action, trackSid } = route.request().postDataJSON();
       if (action === 'join') {
         const token = new AccessToken('blueprint-test', 'local-test-secret-not-a-production-credential', { identity: id, name: `Visitante ${share ? 1 : 2}`, ttl: 120 });
         token.addGrant({ roomJoin: true, room: name, canSubscribe: true, canPublish: share, canPublishSources: share ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : [], canPublishData: false });
         token.roomConfig = new RoomConfiguration({ name, maxParticipants: 8 });
         return route.fulfill({ json: { token: await token.toJwt(), serverUrl: 'ws://127.0.0.1:7880', role: share ? 'share' : 'watch', expires: Date.now() + 60000, connectionId: crypto.randomUUID() } });
       }
-      if (action === 'discover') { const people = (await service.listRooms([name])).length ? await service.listParticipants(name) : []; return route.fulfill({json:{streams:people.flatMap(p=>p.tracks.filter(t=>t.source===TrackSource.SCREEN_SHARE).map(t=>({identity:p.identity,sid:t.sid,label:1})))}}); }
+      if (action === 'viewing') { await service.updateParticipant(name,id,{attributes:{[STREAM_VIEW_ATTRIBUTE]:trackSid??''}}); return route.fulfill({json:{ok:true}}); }
+      if (action === 'discover') { const people = (await service.listRooms([name])).length ? await service.listParticipants(name) : []; return route.fulfill({json:{streams:people.flatMap(p=>p.tracks.filter(t=>t.source===TrackSource.SCREEN_SHARE).map(t=>({identity:p.identity,sid:t.sid,label:1,viewers:people.filter(v=>v.identity!==p.identity&&v.attributes[STREAM_VIEW_ATTRIBUTE]===t.sid).length})))}}); }
       if (action === 'announce') announced++;
       return route.fulfill({ json: { ok: true, role: share ? 'share' : 'watch', expires: Date.now() + 60000 } });
     });
@@ -37,6 +39,8 @@ test('transmission-only guests publish/watch one screen transport without microp
     expect(await service.listParticipants(name)).toHaveLength(1);
     await viewer.getByRole('button', { name: 'Assistir · Transmissão 1', exact: true }).click();
     await expect.poll(() => viewer.locator('video').evaluate(el => (el as HTMLVideoElement).videoWidth)).toBe(640);
+    await expect.poll(async()=>(await service.getParticipant(name,'guest-viewer')).attributes[STREAM_VIEW_ATTRIBUTE]).toBeTruthy();
+    await expect(publisher.getByText('👁 1 assistindo',{exact:true})).toBeVisible({timeout:20000});
     await expect(viewer.locator('audio')).toHaveCount(0);
     await viewer.getByRole('button', { name: 'Ouvir áudio da tela de Visitante 1' }).click();
     await expect.poll(() => energy(viewer)).toBeGreaterThan(0);

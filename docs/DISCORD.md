@@ -22,6 +22,8 @@ These are server configuration, never NEXT_PUBLIC variables. Keep the existing `
 
 ## Optional pinned opening panel
 
+Verified command/panel interactions use server nickname → global display name → username, stripping controls and bounding labels to 48 Unicode code points. Each response now carries individual, one-use entry tickets valid for five minutes; invoke `/blueprint` or click the panel again if they expire. Names and Discord IDs never enter URL queries. Tickets bind the label to the resulting guest session and preserve it through the existing 60-second Windows handoff; the shared persistent invitation is never named. Anonymous invitation/announcement visitors keep numbered fallbacks. A label is not an authorization key or proof of the bearer’s identity. No command registration, configuration or Windows update is needed.
+
 No command re-registration, new environment variables, bot scope/token, gateway process or installer update is required. `/blueprint` keeps its existing private Transmitir/Assistir response and Windows/browser handoff. Only Discord server owners/administrators see an additional **Publicar painel** button; the handler requires the signed current member's `ADMINISTRATOR` permission (bit 8), including a fresh check when clicked. Manage Server/Manage Messages alone do not authorize publishing.
 
 1. In server `466392379667120129`, open channel `1562594072282271744` with the server owner/administrator account.

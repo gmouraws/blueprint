@@ -6,12 +6,12 @@ import { announcementService, END_GRACE_MS, type Publication, type AnnouncementS
 import { streamService, streamRoom } from '../src/lib/server/stream-space';
 import { streamEventHandler } from '../src/lib/server/stream-events';
 import { fixtureConfig } from './config-fixture';
-function fixture() {
+function fixture(name?: string) {
  const rows: Publication[]=[];let clock=100000, mode='ok', active=true, authorized=true, identity='stream:test';
  const calls:{method:string;url:string;body:Record<string,unknown>}[]=[];
  let serial=Promise.resolve();
  const store:AnnouncementStore={update:work=>{const result=serial.then(()=>work(rows));serial=result.then(()=>undefined,()=>undefined);return result;}};
- const service={...streamService(fixtureConfig),publicationSnapshot:async()=>active?[{key:'guest-hash',label:1,identity,authorized,legacy:false}]:[],announcementViewer:async()=>({id:randomUUID(),secret:'w'.repeat(43),expires:clock+3600000,role:'watch' as const})};
+ const service={...streamService(fixtureConfig),publicationSnapshot:async()=>active?[{key:'guest-hash',label:1,name,identity,authorized,legacy:false}]:[],announcementViewer:async()=>({id:randomUUID(),secret:'w'.repeat(43),expires:clock+3600000,role:'watch' as const})};
  const request:typeof fetch=async(url,init)=>{calls.push({method:init!.method!,url:String(url),body:JSON.parse(String(init!.body))});if(mode==='network')throw Error('secret-network-canary');if(mode==='rate'){mode='ok';return Response.json({retry_after:1},{status:429});}if(mode==='edit-failure'&&init!.method==='PATCH'){mode='ok';return new Response(null,{status:503});}return Response.json({id:'123456789012345678'});};
  const api=announcementService(fixtureConfig,store,service,request,()=>clock,'https://discord.com/api/webhooks/123/test-only');
  return {rows,calls,api,tick:(ms:number)=>clock+=ms,active:(value:boolean)=>active=value,authorized:(value:boolean)=>authorized=value,identity:(value:string)=>identity=value,mode:(value:string)=>mode=value};
@@ -35,6 +35,14 @@ test('rate-limit retry is safe; ambiguous POST is not repeated; failed edits are
 test('revocation only ends a provider-confirmed absence; unknown or unauthorized publishers cannot create announcements',async()=>{
  const h=fixture();await h.api.reconcile();h.authorized(false);await h.api.reconcile();assert.equal(h.rows[0].ended,undefined);h.active(false);await h.api.reconcile();h.tick(END_GRACE_MS);await h.api.reconcile();assert.ok(h.rows[0].ended);
  const other=fixture();other.authorized(false);await other.api.reconcile();assert.equal(other.calls.length,0);
+});
+
+test('Discord start/edit/end preserve the session label, escape formatting and suppress all mentions',async()=>{
+ const h=fixture('**Alex** <@123> @everyone\n');await h.api.reconcile();
+ assert.match(String(h.calls[0].body.content),/Transmissão de \\\*\\\*Alex/);assert.ok(!String(h.calls[0].body.content).includes('\n'));
+ h.active(false);await h.api.reconcile();h.tick(END_GRACE_MS);await h.api.reconcile();
+ for(const call of h.calls){assert.deepEqual(call.body.allowed_mentions,{parse:[]});assert.ok(String(call.body.content).includes('Alex'));assert.ok(!String(call.body.content).includes('**Alex**'));}
+ assert.equal(h.calls.filter(call=>call.method==='POST').length,2);
 });
 test('LiveKit webhook verifies JWT plus exact body; other rooms do not trigger reconciliation; failures request retry',async()=>{
  let reconciled=0;let fail=false;

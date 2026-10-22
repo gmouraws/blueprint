@@ -1,9 +1,10 @@
 import 'server-only';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { Redis } from '@upstash/redis';
-import { AccessToken, RoomConfiguration, TrackSource } from 'livekit-server-sdk';
+import { AccessToken, ParticipantInfo_State, RoomConfiguration, TrackSource } from 'livekit-server-sdk';
 import type { Config } from './config';
 import { roomService } from './livekit';
+import { STREAM_VIEW_ATTRIBUTE, streamDisplayName } from '../stream-labels';
 
 export const STREAM_COOKIE = 'blueprint_stream';
 export const credential = () => randomBytes(32).toString('base64url');
@@ -11,8 +12,8 @@ export const digest = (value: string) => createHash('sha256').update(value).dige
 export const validCredential = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
 export const streamRoom = (config: Config) => `${config.LIVEKIT_ROOM_NAME}-guest-stream-v1`;
 type Invitation = { id: string; hash: string; role: 'watch' | 'share'; expires: number | null; revoked?: boolean; parent?: string; persistent?: true };
-type Guest = { hash: string; invite: string; expires: number; label: number; identity?: string; issued?: number; attempt?: string; announcement?: 'claimed' | 'sent' | 'failed' };
-export type StreamState = { invitations: Invitation[]; guests: Guest[]; sequence: number; persistentId?: string; handoffs?: { hash: string; invite: string; expires: number }[] };
+type Guest = { hash: string; invite: string; expires: number; label: number; name?: string; identity?: string; issued?: number; attempt?: string; announcement?: 'claimed' | 'sent' | 'failed' };
+export type StreamState = { invitations: Invitation[]; guests: Guest[]; sequence: number; persistentId?: string; handoffs?: { hash: string; invite: string; expires: number; name?: string }[] };
 export interface StreamStore {
   lock(owner: string): Promise<boolean>;
   read(): Promise<StreamState>;
@@ -87,7 +88,7 @@ export function streamService(config: Config, store = streamStore(config), media
       const people = await active(); const state = await store.read();
       return people.filter(person => person.tracks.some(track => track.source === TrackSource.SCREEN_SHARE)).map(person => {
         const guest = state.guests.find(item => item.identity === person.identity);
-        return { key: guest?.hash ?? person.identity, label: guest?.label ?? 0, identity: person.identity, authorized: !!guest && guest.expires > now() && validInvite(state, invitation(state, guest)) && invitation(state, guest)?.role === 'share', legacy: !!guest?.announcement };
+        return { key: guest?.hash ?? person.identity, label: guest?.label ?? 0, name: streamDisplayName(guest?.name), identity: person.identity, authorized: !!guest && guest.expires > now() && validInvite(state, invitation(state, guest)) && invitation(state, guest)?.role === 'share', legacy: !!guest?.announcement };
       });
     },
     announcementViewer: (key: string) => exclusive(async state => {
@@ -99,6 +100,15 @@ export function streamService(config: Config, store = streamStore(config), media
     cleanup: () => exclusive(cleanup),
     // Read-only: commands reuse the configured pair and never mint permanent invitations.
     configuredLinks: async () => { const pair = persistentPair(await store.read()); return pair ? pairSecrets(pair) : null; },
+    // Each verified Discord interaction gets individual five-minute entry tickets, never a named shared invite.
+    discordLinks: (name?: string) => exclusive(async state => {
+      await cleanup(state);
+      const pair = persistentPair(state); if (!pair) return null;
+      if (state.handoffs!.length > 30) throw new StreamError(429, 'Muitas aberturas recentes. Aguarde e tente novamente.');
+      const share = credential(), watch = credential();
+      for (const [secret, invite] of [[share, pair.share], [watch, pair.watch]] as const) state.handoffs!.push({ hash: digest(secret), invite: invite.id, expires: now() + 300000, name: streamDisplayName(name) });
+      return { share, watch };
+    }),
     persistent: async (action: 'status' | 'create' | 'copy' | 'rotate' | 'revoke') => {
       if (action === 'rotate' || action === 'revoke') {
         // Commit revocation before a replacement can exist. Provider failure keeps cleanup retryable.
@@ -138,11 +148,11 @@ export function streamService(config: Config, store = streamStore(config), media
       if (!invite || !validInvite(state, invite)) throw new StreamError(401, 'Convite inválido, expirado ou revogado. Peça um novo link ao responsável.');
       if (ticket) state.handoffs = state.handoffs!.filter(item => item !== ticket);
       const previous = existing && validCredential(existing) ? state.guests.find(item => item.hash === digest(existing)) : undefined;
-      if (previous && previous.invite === invite.id && previous.expires > now()) return { secret: existing!, expires: previous.expires, role: invite.role };
+      if (!ticket && previous && previous.invite === invite.id && previous.expires > now()) return { secret: existing!, expires: previous.expires, role: invite.role };
       if (previous) { await revoke(previous); state.guests = state.guests.filter(item => item !== previous); }
       if (state.guests.length >= 128) throw new StreamError(429, 'Muitas entradas recentes. Aguarde e tente novamente.');
       const next = credential(); const expires = Math.min(invite.expires ?? Infinity, now() + 12 * 3600000);
-      state.guests.push({ hash: digest(next), invite: invite.id, expires, label: ++state.sequence });
+      state.guests.push({ hash: digest(next), invite: invite.id, expires, label: ++state.sequence, name: streamDisplayName(ticket?.name) });
       return { secret: next, expires, role: invite.role };
     }),
     handoff: (secret: string) => exclusive(async state => {
@@ -150,7 +160,7 @@ export function streamService(config: Config, store = streamStore(config), media
       const guest = session(state, secret);
       if (state.handoffs!.length >= 32) throw new StreamError(429, 'Muitas aberturas recentes. Aguarde e tente novamente.');
       const next = credential();
-      state.handoffs!.push({ hash: digest(next), invite: guest.invite, expires: Math.min(guest.expires, now() + 60000) });
+      state.handoffs!.push({ hash: digest(next), invite: guest.invite, expires: Math.min(guest.expires, now() + 60000), name: streamDisplayName(guest.name) });
       return { credential: next };
     }),
     join: (secret: string) => exclusive(async state => {
@@ -170,12 +180,28 @@ export function streamService(config: Config, store = streamStore(config), media
       session(state, secret);
       if (guest.expires - now() < 1000) throw new StreamError(401, 'O convite expirou. Peça um novo link.');
       guest.identity = `stream:${randomUUID()}`; guest.issued = now();
-      const token = new AccessToken(config.LIVEKIT_API_KEY, config.LIVEKIT_API_SECRET, { identity: guest.identity, name: `Visitante ${guest.label}`, ttl: Math.max(1, Math.min(120, Math.floor((guest.expires - now()) / 1000))) });
+      const token = new AccessToken(config.LIVEKIT_API_KEY, config.LIVEKIT_API_SECRET, { identity: guest.identity, name: streamDisplayName(guest.name) ?? `Visitante ${guest.label}`, ttl: Math.max(1, Math.min(120, Math.floor((guest.expires - now()) / 1000))) });
       token.addGrant({ roomJoin: true, room, canSubscribe: true, canPublish: invite.role === 'share', canPublishSources: invite.role === 'share' ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : [], canPublishData: false, canUpdateOwnMetadata: false, roomAdmin: false, roomCreate: false, roomList: false, roomRecord: false });
       token.roomConfig = new RoomConfiguration({ name: room, maxParticipants: 8, emptyTimeout: 300, departureTimeout: 30 });
       return { token: await token.toJwt(), serverUrl: config.LIVEKIT_URL, expires: guest.expires, role: invite.role, connectionId: guest.identity.slice(7) };
     }),
     status: (secret: string) => exclusive(async state => { const cleanupPending = await cleanup(state); const guest = session(state, secret); return { expires: guest.expires, role: invitation(state, guest)!.role, cleanupPending }; }),
+    // Client SDK confirms an actual video subscription, not selection intent. Store only its SID on this admission.
+    viewing: async (secret: string, connectionId: string, trackSid: string | null) => {
+      const state = await store.read(); const guest = session(state, secret);
+      if (guest.identity !== `stream:${connectionId}`) throw new StreamError(409, 'Conexão de visualização desatualizada.');
+      const identity = guest.identity;
+      if (trackSid) {
+        const people = await active();
+        const publisher = people.find(person => person.identity !== identity && person.tracks.some(track => track.sid === trackSid && track.source === TrackSource.SCREEN_SHARE));
+        const owner = state.guests.find(item => item.identity === publisher?.identity);
+        if (!owner || owner.expires <= now() || !validInvite(state, invitation(state, owner)) || invitation(state, owner)?.role !== 'share') throw new StreamError(400, 'Transmissão indisponível.');
+      }
+      const current = session(await store.read(), secret);
+      if (current.identity !== identity) throw new StreamError(409, 'Conexão de visualização desatualizada.');
+      await media.updateParticipant(room, identity, { attributes: { [STREAM_VIEW_ATTRIBUTE]: trackSid ?? '' } });
+      return { ok: true };
+    },
     // Discovery validates bearer access but never creates a room, token or media admission.
     discover: async (secret: string) => {
       session(await store.read(), secret);
@@ -188,7 +214,9 @@ export function streamService(config: Config, store = streamStore(config), media
         const publisher = state.guests.find(item => item.identity === person.identity);
         if (!publisher || publisher.expires <= now() || !validInvite(state, invitation(state, publisher)) || invitation(state, publisher)?.role !== 'share') return [];
         const screen = person.tracks.find(track => track.source === TrackSource.SCREEN_SHARE);
-        return screen ? [{ identity: person.identity, sid: screen.sid, label: publisher.label }] : [];
+        // A failed provider removal can leave a revoked viewer receiving media: keep counting until it leaves.
+        const viewers = screen ? people.filter(viewer => viewer.identity !== person.identity && viewer.state === ParticipantInfo_State.ACTIVE && viewer.attributes[STREAM_VIEW_ATTRIBUTE] === screen.sid && state.guests.some(item => item.identity === viewer.identity)).length : 0;
+        return screen ? [{ identity: person.identity, sid: screen.sid, label: publisher.label, name: streamDisplayName(publisher.name), viewers }] : [];
       });
       return { expires: guest.expires, role: invitation(state, guest)!.role, streams };
     },

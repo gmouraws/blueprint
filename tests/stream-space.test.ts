@@ -5,6 +5,7 @@ import { ParticipantInfo, Room, TrackInfo, TrackSource, TokenVerifier } from 'li
 import { streamService, streamRoom, credential, digest, type StreamState, type StreamStore } from '../src/lib/server/stream-space';
 import { roomService } from '../src/lib/server/livekit';
 import { fixtureConfig } from './config-fixture';
+import { STREAM_VIEW_ATTRIBUTE } from '../src/lib/stream-labels';
 
 function fixture() {
   const state = { data: { invitations: [], guests: [], sequence: 0 } as StreamState, lock: '', fence: true, now: Date.now(), people: [] as ParticipantInfo[], revoked: [] as string[], outage: false };
@@ -138,7 +139,7 @@ test('authorized discovery lists only admitted publishers and never allocates a 
   const publisher = await guest('share'); const joined = await api.join(publisher.secret);
   state.people = [new ParticipantInfo({ identity: `stream:${joined.connectionId}`, tracks: [new TrackInfo({ sid: 'TR_screen', source: TrackSource.SCREEN_SHARE }), new TrackInfo({ sid: 'TR_audio', source: TrackSource.SCREEN_SHARE_AUDIO })] }), new ParticipantInfo({ identity: 'unknown', tracks: [new TrackInfo({ sid: 'TR_untrusted', source: TrackSource.SCREEN_SHARE })] })];
   const snapshot = await api.discover(watcher.secret);
-  assert.deepEqual(snapshot.streams, [{ identity: `stream:${joined.connectionId}`, sid: 'TR_screen', label: 2 }]);
+  assert.deepEqual(snapshot.streams, [{ identity: `stream:${joined.connectionId}`, sid: 'TR_screen', label: 2, name: undefined, viewers: 0 }]);
   assert.equal(state.data.guests[0].identity, undefined);
   assert.ok(!JSON.stringify(snapshot).includes(watcher.secret));
   await api.manage('revoke', { id: publisher.link.id });
@@ -167,4 +168,46 @@ test('slow discovery cannot block admission and rechecks revocation after provid
     await api.manage('revoke', { id: watcher.link.id });
   } finally { release(); }
   await rejected;
+});
+
+test('Discord names belong to individual one-use tickets/sessions, survive desktop handoff and never mutate shared invitations', async () => {
+  const {api,state}=fixture();const pair=(await api.persistent('create')).links!;
+  const alice=(await api.discordLinks('Alice'))!,bob=(await api.discordLinks('Bob'))!;
+  assert.notEqual(alice.share,bob.share);assert.notEqual(alice.share,pair.share);
+  assert.ok(!JSON.stringify(state.data.invitations).includes('Alice'));assert.ok(!JSON.stringify(state.data.invitations).includes('Bob'));
+  const a=await api.exchange(alice.share), b=await api.exchange(bob.watch);
+  const aj=await api.join(a.secret),bj=await api.join(b.secret);
+  const verifier=new TokenVerifier(fixtureConfig.LIVEKIT_API_KEY,fixtureConfig.LIVEKIT_API_SECRET);
+  assert.equal((await verifier.verify(aj.token)).name,'Alice');assert.equal((await verifier.verify(bj.token)).name,'Bob');
+  assert.notEqual(aj.connectionId,bj.connectionId);await assert.rejects(api.exchange(alice.share));
+  const handoff=await api.handoff(a.secret),desktop=await api.exchange(handoff.credential);
+  assert.equal((await verifier.verify((await api.join(desktop.secret)).token)).name,'Alice');
+  const fresh=(await api.discordLinks('Carol'))!;const replacement=await api.exchange(fresh.watch,b.secret);
+  assert.equal((await verifier.verify((await api.join(replacement.secret)).token)).name,'Carol');
+  const anonymous=await api.exchange(pair.watch);
+  assert.match(String((await verifier.verify((await api.join(anonymous.secret)).token)).name),/^Visitante \d+$/);
+  const expired=(await api.discordLinks('Expired'))!;state.now+=300001;await assert.rejects(api.exchange(expired.share));
+  const revoked=(await api.discordLinks('Revoked'))!;await api.persistent('rotate');await assert.rejects(api.exchange(revoked.watch));
+});
+
+test('viewer totals use confirmed video subscriptions on active admissions, not room membership, and cleanly follow switch/stop/disconnect', async () => {
+  const {api,state,guest,media}=fixture();
+  const p1=await guest(),p2=await guest(),v=await guest('watch'),idle=await guest('watch');
+  const a=await api.join(p1.secret),b=await api.join(p2.secret),c=await api.join(v.secret),d=await api.join(idle.secret);
+  state.people=[new ParticipantInfo({identity:`stream:${a.connectionId}`,state:2,tracks:[new TrackInfo({sid:'TR_one',source:TrackSource.SCREEN_SHARE})]}),new ParticipantInfo({identity:`stream:${b.connectionId}`,state:2,tracks:[new TrackInfo({sid:'TR_two',source:TrackSource.SCREEN_SHARE})]}),new ParticipantInfo({identity:`stream:${c.connectionId}`,state:2}),new ParticipantInfo({identity:`stream:${d.connectionId}`,state:2})];
+  media.updateParticipant=async(_room,identity,options)=>{const person=state.people.find(p=>p.identity===identity)!;Object.assign(person.attributes,typeof options==='object'?options.attributes:{});return person;};
+  const counts=async()=>(await api.discover(p1.secret)).streams.map(s=>s.viewers);
+  assert.deepEqual(await counts(),[0,0]);
+  await api.viewing(v.secret,c.connectionId,'TR_one');assert.deepEqual(await counts(),[1,0]);
+  await api.viewing(v.secret,c.connectionId,'TR_two');assert.deepEqual(await counts(),[0,1]);
+  await api.viewing(v.secret,c.connectionId,null);assert.deepEqual(await counts(),[0,0]);
+  await assert.rejects(api.viewing(v.secret,a.connectionId,'TR_one'));await assert.rejects(api.viewing(p1.secret,a.connectionId,'TR_one'));await assert.rejects(api.viewing(v.secret,c.connectionId,'TR_nonexistent'));
+  await api.viewing(v.secret,c.connectionId,'TR_one');await api.viewing(idle.secret,d.connectionId,'TR_one');assert.deepEqual(await counts(),[2,0]);
+  state.people[0].attributes[STREAM_VIEW_ATTRIBUTE]='TR_one';assert.deepEqual(await counts(),[2,0]); // Publisher is excluded.
+  state.people.find(p=>p.identity===`stream:${d.connectionId}`)!.state=3;assert.deepEqual(await counts(),[1,0]);
+  state.people.push(new ParticipantInfo({identity:'unknown',state:2,attributes:{[STREAM_VIEW_ATTRIBUTE]:'TR_one'}}));assert.deepEqual(await counts(),[1,0]);
+  state.outage=true;assert.equal((await api.manage('revoke',{id:v.link.id})).cleanupPending,true);
+  assert.deepEqual(await counts(),[1,0]); // Do not claim the viewer left while provider removal failed.
+  state.outage=false;await api.cleanup();assert.deepEqual(await counts(),[0,0]);
+  await api.manage('revoke',{id:idle.link.id});await assert.rejects(api.viewing(idle.secret,d.connectionId,'TR_one'));
 });
