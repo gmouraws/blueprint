@@ -16,6 +16,7 @@ rtc:
   port_range_start: 50100
   port_range_end: 50130
   use_external_ip: false
+  enable_loopback_candidate: true
 keys:
   blueprint-test: local-test-secret-not-a-production-credential
 logging:
