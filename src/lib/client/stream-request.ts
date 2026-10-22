@@ -5,7 +5,7 @@ export class StreamRequestError extends Error {
 // Retry only a fenced-lock rejection: the server has not started the operation.
 // Network failures and other 409s may be ambiguous and must never replay tickets.
 export async function streamRequest(body: object, keepalive = false, deps = {
-  fetch: globalThis.fetch,
+  fetch: globalThis.fetch.bind(globalThis),
   wait: (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
 }) {
   const signal = AbortSignal.timeout(15000);
