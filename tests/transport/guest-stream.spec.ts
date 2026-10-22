@@ -51,10 +51,14 @@ test('transmission-only guests publish/watch one screen transport without microp
     await viewer.getByRole('button', { name: 'Silenciar áudio da tela de Visitante 1' }).click();
     await expect(viewer.locator('audio')).toHaveCount(0);
     expect(await captures(viewer)).toBe(0); expect(await captures(publisher)).toBe(0);
+    await viewer.setViewportSize({width:1440,height:900});
+    await expect.poll(() => viewer.locator('video').evaluate(el => (el as HTMLVideoElement).videoWidth)).toBe(640);
     const outbound = () => publisher.evaluate(async () => {
       const peers = (window as unknown as {mediaProbe:{peers:RTCPeerConnection[]}}).mediaProbe.peers;
       const reports = await Promise.all(peers.map(peer => peer.getStats()));
-      return reports.flatMap(report => [...report.values()]).find(stat => stat.type === 'outbound-rtp' && stat.kind === 'video' && stat.framesPerSecond > 0);
+      const videos = reports.flatMap(report => [...report.values()]).filter(stat => stat.type === 'outbound-rtp' && stat.kind === 'video');
+      const active = videos.filter(stat => stat.framesPerSecond > 0).sort((a,b)=>b.frameWidth*b.frameHeight-a.frameWidth*a.frameHeight);
+      return active.length ? {...active[0],bytesSent:videos.reduce((sum,stat)=>sum+(stat.bytesSent??0),0),timestamp:Math.max(...videos.map(stat=>stat.timestamp))} : undefined;
     });
     await expect.poll(async () => (await outbound())?.framesPerSecond ?? 0).toBeGreaterThan(0);
     const first = await outbound(); await publisher.waitForTimeout(1100); const second = await outbound();
