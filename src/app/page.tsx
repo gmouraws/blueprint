@@ -4,7 +4,12 @@ import { LandingLanguage } from '@/components/landing-language';
 import { creatorLinks, landingCopy, landingLocale } from '@/lib/landing';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 export const dynamic = 'force-dynamic';
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ lang?: string }> }): Promise<Metadata> {
+  const locale = landingLocale((await searchParams).lang) ?? landingLocale((await cookies()).get('blueprint_landing_language')?.value) ?? 'en';
+  return { title: `Blueprint Room · ${locale === 'en' ? 'A Blueprint Experiment' : 'Um experimento Blueprint'}`, description: landingCopy[locale].description };
+}
 export default async function Page({ searchParams }: { searchParams: Promise<{ lang?: string }> }) {
   const locale = landingLocale((await searchParams).lang) ?? landingLocale((await cookies()).get('blueprint_landing_language')?.value) ?? 'en';
   const copy = landingCopy[locale];

@@ -2,6 +2,8 @@
 
 Status: owner-approved scope; release requires successful private-asset and authorization verification.
 
+The owner subsequently authorized direct Production verification instead of repairing the missing Preview auth-secret scope. Keep Preview configuration unchanged, require automated checks, and validate real owner/download access after the existing Git deployment. A confirmed critical failure still blocks release. Next.js 16.4.1 is the minimal security patch required after the final build raised an advisory; no additional dependency or architecture is introduced.
+
 The public landing explains the experiment in English/Brazilian Portuguese, without media discovery, invitations, member data or installer URLs. Its restrained footer includes the owner-approved creator attribution and social links. Existing private routes, Discord callbacks and Windows contracts are preserved.
 
 Keep the original Production Windows 0.1.7 executable unchanged. Its filename, byte length and SHA-256 live in the server-only distribution module. Use the existing environment-isolated private Blob store. Verify the original checksum and the private copy before withdrawing executable assets from GitHub Releases; preserve release records, tags and checksums. Existing installed clients use hosted HTTPS and manual updates, not a GitHub updater.
