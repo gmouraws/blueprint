@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 export const POST = async (request: NextRequest) => {
   const response = await streamHandler(request);
-  if (response.ok) after(() => settleStreamAnnouncements().catch(() => { console.warn('stream_announcement_pending'); }));
+  // Discovery is frequent and read-only; signed provider events own lifecycle wakeups.
+  if (response.ok && response.headers.get('X-Blueprint-Media-Read') !== '1') after(() => settleStreamAnnouncements().catch(() => { console.warn('stream_announcement_pending'); }));
   return response;
 };

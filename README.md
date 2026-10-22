@@ -1,3 +1,7 @@
+# Blueprint streaming
+
+Current normal experience: private screen/audio streaming with Discord for voice/chat. Open `/admin` for owner invitation management. See docs/adr/025-stream-only-experience.md. Existing account/history storage is preserved.
+
 # Blueprint Room
 
 A private browser room for up to eight friends: voice, screen sharing, and one shared text channel with 30-day history and private images. All application UI is Brazilian Portuguese. Code and repository documentation are English.

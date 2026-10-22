@@ -15,6 +15,7 @@ export function ScreenMeasurements({ track }: { track?: TrackReference }) {
   useEffect(() => {
     let active = true; let pending = false;
     let previous: { frames: number; time: number } | undefined;
+    let sent: { bytes: number; time: number } | undefined;
     const measure = async () => {
       if (pending) return; pending = true;
       try {
@@ -24,7 +25,11 @@ export function ScreenMeasurements({ track }: { track?: TrackReference }) {
         if (video instanceof LocalVideoTrack) {
           const stats = await video.getSenderStats();
           const layers = stats.map(layer => `${layer.frameWidth ?? '?'}×${layer.frameHeight ?? '?'} · ${layer.framesPerSecond ?? '?'} fps`).join(' / ');
-          if (active) setMeasurement(`Captura: ${dimensions.width ?? '?'}×${dimensions.height ?? '?'} · ${dimensions.frameRate?.toFixed(1) ?? '?'} fps. Envio: ${layers || 'aguardando dados'}.`);
+          const bytes = stats.reduce((total, layer) => total + (layer.bytesSent ?? 0), 0);
+          const time = performance.now();
+          const mbps = sent && bytes >= sent.bytes ? (bytes - sent.bytes) * 8 / ((time - sent.time) * 1000) : null;
+          sent = { bytes, time };
+          if (active) setMeasurement(`Captura: ${dimensions.width ?? '?'}×${dimensions.height ?? '?'} · ${dimensions.frameRate?.toFixed(1) ?? '?'} fps. Envio: ${layers || 'aguardando dados'} · ${mbps === null ? '?' : mbps.toFixed(2)} Mbps de vídeo. Áudio e overhead não incluídos.`);
         } else if (video instanceof RemoteVideoTrack) {
           const stats = await video.getReceiverStats();
           const time = performance.now();

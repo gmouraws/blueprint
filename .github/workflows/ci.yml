@@ -37,6 +37,8 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ci-canary-blob-token-not-a-real-secret
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - name: Verify on-demand screen transport against loopback LiveKit
+        run: bash scripts/test-guest-transport.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: failure()
         with:
@@ -44,4 +46,5 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            .generated/transport-results/
           retention-days: 7

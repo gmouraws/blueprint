@@ -12,7 +12,7 @@ test('Windows tries handoff once before media; blocked opening keeps explicit br
    if(body.action==='exchange')return route.fulfill({json:{role:'share'}});
    if(body.action==='handoff'){handoffs++;return route.fulfill({json:{credential:'invalid-test-ticket-prevents-os-launch'}});}
    if(body.action==='join'){joins++;return route.fulfill({status:409,json:{error:'Espaço cheio de teste.'}});}
-   return route.fulfill({json:{ok:true}});
+   return route.fulfill({json:{role:'share',expires:Date.now()+60000,streams:[]}});
   }
   const response=await route.fetch({url:baseURL+url.pathname+url.search});await route.fulfill({response});
  });
@@ -20,7 +20,7 @@ test('Windows tries handoff once before media; blocked opening keeps explicit br
  await expect(page.getByRole('status')).toContainText('abertura automática');expect(handoffs).toBe(1);expect(joins).toBe(0);
  await expect(page.getByRole('button',{name:'Abrir no aplicativo'})).toBeVisible();await expect(page.getByRole('link',{name:'Baixar para Windows',exact:true})).toBeVisible();
  await page.waitForTimeout(1000);expect(handoffs).toBe(1);expect(joins).toBe(0);
- await page.getByRole('button',{name:'Continuar no navegador',exact:true}).click();await expect(page.getByRole('status')).toContainText('Espaço cheio de teste');expect(joins).toBe(1);expect(handoffs).toBe(1);
+ await page.getByRole('button',{name:'Continuar no navegador',exact:true}).click();await expect(page.getByRole('button',{name:'Selecionar tela'})).toBeEnabled();expect(joins).toBe(0);expect(handoffs).toBe(1);
 });
 test('guest invitation is stripped before exchange; no nickname, profile or microphone requests', async ({ page }) => {
   const capability = 'x'.repeat(43); let microphone = 0; let exchange = 0; let joins = 0;
@@ -30,11 +30,11 @@ test('guest invitation is stripped before exchange; no nickname, profile or micr
     expect(page.url()).not.toContain(capability);
     const body = route.request().postDataJSON();
     if (body.action === 'exchange') { exchange++; expect(body.credential).toBe(capability); return route.fulfill({ json: { role: 'watch', expires: Date.now() + 60000 } }); }
-    joins++; return route.fulfill({ status: 409, json: { error: 'O espaço está cheio: limite de 8 pessoas.' } });
+    if(body.action==='join') joins++; return route.fulfill({ json: {role:'watch',expires:Date.now()+60000,streams:[]} });
   });
   await page.goto(`/stream?intent=watch#invite=${capability}`);
-  await expect(page.getByRole('status')).toContainText('limite de 8 pessoas');
-  expect(exchange).toBe(1); expect(joins).toBe(1); expect(microphone).toBe(0);
+  await expect(page.getByText('Nenhuma transmissão ativa.',{exact:true})).toBeVisible();
+  expect(exchange).toBe(1); expect(joins).toBe(0); expect(microphone).toBe(0);
   await expect(page.locator('input')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /microfone|perfil|chat/i })).toHaveCount(0);
   expect(await page.evaluate(() => Object.values(localStorage).some(value => value.includes('x'.repeat(43))))).toBe(false);

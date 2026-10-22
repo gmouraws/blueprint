@@ -4,6 +4,8 @@ if(guestStream)contextBridge.exposeInMainWorld('blueprintStreamDesktop',{
   version:1,
   diagnostic:stage=>ipcRenderer.invoke('stream:diagnostic',stage),
   consumeInvite:()=>ipcRenderer.invoke('stream:invite'),
+  usageRead:()=>ipcRenderer.invoke('stream:usage-read'),
+  usageWrite:rows=>ipcRenderer.invoke('stream:usage-write',rows),
   configure:value=>ipcRenderer.invoke('stream:configure',value),
 });
 const subscribe = (channel, callback) => { const listener = (_event, value) => callback(value); ipcRenderer.on(channel, listener); return () => ipcRenderer.removeListener(channel, listener); };

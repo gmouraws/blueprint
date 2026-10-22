@@ -41,10 +41,6 @@ function updateTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Abrir Blueprint Room', click: restore }, { type: 'separator' },
     ...(streamWindow?.exists()?[{label:'Abrir transmissão',click:()=>streamWindow.restore()}]:[]),
-    { label: !webReady ? 'Aguardando integração da página' : state.available ? 'Chamada conectada' : 'Controles indisponíveis fora da chamada ou durante reconexão', enabled:false },
-    { label: 'Silenciar microfone', type: 'checkbox', checked: !state.microphone, enabled: state.available && !recording, click: () => sendAction('microphone') },
-    { label: 'Silenciar áudio recebido', type: 'checkbox', checked: state.muted, enabled: state.available && !recording, click: () => sendAction('listening') },
-    { label: 'Silenciar tudo', type: 'checkbox', checked: state.combined, enabled: state.available && !recording, click: () => sendAction('all') },
     { type: 'separator' }, { label: 'Sair do aplicativo', click: () => app.quit() },
   ]));
 }
@@ -110,7 +106,7 @@ else {
       const registered=app.setAsDefaultProtocolClient(scheme,process.execPath,[]);
       diagnostic(registered && app.isDefaultProtocolClient(scheme,process.execPath,[]) ? 'protocol_registered' : 'protocol_registration_failed');
     }
-    streamWindow=createStreamWindow({profile,here,helper:path.join(app.isPackaged?process.resourcesPath:path.join(here,'native/dist'),'process-audio.exe'),version:app.getVersion(),diagnostic,onChange:updateTray,onHide:()=>{if(!quitting && tray && !tray.isDestroyed())tray.displayBalloon({title:'Transmissão na bandeja',content:'Use Abrir transmissão para voltar ou Sair do aplicativo para encerrar a mídia.'});}});
+    streamWindow=createStreamWindow({profile,here,helper:path.join(app.isPackaged?process.resourcesPath:path.join(here,'native/dist'),'process-audio.exe'),version:app.getVersion(),usageFile:path.join(app.getPath('userData'),'stream-usage.json'),diagnostic,onChange:updateTray,onHide:()=>{if(!quitting && tray && !tray.isDestroyed())tray.displayBalloon({title:'Transmissão na bandeja',content:'Use Abrir transmissão para voltar ou Sair do aplicativo para encerrar a mídia.'});}});
     const ses = session.fromPartition(`persist:blueprint-${profile.name}`);
     ses.setUserAgent(ses.getUserAgent()+` BlueprintRoom/${app.getVersion()}`);
     win = new BrowserWindow({ width: 1180, height: 800, minWidth: 375, minHeight: 560, title: `Blueprint Room${profile.name === 'preview' ? ' · Preview' : ''}`, icon: path.join(here, 'icon.png'), backgroundColor: '#10151b', webPreferences: { session: ses, preload: path.join(here, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false } });
@@ -121,7 +117,7 @@ else {
     ipcMain.handle('capture:stop',(event,id)=>{if(sender(event)&&typeof id==='string'&&id.length===36)processAudio.release(id);});
     watchdog=setInterval(()=>{if(state.available&&Date.now()-lastSync>15000){state={...inactive};processAudio.stop();register();updateTray();}},5000);
     tray = new Tray(nativeImage.createFromPath(path.join(here, 'icon.png')).resize({ width: 32, height: 32 })); tray.setToolTip('Blueprint Room'); tray.on('double-click', restore); updateTray();
-    win.on('close', event => { if (quitting) return; event.preventDefault(); win.hide(); if (!preferences.closeExplained) { preferences.closeExplained = true; try { writeFileSync(prefsPath, JSON.stringify(preferences)); } catch { /* Optional preference. */ } tray.displayBalloon({ title: 'Blueprint Room continua aberto', content: 'A chamada continua na bandeja. Para encerrar a mídia, use “Sair do aplicativo”.' }); } });
+    win.on('close', event => { if (quitting) return; event.preventDefault(); win.hide(); if (!preferences.closeExplained) { preferences.closeExplained = true; try { writeFileSync(prefsPath, JSON.stringify(preferences)); } catch { /* Optional preference. */ } tray.displayBalloon({ title: 'Blueprint Room continua aberto', content: 'O aplicativo continua na bandeja. Para encerrar a mídia, use “Sair do aplicativo”.' }); } });
     win.webContents.on('will-navigate', (event, url) => {
       if (failed && (url === profile.origin || url === profile.origin + '/')) { event.preventDefault(); loadApplication(); }
       else if (!trusted(url, profile.origin)) event.preventDefault();

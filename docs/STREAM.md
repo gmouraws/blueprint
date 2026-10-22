@@ -1,10 +1,12 @@
+The normal product is stream-only as approved in ADR 025. `/` is a media-free entry; `/admin` retains account and invitation administration. Discovery does not allocate media connections.
+
 # Guest transmission operations
 
 The approved `/stream` experiment is separate from member rooms/chat. It uses existing LiveKit and Upstash configuration and an environment-specific namespace; no Neon migration, new infrastructure or paid service is needed. Windows 0.1.5 adds the isolated native handoff described in ADR 022.
 
 ## Owner workflow
 
-1. Sign in normally at `/`, open **Meu perfil → Convites para transmissão sem conta**.
+1. Sign in at `/admin`, open **Meu perfil → Convites para transmissão sem conta**.
 2. Choose **Somente assistir** or **Transmitir e assistir**, and validity. Create/copy the private link before closing the dialog; existing secrets cannot be recovered from the server.
 3. Send it privately. Anyone holding it can access that space; it is not an identity check. Guests see streams directly without an entry form. Sharing still requires **Selecionar tela** and the browser's capture confirmation.
 4. **Atualizar convites** lists current invitations; **Revogar** denies their sessions and requests provider disconnection. Retry if cleanup is pending. Derived viewer links are revoked with their parent.

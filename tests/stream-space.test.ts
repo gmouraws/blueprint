@@ -128,3 +128,21 @@ test('rotation commits revocation first; provider failure never returns a replac
   const other=streamService({...fixtureConfig,SESSION_SECRET:'a-different-key-that-is-at-least-thirty-two-characters'},{lock:async()=>true,read:async()=>structuredClone(state.data),save:async()=>true,unlock:async()=>{}});
   assert.equal(await other.configuredLinks(),null);await assert.rejects(other.exchange(next.share));
 });
+
+test('authorized discovery lists only admitted publishers and never allocates a media identity', async () => {
+  const { api, state, guest } = fixture();
+  const watcher = await guest('watch');
+  assert.deepEqual((await api.discover(watcher.secret)).streams, []);
+  assert.equal(state.data.guests[0].identity, undefined);
+  await assert.rejects(api.discover(credential()));
+  const publisher = await guest('share'); const joined = await api.join(publisher.secret);
+  state.people = [new ParticipantInfo({ identity: `stream:${joined.connectionId}`, tracks: [new TrackInfo({ sid: 'TR_screen', source: TrackSource.SCREEN_SHARE }), new TrackInfo({ sid: 'TR_audio', source: TrackSource.SCREEN_SHARE_AUDIO })] }), new ParticipantInfo({ identity: 'unknown', tracks: [new TrackInfo({ sid: 'TR_untrusted', source: TrackSource.SCREEN_SHARE })] })];
+  const snapshot = await api.discover(watcher.secret);
+  assert.deepEqual(snapshot.streams, [{ identity: `stream:${joined.connectionId}`, sid: 'TR_screen', label: 2 }]);
+  assert.equal(state.data.guests[0].identity, undefined);
+  assert.ok(!JSON.stringify(snapshot).includes(watcher.secret));
+  await api.manage('revoke', { id: publisher.link.id });
+  assert.deepEqual((await api.discover(watcher.secret)).streams, []);
+  await api.manage('revoke', { id: watcher.link.id });
+  await assert.rejects(api.discover(watcher.secret));
+});

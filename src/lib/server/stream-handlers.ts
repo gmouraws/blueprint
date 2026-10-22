@@ -12,7 +12,7 @@ export { invitationUrl, discordTarget } from './stream-discord';
 export const streamServices = { getConfig, verifySession, rateLimit, streamService, fetch: globalThis.fetch };
 const input = z.discriminatedUnion('action', [
   z.object({ action: z.literal('exchange'), credential: z.string().refine(validCredential) }).strict(),
-  z.object({ action: z.enum(['join', 'status', 'stopped', 'handoff']) }).strict(),
+  z.object({ action: z.enum(['join', 'status', 'discover', 'stopped', 'handoff']) }).strict(),
   z.object({ action: z.literal('leave'), connectionId: z.uuid() }).strict(),
   z.object({ action: z.literal('announce'), attempt: z.uuid() }).strict(),
 ]);
@@ -66,6 +66,7 @@ export async function streamHandler(request: NextRequest, owner = false, deps = 
       // Actual publication and notification delivery are reconciled independently by the route/events.
       return json({ ok: true, announcement: 'checked' });
     }
+    if (parsed.data.action === 'status' || parsed.data.action === 'discover') return json(await service[parsed.data.action](secret), 200, { 'X-Blueprint-Media-Read': '1' });
     return json(await service[parsed.data.action](secret));
   } catch (error) {
     if (error instanceof StreamError) return json({ error: error.message }, error.status);

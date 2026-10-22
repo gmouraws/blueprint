@@ -15,7 +15,7 @@ for (let sample = 0; sample < samples; sample++) wave.writeInt16LE(Math.round(80
 writeFileSync(waveform, wave);
 
 export default defineConfig({
-  testDir: './tests/transport', outputDir: '.generated/transport-results', workers: 1, timeout: 60000, retries: 0,
+  testDir: './tests/transport', testMatch: 'guest-stream.spec.ts', outputDir: '.generated/transport-results', workers: 1, timeout: 60000, retries: 0,
   reporter: [['list']],
   use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:3005', trace: 'off', launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-audio-capture=${waveform}`, '--autoplay-policy=user-gesture-required'] } },
   webServer: { command: 'node --import ./tests/browser-database.mjs node_modules/next/dist/bin/next start --port 3005', url: 'http://localhost:3005', reuseExistingServer: false, env: {

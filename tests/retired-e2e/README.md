@@ -1,0 +1,1 @@
+These browser scenarios exercise the retired voice/chat navigation. They are retained for reference and excluded from the active stream-only E2E suite by its testDir. Backend authentication, ownership, retention, media lifecycle and account preference tests remain active. Do not count these retired scenarios as passed release checks.
