@@ -144,3 +144,10 @@ The local NSIS 0.1.6 installer completed with exit code 0 and its registry assoc
 PR #26 merged as `58972d9c0e87f4e69adfd63b762d98b6808f31ca`. PR Quality/Windows and main Quality/publication workflows passed. The Vercel Git deployment for that commit succeeded; canonical entry and `/stream` returned 200, invalid capabilities and protected endpoints returned 401, and `/stream` retained microphone denial/no-referrer headers.
 
 The actual public Production installer (112192283 bytes) was downloaded and matched both `SHA256SUMS-production.txt` and GitHub's asset digest: `e01c3db9a3b85c6a378b3e047292a3dca847892b9f00a8d3716dec52ef1f8e55`. The download manifest is updated only after this verification. Browser continuation remains available. Installed/unpacked fixture tests and local NSIS installation evidence above do not establish real invitation admission, an active call, tray-menu clicks, or physical audio. Complete those acceptance checks manually. No data migration or configuration change is required.
+
+
+## Stream-only release (owner authorized)
+
+Baseline: main 239791a, published Windows 0.1.6, manually accepted by the owner before this task. ADR 025 records navigation retirement, on-demand media, selected-track subscriptions, 30/60 fps and local usage aggregates. No destructive migration or service upgrade is authorized. A new 0.1.7 release is authorized through the version-gated Windows workflow after main Quality succeeds. Do not update the public download manifest until published Production assets have been downloaded and their checksum independently verified. The existing 0.1.6 manifest remains the recovery download meanwhile.
+
+Validation results and remaining manual acceptance must be appended before final delivery. Synthetic tests do not establish physical Windows audio, actual protocol association, or Cloud billing savings.

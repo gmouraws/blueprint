@@ -12,5 +12,5 @@ export async function authenticate(page:Page,name='Ana') {
   await page.getByLabel('Seu nome',{exact:true}).fill(name);
   await page.getByLabel('Código do e-mail',{exact:true}).fill('123456');
   await page.getByRole('button',{name:'Confirmar código',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Abrir chat',exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:page.url().includes('/admin')?'Meu perfil':'Abrir chat',exact:true})).toBeEnabled();
 }

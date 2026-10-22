@@ -32,7 +32,7 @@ function harness() {
  const event=()=>({sender:windows.at(-1).webContents,senderFrame:windows.at(-1).webContents.mainFrame});
  return {api,ipc,windows,permissions,audio,pickers,state,intervals,event};
 }
-test('guest window isolates cookies/IPC, denies microphone and requires connected state plus explicit capture gesture',async()=>{
+test('guest window isolates cookies/IPC, denies microphone and requires authorized heartbeat plus explicit capture gesture',async()=>{
  const h=harness();await h.api.open({credential,intent:'share'});const win=h.windows[0],event=h.event();
  assert.equal(h.state.partitions[0],'blueprint-stream-production');
  assert.equal(win.options.webPreferences.sandbox,true);assert.equal(win.options.webPreferences.nodeIntegration,false);

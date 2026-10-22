@@ -16,6 +16,7 @@ test('transmission-only guests publish/watch one screen transport without microp
         token.roomConfig = new RoomConfiguration({ name, maxParticipants: 8 });
         return route.fulfill({ json: { token: await token.toJwt(), serverUrl: 'ws://127.0.0.1:7880', role: share ? 'share' : 'watch', expires: Date.now() + 60000, connectionId: crypto.randomUUID() } });
       }
+      if (action === 'discover') { const people = (await service.listRooms([name])).length ? await service.listParticipants(name) : []; return route.fulfill({json:{streams:people.flatMap(p=>p.tracks.filter(t=>t.source===TrackSource.SCREEN_SHARE).map(t=>({identity:p.identity,sid:t.sid,label:1})))}}); }
       if (action === 'announce') announced++;
       return route.fulfill({ json: { ok: true, role: share ? 'share' : 'watch', expires: Date.now() + 60000 } });
     });

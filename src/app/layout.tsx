@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 export const metadata: Metadata = {
-  title: 'Blueprint Room · Entre amigos',
-  description: 'Uma sala privada para conversar e compartilhar a tela entre amigos.',
+  title: 'Blueprint · Transmissões',
+  description: 'Transmissões privadas de tela e áudio entre amigos.',
   robots: { index: false, follow: false, nocache: true },
 };
 export default function Layout({ children }: { children: React.ReactNode }) {

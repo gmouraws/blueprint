@@ -48,9 +48,9 @@ If provenance is uncertain, do not use or publish the information.
 
 ## Product principles
 
-1. Exactly two allowlisted voice rooms, at most eight simultaneous participants combined, with server-enforced admission.
-2. Reliable voice and screen sharing before extra features.
-3. One authenticated chat channel with plain text and private images, retained for 30 days; no recordings, AI, analytics, or advertising. See docs/adr/013-two-rooms-and-private-images.md.
+1. Stream-only normal navigation; Discord handles voice and chat. Preserve the eight-person guest-media admission cap.
+2. Reliable screen sharing and selected screen audio before extra features.
+3. Preserve existing accounts, preferences, historical chat/attachments and retention jobs. Owner administration remains available separately at `/admin`; see ADR 025.
 4. No secrets in browser bundles, logs, URLs, or Git.
 5. Keep architecture small; fail closed when security dependencies are unavailable.
 6. Preserve accessibility, keyboard controls, and smaller-screen usability.

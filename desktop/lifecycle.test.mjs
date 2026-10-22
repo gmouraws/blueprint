@@ -61,17 +61,11 @@ test('permissions reject other origins/camera and canceled display selection',as
  let allowed=true;await h.permission.request(h.win.webContents,'media',v=>allowed=v,{requestingUrl:h.event.senderFrame.url,isMainFrame:true,mediaTypes:['audio']});assert.equal(allowed,false);
  let result;await h.permission.display({userGesture:false,frame:h.event.senderFrame,securityOrigin:h.event.senderFrame.url},v=>result=v);assert.equal(Object.keys(result).length,0);
 });
-test('tray actions share dispatcher but do not inherit keyboard typing exclusion; navigation clears availability',async()=>{
- const h=await harness();const active={...policy.inactive,available:true,bindings:{microphone:'Alt+F8',listening:'',all:''}};
- h.ipc.get('room:configure')(h.event,active);
- h.ipc.get('room:input')(h.event,{recording:false,typing:true});
- h.registered.get('Alt+F8')();assert.equal(h.sent.filter(value=>value[0]==='room:action').length,0);
- const mute=h.context.inspect().tray.menu.find(item=>item.label==='Silenciar microfone');assert.equal(mute.enabled,true);mute.click();assert.equal(h.sent.at(-1)[1],'microphone');
- h.ipc.get('room:configure')(h.event,{...active,microphone:true,muted:true,combined:true});
- assert.equal(h.context.inspect().tray.menu.find(item=>item.label==='Silenciar microfone').checked,false);
- assert.equal(h.context.inspect().tray.menu.find(item=>item.label==='Silenciar tudo').checked,true);
- h.win.webContents.emit('did-start-navigation',{},h.event.senderFrame.url,false,true);
- assert.equal(h.registered.size,0);assert.equal(h.context.inspect().tray.menu.find(item=>item.label==='Silenciar tudo').enabled,false);
+test('stream-only tray omits retired microphone, deafen and combined controls',async()=>{
+ const h=await harness();
+ const labels=h.context.inspect().tray.menu.map(item=>item.label).filter(Boolean);
+ assert.ok(labels.includes('Abrir Blueprint Room')); assert.ok(labels.includes('Sair do aplicativo'));
+ assert.ok(labels.every(label=>!label.includes('Silenciar')));
 });
 
 test('shutdown fences delayed tray updates and duplicate quit, including minimized window',async()=>{

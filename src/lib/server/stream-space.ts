@@ -176,6 +176,18 @@ export function streamService(config: Config, store = streamStore(config), media
       return { token: await token.toJwt(), serverUrl: config.LIVEKIT_URL, expires: guest.expires, role: invite.role, connectionId: guest.identity.slice(7) };
     }),
     status: (secret: string) => exclusive(async state => { const cleanupPending = await cleanup(state); const guest = session(state, secret); return { expires: guest.expires, role: invitation(state, guest)!.role, cleanupPending }; }),
+    // Discovery validates bearer access but never creates a room, token or media admission.
+    discover: (secret: string) => exclusive(async state => {
+      await cleanup(state);
+      const guest = session(state, secret);
+      const streams = (await active()).flatMap(person => {
+        const publisher = state.guests.find(item => item.identity === person.identity);
+        if (!publisher || publisher.expires <= now() || !validInvite(state, invitation(state, publisher)) || invitation(state, publisher)?.role !== 'share') return [];
+        const screen = person.tracks.find(track => track.source === TrackSource.SCREEN_SHARE);
+        return screen ? [{ identity: person.identity, sid: screen.sid, label: publisher.label }] : [];
+      });
+      return { expires: guest.expires, role: invitation(state, guest)!.role, streams };
+    }),
     leave: (secret: string, connectionId: string) => exclusive(async state => { const guest = validCredential(secret) ? state.guests.find(item => item.hash === digest(secret)) : undefined; if (guest?.identity === `stream:${connectionId}`) await revoke(guest); return { ok: true }; }),
     stopped: (secret: string) => exclusive(async state => {
       const guest = session(state, secret);

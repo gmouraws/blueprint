@@ -61,7 +61,7 @@ export function createStreamWindow({ profile, here, helper, version, onChange = 
       try {
         if (win && !win.isDestroyed()) {
           restore();
-          const answer = await dialog.showMessageBox(win, { type: 'question', buttons: ['Cancelar', 'Abrir novo convite'], defaultId: 0, cancelId: 0, message: 'Abrir outro convite?', detail: 'A transmissão desta janela será encerrada. As salas autenticadas permanecem abertas.' });
+          const answer = await dialog.showMessageBox(win, { type: 'question', buttons: ['Cancelar', 'Abrir novo convite'], defaultId: 0, cancelId: 0, message: 'Abrir outro convite?', detail: 'A transmissão desta janela será encerrada. O convite atual será substituído somente após sua confirmação.' });
           if (disposed || answer.response !== 1) return;
           destroy();
         }
