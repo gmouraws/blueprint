@@ -29,7 +29,9 @@ test('transmission-only guests publish/watch one screen transport without microp
     expect(await captures(publisher)).toBe(0); expect(await liveTracks(publisher)).toBe(0);
     await expect(viewer.getByRole('button', { name: 'Selecionar tela' })).toHaveCount(0);
     await publisher.getByRole('button', { name: 'Selecionar tela' }).click();
-    await expect(viewer.getByRole('button', { name: 'Assistir · Transmissão 1', exact: true })).toBeVisible();
+    await expect(publisher.getByRole('button', { name: 'Parar transmissão', exact: true })).toBeEnabled({timeout:15000});
+    // Discovery deliberately polls every 10 seconds without a media connection.
+    await expect(viewer.getByRole('button', { name: 'Assistir · Transmissão 1', exact: true })).toBeVisible({timeout:20000});
     expect(await service.listParticipants(name)).toHaveLength(1);
     await viewer.getByRole('button', { name: 'Assistir · Transmissão 1', exact: true }).click();
     await expect.poll(() => viewer.locator('video').evaluate(el => (el as HTMLVideoElement).videoWidth)).toBe(640);
