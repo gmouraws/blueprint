@@ -47,3 +47,43 @@ test('authorization loss removes capture controls while idle without a media adm
   await expect(page.getByRole('status')).toContainText('Convite revogado');
   await expect(page.getByRole('button',{name:'Selecionar tela'})).toHaveCount(0);expect(joins).toBe(0);
 });
+
+for (const role of ['share', 'watch'] as const) test(`fresh native ${role} session tolerates server clock skew without weakening revocation`, async ({ page }) => {
+  await page.clock.install();
+  const states: {available:boolean;expires:number}[] = [];
+  await page.exposeFunction('nativeStateCheck', (value:{available:boolean;expires:number}) => states.push(value));
+  await page.addInitScript(() => {
+    window.blueprintStreamDesktop = {
+      version: 1, consumeInvite: async () => 'n'.repeat(43),
+      configure: async value => {
+        // Same payload/deadline guard as the installed Windows client.
+        if (!Number.isSafeInteger(value.expires) || value.expires < 0 || value.expires > Date.now() + 12 * 3600000) throw Error('Invalid stream state');
+        await (window as unknown as {nativeStateCheck:(value:unknown)=>Promise<void>}).nativeStateCheck(value);
+        return {ready:true};
+      },
+    };
+  });
+  const serverExpires = Date.now() + 12 * 3600000 + 30000;
+  let revoked = false, joins = 0;
+  await page.route('**/api/stream', route => {
+    const {action} = route.request().postDataJSON();
+    if (action === 'join') joins++;
+    if (revoked && action === 'status') return route.fulfill({status:401,json:{error:'Convite revogado.'}});
+    return route.fulfill({json:{role,expires:serverExpires,streams:[]}});
+  });
+  await page.goto(`/stream?intent=${role}`);
+  await expect(page.getByRole('heading',{name:role==='share'?'Transmitir':'Assistir',exact:true})).toBeVisible();
+  if (role === 'share') await expect(page.getByRole('button',{name:'Selecionar tela'})).toBeEnabled();
+  else await expect(page.getByRole('button',{name:'Selecionar tela'})).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect.poll(() => states.length).toBeGreaterThan(0);
+  expect(states.at(-1)!.available).toBe(role === 'share');
+  await page.clock.fastForward(6000);
+  await expect.poll(() => states.length).toBeGreaterThan(1);
+  revoked = true;
+  await page.clock.fastForward(16000);
+  await expect(page.getByRole('status')).toContainText('Convite revogado');
+  await expect.poll(() => states.at(-1)).toEqual({available:false,expires:0});
+  await expect(page.getByRole('button',{name:'Selecionar tela'})).toHaveCount(0);
+  expect(joins).toBe(0);
+});
