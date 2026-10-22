@@ -92,14 +92,14 @@ export default function StreamSpace() {
     lifetime.current = close;
     const poll = setInterval(() => {
       if (cancelled || !authorized || pollBusy) return;
-      if (expiry && expiry <= Date.now()) { setNotice('Seu acesso expirou. Peça um novo convite.'); void close(); return; }
+      if (expiry && expiry <= Date.now()) { setNotice('Seu acesso expirou. Peça um novo convite.'); setConnection(null); void close(); return; }
       pollBusy = true;
       void post({ action: 'status' }).catch(error => {
         if (cancelled) return;
         // Lock contention is not a lost authorization; the absolute expiry still applies.
         if (error instanceof StreamRequestError && error.status === 409) return;
         // Fail closed on loss of authorization or prolonged server availability.
-        setNotice(error instanceof StreamRequestError ? error.message : 'Não foi possível validar o acesso. Reabra o espaço.'); void close();
+        setNotice(error instanceof StreamRequestError ? error.message : 'Não foi possível validar o acesso. Reabra o espaço.'); setConnection(null); void close();
       }).finally(() => { pollBusy = false; });
     }, 15000);
     window.addEventListener('pagehide', close);
@@ -194,14 +194,20 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
     const tracks = pending.current;
     const updateSubscriptions = () => subscriptions();
     const stopped = () => {
-      if (!alive.current || room.localParticipant.isScreenShareEnabled) return;
+      if (!alive.current || busyRef.current || !publishing.current || room.localParticipant.isScreenShareEnabled) return;
       publishing.current = false;
-      void post({ action: 'stopped' }).catch(() => undefined);
-      if (selectedLabel.current === null && !busyRef.current) cleanup.current = disconnect();
+      // The source ending must also release its audio while watching another screen.
+      cleanup.current = (async () => {
+        await room.localParticipant.setScreenShareEnabled(false).catch(() => undefined);
+        void post({ action: 'stopped' }).catch(() => undefined);
+        if (selectedLabel.current === null) await disconnect();
+      })();
     };
     const disconnected = () => {
       if (alive.current && !busyRef.current && (publishing.current || selectedLabel.current !== null)) onNotice('A conexão de mídia foi encerrada. Selecione a transmissão para tentar novamente.');
       publishing.current = false;
+      const connectionId = admission.current; admission.current = '';
+      if (connectionId) void post({ action: 'leave', connectionId }, true).catch(() => undefined);
     };
     room.on(RoomEvent.TrackPublished, updateSubscriptions);
     room.on(RoomEvent.LocalTrackUnpublished, stopped);
