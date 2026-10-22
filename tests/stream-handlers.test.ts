@@ -22,14 +22,15 @@ test('exchange uses a restricted HttpOnly session cookie and never returns the b
 });
 
 test('viewer updates accept only the current connection/video fields and keep origin/session protections',async()=>{
- let calls=0;const id=randomUUID();const mock=deps();
+ let calls=0;const id=randomUUID();const limits:string[]=[];
+ const mock={...deps(),rateLimit:async(...args:Parameters<typeof streamServices.rateLimit>)=>{limits.push(args[1]);}};
  mock.streamService=()=>({...service(),viewing:async(_secret,connectionId,trackSid)=>{calls++;assert.equal(connectionId,id);assert.equal(trackSid,'TR_screen');return {ok:true};}});
  const body={action:'viewing',connectionId:id,trackSid:'TR_screen'};
  assert.equal((await streamHandler(request(body),false,mock)).status,401);
  assert.equal((await streamHandler(request({...body,name:'forged'},`${STREAM_COOKIE}=${secret}`),false,mock)).status,400);
  assert.equal((await streamHandler(request(body,`${STREAM_COOKIE}=${secret}`,'https://other.test'),false,mock)).status,403);
  const response=await streamHandler(request(body,`${STREAM_COOKIE}=${secret}`),false,mock);
- assert.equal(response.status,200);assert.equal(response.headers.get('X-Blueprint-Media-Read'),'1');assert.equal(calls,1);
+ assert.equal(response.status,200);assert.equal(response.headers.get('X-Blueprint-Media-Read'),'1');assert.equal(calls,1);assert.ok(limits.includes('stream-viewing'));assert.ok(!limits.includes('stream-session'));
 });
 test('guest cookies cannot manage invitations; origin, malformed capabilities and rate failures are enforced', async () => {
   assert.equal((await streamHandler(request({ action: 'join' }), false, deps())).status, 401);

@@ -58,7 +58,8 @@ export async function streamHandler(request: NextRequest, owner = false, deps = 
       return response;
     }
     if (!validCredential(secret)) return json({ error: 'Abra um convite privado válido para acessar este espaço.' }, 401);
-    await deps.rateLimit(config, parsed.data.action === 'join' ? 'stream-join' : 'stream-session', secret);
+    // Optional counter reports must not exhaust the authorization heartbeat's budget.
+    await deps.rateLimit(config, parsed.data.action === 'join' ? 'stream-join' : parsed.data.action === 'viewing' ? 'stream-viewing' : 'stream-session', secret);
     if (parsed.data.action === 'leave') {
       return json(await service.leave(secret, parsed.data.connectionId));
     }
