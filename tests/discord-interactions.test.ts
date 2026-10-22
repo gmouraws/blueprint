@@ -12,7 +12,7 @@ const button = (custom_id = panelOpenId, permissions?: string) => ({ ...payload,
 function request(body: object = payload, age = 0) { const raw = JSON.stringify(body), timestamp = String(Math.floor(Date.now()/1000)-age);return new Request('https://www.blueprint.app.br/api/discord/interactions',{method:'POST',headers:{'x-signature-timestamp':timestamp,'x-signature-ed25519':sign(null,Buffer.from(timestamp+raw),keys.privateKey).toString('hex')},body:raw}); }
 function fixture() {
  const jobs: (()=>Promise<void>)[] = [], sent: { url: string; body: Record<string, unknown> }[]=[];let reads=0;
- const deps: typeof discordServices={...discordServices,env:()=>env,getConfig:()=>({...fixtureConfig,APP_ORIGIN:'https://www.blueprint.app.br'}),rateLimit:async()=>undefined,claim:async()=>true,streamService:()=>({...discordServices.streamService(fixtureConfig),configuredLinks:async()=>{reads++;return {share:'s'.repeat(43),watch:'w'.repeat(43)};}}),fetch:async(input: string | URL | Request,init?: RequestInit)=>{sent.push({url:String(input),body:JSON.parse(String(init?.body))});return new Response('{}');}};
+ const deps: typeof discordServices={...discordServices,env:()=>env,getConfig:()=>({...fixtureConfig,APP_ORIGIN:'https://www.blueprint.app.br'}),rateLimit:async()=>undefined,claim:async()=>true,streamService:()=>({...discordServices.streamService(fixtureConfig),discordLinks:async()=>{reads++;return {share:'s'.repeat(43),watch:'w'.repeat(43)};}}),fetch:async(input: string | URL | Request,init?: RequestInit)=>{sent.push({url:String(input),body:JSON.parse(String(init?.body))});return new Response('{}');}};
  return {deps,jobs,sent,schedule:(work:()=>Promise<void>)=>jobs.push(work),reads:()=>reads};
 }
 test('Discord verifies exact raw Ed25519 signatures, PING and freshness before any data access',async()=>{
@@ -30,7 +30,7 @@ test('only configured guild/channel receives deferred ephemeral response; provid
  const body=JSON.stringify(h.sent[0].body);assert.ok(body.includes('intent=share#invite='+'s'.repeat(43)));assert.ok(body.includes('intent=watch#invite='+'w'.repeat(43)));assert.ok(!body.includes('blueprint-room://'));assert.ok(!body.includes(panelPublishId));
 });
 test('missing invitation, replay and dependency failure never expose publishing links or create invitations',async()=>{
- const h=fixture();h.deps.streamService=()=>({...discordServices.streamService(fixtureConfig),configuredLinks:async()=>null});
+ const h=fixture();h.deps.streamService=()=>({...discordServices.streamService(fixtureConfig),discordLinks:async()=>null});
  await discordHandler(request(),h.schedule,h.deps);await h.jobs[0]();assert.ok(!JSON.stringify(h.sent).includes('#invite='));
  h.deps.claim=async()=>false;await discordHandler(request(),h.schedule,h.deps);await h.jobs[1]();assert.equal(h.sent.length,1);
  h.deps.claim=async()=>{throw Error('provider-secret-canary');};await discordHandler(request(),h.schedule,h.deps);await h.jobs[2]();assert.ok(!JSON.stringify(h.sent).includes('provider-secret-canary'));assert.ok(!JSON.stringify(h.sent).includes('#invite='));
@@ -76,7 +76,7 @@ test('publish authorization is rechecked at click time and component routes reta
 
 test('panel opens privately resolve the current invitation on every click, including rotation and revocation',async()=>{
  const h=fixture();let current: {share:string;watch:string}|null={share:'s'.repeat(43),watch:'w'.repeat(43)};let reads=0;
- h.deps.streamService=()=>({...discordServices.streamService(fixtureConfig),configuredLinks:async()=>{reads++;return current;}});
+ h.deps.streamService=()=>({...discordServices.streamService(fixtureConfig),discordLinks:async()=>{reads++;return current;}});
  for(const next of [current,{share:'n'.repeat(43),watch:'v'.repeat(43)},null]){
   current=next;
   const acknowledgement=await discordHandler(request(button()),h.schedule,h.deps);
@@ -101,4 +101,14 @@ test('panel actions share existing replay/rate limits and fail closed without le
   assert.equal(h.reads(),0);assert.equal(h.sent.length,1);assert.deepEqual(h.sent[0].body.components,[]);
   assert.ok(!JSON.stringify(h.sent[0].body).includes('private-provider-error-canary'));assert.ok(!JSON.stringify(h.sent[0].body).includes('#invite='));
  }
+});
+
+test('only signed allowed interactions forward sanitized Discord names to individual tickets',async()=>{
+ const h=fixture();const names:(string|undefined)[]=[];
+ h.deps.streamService=()=>({...discordServices.streamService(fixtureConfig),discordLinks:async name=>{names.push(name);return {share:'s'.repeat(43),watch:'w'.repeat(43)};}});
+ for(const member of [{...payload.member,nick:'Server\u0000 Name',user:{...payload.member.user,global_name:'Display',username:'user'}},{...payload.member,nick:null,user:{...payload.member.user,global_name:'Display',username:'user'}},{...payload.member,user:{...payload.member.user,username:'user'}}]){
+  await discordHandler(request({...payload,member}),h.schedule,h.deps);await h.jobs.at(-1)!();
+ }
+ assert.deepEqual(names,['Server Name','Display','user']);
+ for(const sent of h.sent){const text=JSON.stringify(sent.body);assert.ok(!text.includes(payload.member.user.id));assert.ok(!text.includes('Server'));assert.ok(!text.includes('Display'));}
 });

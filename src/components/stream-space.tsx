@@ -14,6 +14,8 @@ import { StreamMetrics } from './stream-metrics';
 import { streamRequest as post, StreamRequestError } from '@/lib/client/stream-request';
 import { WindowsDownload } from './windows-download';
 import { streamDesktopCaptureState, streamDesktopScheme, streamDesktopUrl } from '@/lib/client/stream-desktop';
+import { streamTitle } from '@/lib/stream-labels';
+import { confirmedVideoSid, viewingReporter } from '@/lib/client/stream-viewing';
 
 export default function StreamSpace() {
   const [connection, setConnection] = useState<{ room: Room; share: boolean; intent: string; desktop: boolean; expires: number } | null>(null);
@@ -140,7 +142,7 @@ function launchDesktop(credential: unknown, intent: string) {
   // Only the server's one-use 60-second ticket enters the OS protocol, never the invitation.
   location.assign(url);
 }
-type AvailableStream = { identity: string; sid: string; label: number };
+type AvailableStream = { identity: string; sid: string; label: number; name?: string; viewers?: number };
 function StreamContent({ room, share, intent, desktop, expires, onNotice }: { room: Room; share: boolean; intent: string; desktop: boolean; expires: number; onNotice: (value: string) => void }) {
   const screens = useTracks([Track.Source.ScreenShare], { onlySubscribed: true });
   const audio = useTracks([Track.Source.ScreenShareAudio], { onlySubscribed: true });
@@ -155,6 +157,7 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
   const cleanup = useRef(Promise.resolve());
   const pending = useRef<LocalTrack[]>([]);
   const targetIdentity = useRef('');
+  const viewing = useRef<ReturnType<typeof viewingReporter> | null>(null);
   const nativeStream = typeof window !== 'undefined' && window.blueprintStreamDesktop?.version === 1;
   const [nativeReady, setNativeReady] = useState(false);
   const own = screens.find(track => track.participant.isLocal);
@@ -165,6 +168,7 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
     for (const participant of room.remoteParticipants.values()) for (const publication of participant.trackPublications.values()) {
       publication.setSubscribed(participant.identity === targetIdentity.current && [Track.Source.ScreenShare, Track.Source.ScreenShareAudio].includes(publication.source));
     }
+    void viewing.current?.sync();
   }
   async function disconnect() {
     const connectionId = admission.current; admission.current = '';
@@ -187,6 +191,13 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
     let polling = false, absentSince = 0;
     const tracks = pending.current;
     const updateSubscriptions = () => subscriptions();
+    const reporter = viewingReporter(() => {
+      if (!admission.current || room.state === ConnectionState.Connecting) return null;
+      const participant = room.remoteParticipants.get(targetIdentity.current);
+      return { connectionId: admission.current, trackSid: confirmedVideoSid(room.state === ConnectionState.Connected, participant?.trackPublications.values() ?? []) };
+    }, value => post({ action: 'viewing', ...value }));
+    viewing.current = reporter;
+    const reportViewing = () => { void reporter.sync(); };
     const stopped = () => {
       if (!alive.current || busyRef.current || !publishing.current || room.localParticipant.isScreenShareEnabled) return;
       publishing.current = false;
@@ -206,6 +217,7 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
     room.on(RoomEvent.TrackPublished, updateSubscriptions);
     room.on(RoomEvent.LocalTrackUnpublished, stopped);
     room.on(RoomEvent.Disconnected, disconnected);
+    room.on(RoomEvent.TrackSubscribed, reportViewing).on(RoomEvent.TrackUnsubscribed, reportViewing).on(RoomEvent.ConnectionStateChanged, reportViewing);
     async function discover() {
       if (polling || !alive.current) return;
       polling = true;
@@ -214,6 +226,7 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
         if (!alive.current) return;
         const next: AvailableStream[] = result.streams;
         setAvailable(next);
+        void reporter.sync();
         const selected = next.find(item => item.label === selectedLabel.current);
         if (selectedLabel.current !== null && !selected) {
           absentSince ||= Date.now();
@@ -240,6 +253,8 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
       alive.current = false; clearInterval(timer);
       window.removeEventListener('pagehide', pagehide);
       room.off(RoomEvent.TrackPublished, updateSubscriptions).off(RoomEvent.LocalTrackUnpublished, stopped).off(RoomEvent.Disconnected, disconnected);
+      room.off(RoomEvent.TrackSubscribed, reportViewing).off(RoomEvent.TrackUnsubscribed, reportViewing).off(RoomEvent.ConnectionStateChanged, reportViewing);
+      reporter.stop(); if (viewing.current === reporter) viewing.current = null;
       for (const track of tracks) track.stop();
       cleanup.current = disconnect();
     };
@@ -315,8 +330,8 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
     {selection !== null && <button disabled={busy} onClick={() => void stopWatching()}>Parar de assistir</button>}
     </div>
     {share && <p className="muted">Escolha uma tela e confirme o áudio no seletor. Áudio do sistema pode incluir Discord. No Windows, áudio exclusivo do aplicativo continua experimental.</p>}
-    <div className="stream-list" role="group" aria-label="Transmissões disponíveis">{available.filter(stream => stream.identity !== room.localParticipant.identity).map(stream => <button disabled={busy} key={stream.label} aria-pressed={selection === stream.label} onClick={() => void watch(stream)}>Assistir · Transmissão {stream.label}</button>)}</div>
-    {current ? <ScreenViewer current={current} screens={screens} mini={false} hasAudio={audio.some(track => track.participant.identity === current.participant.identity)} setting={setting} onSetting={adjust} onSelect={select} onExpand={() => undefined} onHide={() => undefined} onNotice={onNotice}/> : <div className="stream-empty"><p>{available.length ? 'Escolha uma transmissão para assistir.' : 'Nenhuma transmissão ativa.'}</p><p className="muted">A lista não mantém conexão de mídia. Você conecta somente ao transmitir ou assistir.</p></div>}
+    <div className="stream-list" role="group" aria-label="Transmissões disponíveis">{available.filter(stream => stream.identity !== room.localParticipant.identity).map(stream => <button disabled={busy} key={stream.label} aria-label={`Assistir · ${streamTitle(stream.label, stream.name)}`} aria-describedby={`viewers-${stream.label}`} aria-pressed={selection === stream.label} onClick={() => void watch(stream)}><span className="stream-list-title">Assistir · {streamTitle(stream.label, stream.name)}</span><span id={`viewers-${stream.label}`} className="stream-viewer-total muted">👁 {stream.viewers ?? 0} assistindo</span></button>)}</div>
+    {current ? <ScreenViewer current={current} screens={screens} mini={false} viewers={available.find(stream => stream.identity === current.participant.identity)?.viewers} hasAudio={audio.some(track => track.participant.identity === current.participant.identity)} setting={setting} onSetting={adjust} onSelect={select} onExpand={() => undefined} onHide={() => undefined} onNotice={onNotice}/> : <div className="stream-empty"><p>{available.length ? 'Escolha uma transmissão para assistir.' : 'Nenhuma transmissão ativa.'}</p><p className="muted">A lista não mantém conexão de mídia. Você conecta somente ao transmitir ou assistir.</p></div>}
     <StreamMetrics room={room}/>
     <IncomingAudio volumes={{}} screenOnly screenIdentity={current?.participant.identity} screenSetting={setting} globalMuted={!current || setting.muted}/>
   </>;

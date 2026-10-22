@@ -8,11 +8,12 @@ import { ScreenMeasurements } from './screen-quality';
 import { type VolumeSetting } from './incoming-audio';
 import { CallAudioControls, type CallAudioControlsProps } from './call-audio-controls';
 
-export function ScreenViewer({ current, screens, mini, hasAudio, setting, onSetting, onSelect, onExpand, onHide, onNotice, audioControls, listening }: {
+export function ScreenViewer({ current, screens, mini, hasAudio, setting, onSetting, onSelect, onExpand, onHide, onNotice, audioControls, listening, viewers }: {
   current: TrackReference; screens: TrackReference[]; mini: boolean; hasAudio: boolean;
   setting: VolumeSetting; onSetting: (setting: VolumeSetting) => void; onSelect: (sid: string) => void;
   onExpand: () => void; onHide: () => void; onNotice: (notice: string) => void; audioControls?: CallAudioControlsProps;
   listening?: { enabled: boolean; toggle: () => void };
+  viewers?: number;
 }) {
   const viewer = useRef<HTMLDivElement>(null);
   const optionsName = useId();
@@ -37,6 +38,7 @@ export function ScreenViewer({ current, screens, mini, hasAudio, setting, onSett
     {/* Keep the element at the available viewing size for LiveKit's adaptive observer.
         scale-down bounds the actual decoded image without trapping a low layer after mini-player use. */}
     <VideoTrack trackRef={current} muted playsInline className="shared-video" />
+    {viewers !== undefined && <span className="stream-viewer-count muted" aria-live="polite">👁 {viewers} assistindo</span>}
     <div className="viewer-toolbar">
       <ControlMenu label="Escolher tela compartilhada" className="screen-selection-menu" triggerClassName="screen-selector" triggerContent={<><span>{owner}{current.participant.isLocal ? ' (você)' : ''}</span><Icon name="chevron" /></>}>
         <div role="radiogroup" aria-label="Telas disponíveis">{screens.map(track => <label className="screen-option" key={track.publication.trackSid}><input className="sr-only" type="radio" name={optionsName} value={track.publication.trackSid} checked={current.publication.trackSid === track.publication.trackSid} onChange={() => onSelect(track.publication.trackSid)} />{track.participant.name || 'Participante'}{track.participant.isLocal ? ' (você)' : ''}</label>)}</div>

@@ -14,6 +14,7 @@ const input = z.discriminatedUnion('action', [
   z.object({ action: z.literal('exchange'), credential: z.string().refine(validCredential) }).strict(),
   z.object({ action: z.enum(['join', 'status', 'discover', 'stopped', 'handoff']) }).strict(),
   z.object({ action: z.literal('leave'), connectionId: z.uuid() }).strict(),
+  z.object({ action: z.literal('viewing'), connectionId: z.uuid(), trackSid: z.string().regex(/^TR_[A-Za-z0-9_-]{1,100}$/).nullable() }).strict(),
   z.object({ action: z.literal('announce'), attempt: z.uuid() }).strict(),
 ]);
 const management = z.discriminatedUnion('action', [
@@ -61,6 +62,7 @@ export async function streamHandler(request: NextRequest, owner = false, deps = 
     if (parsed.data.action === 'leave') {
       return json(await service.leave(secret, parsed.data.connectionId));
     }
+    if (parsed.data.action === 'viewing') return json(await service.viewing(secret, parsed.data.connectionId, parsed.data.trackSid), 200, { 'X-Blueprint-Media-Read': '1' });
     if (parsed.data.action === 'announce') {
       await service.status(secret);
       // Actual publication and notification delivery are reconciled independently by the route/events.

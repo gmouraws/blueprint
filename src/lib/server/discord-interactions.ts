@@ -6,11 +6,12 @@ import { getConfig, type Config } from './config';
 import { rateLimit } from './rate-limit';
 import { streamService } from './stream-space';
 import { invitationUrl } from './stream-discord';
+import { discordDisplayName } from '../stream-labels';
 
 const snowflake = z.string().regex(/^\d{17,20}$/);
 const panelOpenId = 'blueprint:panel:open:v1';
 const panelPublishId = 'blueprint:panel:publish:v1';
-const interactionBase = z.object({ id: snowflake, application_id: snowflake, guild_id: snowflake, channel_id: snowflake, token: z.string().regex(/^[A-Za-z0-9_.-]{10,512}$/), member: z.object({ user: z.object({ id: snowflake }), permissions: z.string().regex(/^\d{1,40}$/).optional() }) });
+const interactionBase = z.object({ id: snowflake, application_id: snowflake, guild_id: snowflake, channel_id: snowflake, token: z.string().regex(/^[A-Za-z0-9_.-]{10,512}$/), member: z.object({ nick: z.string().max(256).nullish(), user: z.object({ id: snowflake, global_name: z.string().max(256).nullish(), username: z.string().max(256).optional() }), permissions: z.string().regex(/^\d{1,40}$/).optional() }) });
 const interactionSchema = z.discriminatedUnion('type', [
   interactionBase.extend({ type: z.literal(2), data: z.object({ name: z.literal('blueprint'), type: z.literal(1) }) }),
   interactionBase.extend({ type: z.literal(3), data: z.object({ component_type: z.literal(2), custom_id: z.enum([panelOpenId, panelPublishId]) }) }),
@@ -74,7 +75,7 @@ export async function discordHandler(request: Request, schedule: (work: () => Pr
         content = 'Blueprint — compartilhe sua tela com a galera\nClique abaixo para transmitir ou assistir.';
         components = [{ type: 1, components: [{ type: 2, style: 1, label: '🎥 Abrir Blueprint', custom_id: panelOpenId }] }];
       } else {
-        const links = await deps.streamService(runtime).configuredLinks();
+        const links = await deps.streamService(runtime).discordLinks(discordDisplayName(interaction.member));
         if (links && runtime.APP_ORIGIN.startsWith('https://')) {
           content = 'No Windows, tentaremos abrir o aplicativo. Você também pode continuar no navegador. O link é privado; a captura só começa após selecionar e confirmar a tela.';
           components = [{ type: 1, components: [{ type: 2, style: 5, label: 'Transmitir', url: invitationUrl(runtime.APP_ORIGIN, links.share, 'share') }, { type: 2, style: 5, label: 'Assistir', url: invitationUrl(runtime.APP_ORIGIN, links.watch, 'watch') }] }];

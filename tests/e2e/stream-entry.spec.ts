@@ -1,4 +1,17 @@
 import { test, expect } from '@playwright/test';
+
+test('stream names and per-video counts remain accessible on narrow screens without joining media',async({page})=>{
+  await page.setViewportSize({width:375,height:700});let joins=0;
+  await page.addInitScript(()=>Object.defineProperty(navigator,'platform',{value:'Linux'}));
+  await page.route('**/api/stream',route=>{
+    const {action}=route.request().postDataJSON();if(action==='join')joins++;
+    return route.fulfill({json:{role:'watch',expires:Date.now()+60000,streams:[{identity:'publisher',sid:'TR_named',label:1,name:'x'.repeat(48),viewers:2}]}});
+  });
+  await page.goto('/stream?intent=watch#invite='+'x'.repeat(43));
+  const stream=page.getByRole('button',{name:'Assistir · Transmissão de '+'x'.repeat(48)});
+  await expect(stream).toBeVisible();await expect(stream).toHaveAccessibleDescription('👁 2 assistindo');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(joins).toBe(0);
+});
 import AxeBuilder from '@axe-core/playwright';
 test('home is stream-only, accessible and never joins or captures; admin is a discreet separate entry', async ({page}) => {
   const media: string[] = [];
