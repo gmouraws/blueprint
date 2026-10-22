@@ -4,10 +4,10 @@ Production Interactions Endpoint URL: `https://www.blueprint.app.br/api/discord/
 
 ## Runtime configuration (Vercel Blueprint → Production)
 
-- `DISCORD_APPLICATION_ID`: `1562592101659836516`.
+- `DISCORD_APPLICATION_ID`: `<application-id>`.
 - `DISCORD_PUBLIC_KEY`: the application's 64-character public key from General Information (already supplied by the owner; do not use a bot token here).
-- `DISCORD_GUILD_ID`: `466392379667120129`.
-- `DISCORD_ALLOWED_CHANNEL_IDS`: `1562594072282271744`. This is a comma-separated exact allowlist; other channels, threads and DMs are denied.
+- `DISCORD_GUILD_ID`: `<guild-id>`.
+- `DISCORD_ALLOWED_CHANNEL_IDS`: `<channel-id>`. This is a comma-separated exact allowlist; other channels, threads and DMs are denied.
 
 These are server configuration, never NEXT_PUBLIC variables. Keep the existing `DISCORD_STREAM_WEBHOOK_URL` and `DISCORD_STREAM_ANNOUNCEMENTS_ENABLED` unchanged: they control automatic screen announcements independently. The existing APP_ORIGIN must remain the canonical HTTPS origin. The current SESSION_SECRET is also used with purpose-separated HMAC for new persistent links; no new secret is required. Never print or paste secrets into chat/logs.
 
@@ -26,7 +26,7 @@ Verified command/panel interactions use server nickname → global display name 
 
 No command re-registration, new environment variables, bot scope/token, gateway process or installer update is required. `/blueprint` keeps its existing private Transmitir/Assistir response and Windows/browser handoff. Only Discord server owners/administrators see an additional **Publicar painel** button; the handler requires the signed current member's `ADMINISTRATOR` permission (bit 8), including a fresh check when clicked. Manage Server/Manage Messages alone do not authorize publishing.
 
-1. In server `466392379667120129`, open channel `1562594072282271744` with the server owner/administrator account.
+1. In server `<guild-id>`, open channel `<channel-id>` with the server owner/administrator account.
 2. Invoke the existing `/blueprint` command. Its response is private. Click **Publicar painel** once to explicitly create a public interaction response in this channel. Nothing is posted by builds, deployments or ordinary `/blueprint` use.
 3. The public message says **Blueprint — compartilhe sua tela com a galera**, followed by **Clique abaixo para transmitir ou assistir.**, with **🎥 Abrir Blueprint**. Use Discord's message menu → **Pin Message / Fixar mensagem** and confirm. Pinning remains manual and requires the appropriate Discord permission.
 4. Anyone in the allowed channel can click **🎥 Abrir Blueprint**. Only that person receives the current private **Transmitir**/**Assistir** links and the existing Windows/browser opening flow. The public message is never edited to include those links.

@@ -4,13 +4,13 @@
 
 The owner authorized the accounts release after successful Preview OTP login. Resend reports the sender domain Verified and the authorized recipient's latest authentication message Delivered; the owner then completed login. Preview owner controls, preferences and chat history were verified, including a new account-owned message surviving reload. Physical multi-user audio and Cloud revocation acceptance remain separate checks.
 
-Before migration, the Production rollback target is commit `0a725223bcaf5dcdf5d59e0b167f7808354c86c6`, READY deployment `dpl_27L6YyZ4rPt3HFEYSJnbGr2RdAHV`. Neon Production project `green-poetry-18415626`, branch `br-sparkling-math-b8kvnjp0`, has a verified manual snapshot named `main at 2026-10-21 16:13:03 UTC (manual)`, with no expiry shown. It was created on the existing Free plan without upgrading. This is a recovery point, not evidence that the cutover is complete.
+Before migration, the Production rollback target is commit `0a725223bcaf5dcdf5d59e0b167f7808354c86c6`, READY deployment `[identifier retained in provider dashboard]`. Neon Production project `provider-managed project`, branch `[database branch in provider dashboard]`, has a verified manual snapshot named `main at 2026-10-21 16:13:03 UTC (manual)`, with no expiry shown. It was created on the existing Free plan without upgrading. This is a recovery point, not evidence that the cutover is complete.
 
 Migration 004 does not delete history or infer legacy ownership, but its insertion guards make the old shared-password writer incompatible. Prefer a forward fix after cutover. A deployment-only rollback is insufficient: coordinate database recovery under maintenance, preserve post-snapshot data and deletion tombstones, and reconcile private objects before reopening access. Do not blindly restore the snapshot after new writes because doing so could discard new data or resurrect deleted content. Keep the canonical origin and use a distinct account media namespace so retained legacy deployments cannot access the new rooms. The PR records final migration/deployment/acceptance results.
 
 ## Authorization and scope
 
-The owner authorized merging PR #8 into main and replacing the public website through the existing Vercel Git integration, project blueprint (`prj_hNhWNMGea9fQLySMr6CfR92BodNS`). This includes the eight-participant server cap, configuration fixes and compact entry screen. No other project, DNS change, paid plan or duplicate manual deployment is included.
+The owner authorized merging PR #8 into main and replacing the public website through the existing Vercel Git integration, project blueprint (`[identifier retained in provider dashboard]`). This includes the eight-participant server cap, configuration fixes and compact entry screen. No other project, DNS change, paid plan or duplicate manual deployment is included.
 
 The owner reported that Preview entry works after correcting ROOM_PASSWORD. All nine required variable names were independently confirmed in the Production scope. Production APP_ORIGIN was aligned with the existing canonical www domain before release. The environment variables are stored as write-only Secrets: distinct Production room/session values are owner-confirmed, not independently compared. No secret values were exposed.
 
@@ -25,8 +25,8 @@ Preserve the existing redirects: HTTP → HTTPS and blueprint.app.br → www.blu
 Immediately before this release, the canonical domain served the public editorial website from:
 
 - Commit: `9cebdeb8e924c69ca16d92be8bb2774c217f682e`.
-- Vercel deployment: `dpl_FWQZG6pmRStfz2XbhsjrQXaKebXP` (READY, production).
-- Deployment URL: https://blueprint-27lfhdp61-gmouraws-8238s-projects.vercel.app.
+- Vercel deployment: `[identifier retained in provider dashboard]` (READY, production).
+- Deployment URL: [historical deployment in Vercel].
 
 For an urgent recovery, use this existing project's Vercel rollback action to restore that recorded deployment, then verify the canonical domain. A Vercel rollback can stop automatic production domain assignment; explicitly check the project's promotion/auto-assignment state before a later release.
 
@@ -41,8 +41,8 @@ After reviewing the Preview delivery, the owner explicitly authorized publishing
 The immediate rollback target, recorded before this release, is the PR #9 Room baseline:
 
 - Commit: `e9eb3e29a6e19fe50413b933579e4e10aeb19f35`.
-- READY Production deployment: `dpl_3bMTrFP3ncasGvuwfK5NxCQqKP9K`.
-- URL: https://blueprint-biazh92j2-gmouraws-8238s-projects.vercel.app.
+- READY Production deployment: `[identifier retained in provider dashboard]`.
+- URL: [historical deployment in Vercel].
 
 Production preparation creates a separate private Blob store on the existing Hobby plan, binds `BLOB_ENVIRONMENT=production`, and applies migration 002 transactionally to the Production-bound Neon database. See CHAT-STORAGE.md for verified resource state. Existing session, origin and rate-limit protections remain in effect; the voice limit stays eight across both rooms combined.
 
@@ -57,8 +57,8 @@ The owner explicitly authorized this Production release after Preview delivery. 
 Immediately before this release, the canonical domain was assigned to:
 
 - Commit: `50739a9e186f8a4115f2e40be449b9ee31b7edf3` (PR #11).
-- READY Production deployment: `dpl_DfVHbgt7veJfyz2o42Ur2cgto9Mt`.
-- URL: https://blueprint-gpa12zn60-gmouraws-8238s-projects.vercel.app.
+- READY Production deployment: `[identifier retained in provider dashboard]`.
+- URL: [historical deployment in Vercel].
 
 Migration 003 was applied transactionally to the isolated Production Neon database and metadata-verified before merging. No existing messages were deleted. The existing daily cleanup schedule was verified enabled in Vercel. This is not evidence of a completed cleanup invocation; hosted deletion and physical Blob cleanup remain acceptance checks.
 
@@ -70,7 +70,7 @@ Reload open clients after deployment so they receive deletion reconciliation and
 
 Owner explicitly authorized the complete web release and public unsigned Windows test installer, without requiring manual Preview acceptance. No schema, credentials, origin, storage or retention changes are needed.
 
-Pre-release recovery target: main `f16107498a57a33e6f645aa26cc163a9c4f15d4f`, READY Production deployment `dpl_GyfE5vBeyBK1pBspat1wrDKNMvhp`, canonical https://www.blueprint.app.br. Previous installer is private Production 0.1.2, SHA-256 `94d630b0d66af5f62d7e8f7b32edd90e511c07ecdf303c0f37241d3a199d264f`. There is no prior public Windows download to restore.
+Pre-release recovery target: main `f16107498a57a33e6f645aa26cc163a9c4f15d4f`, READY Production deployment `[identifier retained in provider dashboard]`, canonical https://www.blueprint.app.br. Previous installer is private Production 0.1.2, SHA-256 `94d630b0d66af5f62d7e8f7b32edd90e511c07ecdf303c0f37241d3a199d264f`. There is no prior public Windows download to restore.
 
 Recovery: set the Windows release manifest to null in a reviewed PR to hide downloads while preserving browser entry. For urgent web recovery, roll back this project to the recorded READY Production deployment and check canonical assignment; use a normal revert PR for durable recovery. Preserve all account preference keys/data. Never reverse migrations or reset history. An installed desktop client loads the hosted page; ask users to leave the call and restart after a web rollback. To recover the shell, exit via tray and reinstall the retained private 0.1.2 binary if available, preserving its Production profile. Do not overwrite published release assets; withdraw a defective release/download and issue a new version.
 
@@ -78,7 +78,7 @@ Automated CI/build/synthetic media evidence is separate from real audio, game, t
 
 ### Published test release
 
-PR #16 merged as `dc4cd411d631fa553b92eb2335e055ba1a575aed`. Vercel Production `dpl_5AwLwoGVdu3EqCshjFyKPnqXqDTD` is READY on the canonical domain. HTTPS/redirects, ready entry, and unauthenticated account/chat/token rejection were verified. Main Quality and Windows release workflows passed.
+PR #16 merged as `dc4cd411d631fa553b92eb2335e055ba1a575aed`. Vercel Production `[identifier retained in provider dashboard]` is READY on the canonical domain. HTTPS/redirects, ready entry, and unauthenticated account/chat/token rejection were verified. Main Quality and Windows release workflows passed.
 
 [Windows test release 0.1.3](https://github.com/gmouraws/blueprint/releases/tag/windows-v0.1.3) is a public prerelease targeting that merged commit. Published installer SHA-256: `8ce762966d206758027374f4c6f59c1147ed733ae572c3ca7281857faf76645e`. The actual public installer was downloaded and matched its published checksum; its extracted app confirmed version 0.1.3, the Production profile/canonical origin and no environment files. The extracted executable passed Windows startup, preload/security flags, protected-endpoint rejection, and injected-network-failure recovery/retry. The NSIS installation wizard and physical/multi-user audio remain unverified.
 
@@ -88,13 +88,13 @@ Local checks: 78 unit/integration, 21 browser, 10 Electron policy/lifecycle, and
 
 The owner subsequently authorized publishing 0.1.4 to Production for manual testing, superseding the original private-only delivery. Release through normal PR checks and the existing Windows release/Vercel Git integrations. No schema, environment, authentication, storage or DNS changes are needed. The native adapter works with the current hosted application; the website change is the verified download manifest.
 
-Pre-release baseline: main `9dbd31cfd80f6e143ac3104c3ade60497de46296`, Production `dpl_H9Cpdme2q7M5mGNSu33dzgqgjTB1`, https://www.blueprint.app.br. Recovery installer is public `windows-v0.1.3`, SHA-256 `8ce762966d206758027374f4c6f59c1147ed733ae572c3ca7281857faf76645e`.
+Pre-release baseline: main `9dbd31cfd80f6e143ac3104c3ade60497de46296`, Production `[identifier retained in provider dashboard]`, https://www.blueprint.app.br. Recovery installer is public `windows-v0.1.3`, SHA-256 `8ce762966d206758027374f4c6f59c1147ed733ae572c3ca7281857faf76645e`.
 
 Recovery: restore the 0.1.3 download manifest (or null to hide downloads) through a reviewed PR. Exit through the tray and reinstall 0.1.3 to recover the native shell; reverting a web deployment alone cannot replace an installed helper. Keep the Production profile, accounts and history. If urgent web rollback is needed, use the recorded deployment and verify domain auto-assignment. Never overwrite existing release assets. Application audio remains opt-in and experimental until real-user acceptance; a running old client must be exited before installing the update.
 
 ### Published 0.1.4 evidence
 
-PR #20 merged as `b36632e0c211885a10b62c1a1ddfe55f72c7fb25`; main Quality and the Windows publication workflow passed. Vercel deployment `dpl_2BsrGQjViBJPXne46cHiKcrdfaZu` is READY on the canonical domain. Public entry, HTTPS redirects and unauthenticated endpoint rejection passed.
+PR #20 merged as `b36632e0c211885a10b62c1a1ddfe55f72c7fb25`; main Quality and the Windows publication workflow passed. Vercel deployment `[identifier retained in provider dashboard]` is READY on the canonical domain. Public entry, HTTPS redirects and unauthenticated endpoint rejection passed.
 
 The actual [0.1.4 release](https://github.com/gmouraws/blueprint/releases/tag/windows-v0.1.4) installer was downloaded and matched its published SHA-256: `a030e1a3f860ca341e4705488a9be4e91e51532e7ea2ebbe1abce9daeaed68e0`. Extracted contents confirm version 0.1.4, Production/canonical origin, the native helper and no environment/test fixtures; the packaged helper reports supported on this Windows host. The existing running application prevented a separate packaged startup smoke test through single-instance handoff; the owner chose manual acceptance after release. No installed application was stopped.
 
@@ -103,7 +103,7 @@ Verification: 78 unit/integration, 21 browser and 15 desktop tests passed, plus 
 
 ## Windows guest transmission 0.1.5
 
-Owner authorized installer publication and Production download update after checks. Baseline main: `3bdc00fd65c9a965b73d4beaad6d5691a56522cc`; recovery Vercel deployment: `dpl_HG6xEq4JCNy63ZMpzysQAFzsUpwG`. Recovery installer: `windows-v0.1.4`, SHA-256 `a030e1a3f860ca341e4705488a9be4e91e51532e7ea2ebbe1abce9daeaed68e0`.
+Owner authorized installer publication and Production download update after checks. Baseline main: `3bdc00fd65c9a965b73d4beaad6d5691a56522cc`; recovery Vercel deployment: `[identifier retained in provider dashboard]`. Recovery installer: `windows-v0.1.4`, SHA-256 `a030e1a3f860ca341e4705488a9be4e91e51532e7ea2ebbe1abce9daeaed68e0`.
 
 Merge the desktop/web compatibility PR through Quality and Windows checks. The existing version-gated workflow builds/publishes 0.1.5 only after main Quality succeeds. Verify the downloaded release asset and checksum before a separate download-manifest update. Vercel Git integration deploys merged web commits; do not duplicate deployments.
 
@@ -113,13 +113,13 @@ PR #23 merged as `bad081d9b51aa5ebad968649beb72b62f1644a99`; Quality, Windows in
 
 ## Persistent stream invitation and Discord command
 
-Owner authorized Production after checks. Recovery baseline is main `bad081d9b51aa5ebad968649beb72b62f1644a99`, successful Vercel deployment `dpl_Lpk8ZUyQTCXJMcj1ogAhzaR3YHqK`. No database migration, account cutover or webhook change is required. Four optional public server variables are documented in DISCORD.md; the owner confirmed saving them in Production before this merge. Bot credentials are local registration-only, never runtime configuration.
+Owner authorized Production after checks. Recovery baseline is main `bad081d9b51aa5ebad968649beb72b62f1644a99`, successful Vercel deployment `[identifier retained in provider dashboard]`. No database migration, account cutover or webhook change is required. Four optional public server variables are documented in DISCORD.md; the owner confirmed saving them in Production before this merge. Bot credentials are local registration-only, never runtime configuration.
 
 Revoke persistent invitations and confirm media cleanup before reverting this feature: older code does not understand the persistent expiry marker. A web rollback alone cannot revoke connected media. Preserve Redis state, all accounts, attachments and history. Hide the Windows download by setting its manifest to null, or restore the prior verified 0.1.4 manifest; never overwrite release assets. Discord Portal validation, command registration and a real invocation remain external acceptance steps until verified; unsigned request rejection is independently verifiable after deployment.
 
 ## Windows-first stream opening and lifecycle announcements
 
-The owner authorized direct Production release after checks. Baseline main is `c9d3467d4e80dad848dab0b52d1f585ea4759a29`, successful Production deployment `dpl_2LTwAef3xcckJp1VCdAenhmcbUqk`. The owner confirmed creating the Production LiveKit webhook with the matching signing key. The receiver is `/api/stream/events`; verify a signed Cloud test after deployment separately from local cryptographic tests.
+The owner authorized direct Production release after checks. Baseline main is `c9d3467d4e80dad848dab0b52d1f585ea4759a29`, successful Production deployment `[identifier retained in provider dashboard]`. The owner confirmed creating the Production LiveKit webhook with the matching signing key. The receiver is `/api/stream/events`; verify a signed Cloud test after deployment separately from local cryptographic tests.
 
 Web-only change compatible with installed Windows 0.1.5; no reinstall, new installer, database migration, bot runtime token or paid service. Keep the existing verified download/checksum. The local registration diagnostic improvement is included; it changes no runtime credentials. Normal GitHub Quality and Vercel Git integration remain the release gates.
 
@@ -127,7 +127,7 @@ For recovery, disable only this newly configured LiveKit webhook and revert the 
 
 ## Windows handoff and shutdown correction (0.1.6)
 
-Recovery baseline: main `d472d23f2414062de45bd10c1fecd999d9197a9b`, Production deployment `dpl_6sh3jYAbswtbd92Q5Na8e9w7VoWf`; installer `windows-v0.1.5`, SHA-256 `91469f6ac305bf39ad8044865a748a824e04467c4a7f9e5a4db2270356dda6b5`. The owner authorized web and installer publication after checks.
+Recovery baseline: main `d472d23f2414062de45bd10c1fecd999d9197a9b`, Production deployment `[identifier retained in provider dashboard]`; installer `windows-v0.1.5`, SHA-256 `91469f6ac305bf39ad8044865a748a824e04467c4a7f9e5a4db2270356dda6b5`. The owner authorized web and installer publication after checks.
 
 The installed 0.1.5 executable existed, but its protocol command was absent from the inspected Windows registry. electron-builder's generic protocols option was not consumed by its NSIS target, and the application did not register itself. Version 0.1.6 explicitly registers the quoted installed path and verifies registration at packaged startup. Browser diagnostics distinguish ticket preparation from an unconfirmed OS launch attempt. Temporary tickets remain single-use and server validated.
 
@@ -154,7 +154,7 @@ Validation results and remaining manual acceptance must be appended before final
 
 ### Stream-only validation and recovery
 
-The owner explicitly chose PR #28's 1080p targets and 30/60 fps options over the alternative economical preset. Quality and Windows CI passed before its merge as `1dfc92561657050dd8ca8e853fab75b337afb998`. The recovery web commit is `239791a38184f7b9d68de4f5d187345fc924c4c8`, with successful deployment `https://blueprint-5omz91hi5-gmouraws-8238s-projects.vercel.app`; retain the published 0.1.6 installer/checksum above.
+The owner explicitly chose PR #28's 1080p targets and 30/60 fps options over the alternative economical preset. Quality and Windows CI passed before its merge as `1dfc92561657050dd8ca8e853fab75b337afb998`. The recovery web commit is `239791a38184f7b9d68de4f5d187345fc924c4c8`, with successful deployment `[historical deployment in Vercel]`; retain the published 0.1.6 installer/checksum above.
 
 Local validation included lint, TypeScript, production build, 14 browser scenarios and 21 desktop tests. A real loopback LiveKit transport with synthetic moving canvas/tone passed publication, selected playback, mute/volume, no microphone acquisition and admission cleanup. One sample measured 640x360 at 30 fps and 0.237 Mbps for the selected outbound video encoding; this is a small synthetic source, not evidence of sustained 1080p/60 fps or total bandwidth. Audio and protocol overhead are additional and were not quantified in this final run. The regression permits adaptive downscaling and one frame of RTCStats sampling jitter.
 
@@ -176,12 +176,12 @@ Regression coverage injects missing outbound sender FPS during a real synthetic 
 
 ## Explicit Discord opening panel
 
-Owner authorized direct Production after focused checks. Recovery baseline is main `f1b7c14e07bbe8e315be687a78669a25848a1264`, successful Production deployment `https://blueprint-otehffcxn-gmouraws-8238s-projects.vercel.app`. This extension changes only the Discord handler/tests and operational documentation. Keep the existing command registration, runtime configuration, announcement webhook, hosted streaming baseline and Windows 0.1.7 download unchanged.
+Owner authorized direct Production after focused checks. Recovery baseline is main `f1b7c14e07bbe8e315be687a78669a25848a1264`, successful Production deployment `[historical deployment in Vercel]`. This extension changes only the Discord handler/tests and operational documentation. Keep the existing command registration, runtime configuration, announcement webhook, hosted streaming baseline and Windows 0.1.7 download unchanged.
 
 An administrator explicitly clicks Publicar painel in the existing ephemeral `/blueprint` response to create a public interaction response suitable for manual pinning. Deployment never posts it. The panel stores no invite; its button resolves the current persistent pair privately under the existing signature/allowlist/rate/replay protections. Focused handler tests cover publication authorization, routing, non-secret public content, private opening, rotation and revocation. Real Discord publication/pinning remains an explicit owner action; see DISCORD.md. No new dependency, installer, migration or resource. Recovery: revert this web extension and manually unpin/delete any published panel; keep the existing command, webhook and invitation data. A web rollback does not delete Discord messages.
 
 ## Discord session labels and video viewers
 
-Owner authorized direct Production after focused checks. Recovery baseline is `c5bdd6b4c2cb3ac42032d0b03e0c01d10e9ae539`, successful deployment `https://blueprint-gz9mkczl7-gmouraws-8238s-projects.vercel.app`. New optional ticket/session/journal name fields and a server-written LiveKit viewing attribute are additive; no migration or new configuration. Windows 0.1.7 consumes the same opaque fragment ticket and hosted UI, so retain its verified installer/download. Shared invitations, source quality, admission and revocation remain unchanged.
+Owner authorized direct Production after focused checks. Recovery baseline is `c5bdd6b4c2cb3ac42032d0b03e0c01d10e9ae539`, successful deployment `[historical deployment in Vercel]`. New optional ticket/session/journal name fields and a server-written LiveKit viewing attribute are additive; no migration or new configuration. Windows 0.1.7 consumes the same opaque fragment ticket and hosted UI, so retain its verified installer/download. Shared invitations, source quality, admission and revocation remain unchanged.
 
 Focus verification on signed name fallback, concurrent session isolation, handoff, safe start/end content, actual SDK subscription reports and count switching/stop/departure. No real Discord announcement or friends' physical audio/video test is implied. Existing CI remains intact. On rollback, pre-release shared invitation links still work; outstanding five-minute named entry tickets remain role/expiry/revocation bound but old code ignores their label. Old code ignores optional journal/attribute fields. Preserve existing ledger/history; do not delete invitation/session stores. Counts can remain stale until the next successful ten-second discovery/report, and are informational, not authorization.
