@@ -14,4 +14,6 @@ The command reads the current pair, never creates one. Ephemeral link buttons op
 
 Registration uses a named guild POST upsert, not bulk overwrite. The bot token is local registration-only and is not required by the deployed endpoint. Installation uses applications.commands only. Configuration is optional and fail-closed; missing Discord variables do not affect authenticated rooms or the existing webhook.
 
+Owner-approved panel extension: `/blueprint` may show an additional setup button only to a signed Discord administrator (permission bit 8). Explicit publication creates a public interaction response with a stable non-secret button ID; the application itself still requests no administrator permission. Clicking that public button resolves the current pair in a new ephemeral response through the same signature, allowlist, replay and rate-limit boundary. Publishing reads no invitations and does not run during deployment. Rotation changes subsequent private responses without replacing the public panel. No command schema, bot token, database or infrastructure change is needed.
+
 Sources: [Discord interactions](https://docs.discord.com/developers/interactions/receiving-and-responding), [guild commands and independent installation scope](https://docs.discord.com/developers/interactions/application-commands).

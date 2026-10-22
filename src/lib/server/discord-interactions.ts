@@ -8,7 +8,13 @@ import { streamService } from './stream-space';
 import { invitationUrl } from './stream-discord';
 
 const snowflake = z.string().regex(/^\d{17,20}$/);
-const command = z.object({ id: snowflake, application_id: snowflake, type: z.literal(2), guild_id: snowflake, channel_id: snowflake, token: z.string().regex(/^[A-Za-z0-9_.-]{10,512}$/), member: z.object({ user: z.object({ id: snowflake }) }), data: z.object({ name: z.literal('blueprint'), type: z.literal(1) }) });
+const panelOpenId = 'blueprint:panel:open:v1';
+const panelPublishId = 'blueprint:panel:publish:v1';
+const interactionBase = z.object({ id: snowflake, application_id: snowflake, guild_id: snowflake, channel_id: snowflake, token: z.string().regex(/^[A-Za-z0-9_.-]{10,512}$/), member: z.object({ user: z.object({ id: snowflake }), permissions: z.string().regex(/^\d{1,40}$/).optional() }) });
+const interactionSchema = z.discriminatedUnion('type', [
+  interactionBase.extend({ type: z.literal(2), data: z.object({ name: z.literal('blueprint'), type: z.literal(1) }) }),
+  interactionBase.extend({ type: z.literal(3), data: z.object({ component_type: z.literal(2), custom_id: z.enum([panelOpenId, panelPublishId]) }) }),
+]);
 const ephemeral = (content: string) => ({ type: 4, data: { content, flags: 64, allowed_mentions: { parse: [] } } });
 const response = (body: object, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
 export function discordConfiguration(env: NodeJS.ProcessEnv = process.env) {
@@ -46,11 +52,15 @@ export async function discordHandler(request: Request, schedule: (work: () => Pr
   let payload;
   try { payload = JSON.parse(raw.toString('utf8')); } catch { return response({ error: 'Invalid request' }, 400); }
   if (payload?.type === 1 && (!payload.application_id || payload.application_id === config.application)) return response({ type: 1 });
-  const parsed = command.safeParse(payload);
+  const parsed = interactionSchema.safeParse(payload);
   if (!parsed.success || parsed.data.application_id !== config.application) return response(ephemeral('Comando indisponível.'));
   const interaction = parsed.data;
   if (!config.guild || !config.channels.length) return response(ephemeral('Blueprint ainda não está configurado para este servidor.'));
   if (interaction.guild_id !== config.guild || !config.channels.includes(interaction.channel_id)) return response(ephemeral('Este comando não está disponível neste canal.'));
+  // Discord signs the current member permissions; never trust roles or client-supplied names.
+  const administrator = (BigInt(interaction.member.permissions ?? '0') & 8n) !== 0n;
+  const publishingPanel = interaction.type === 3 && interaction.data.custom_id === panelPublishId;
+  if (publishingPanel && !administrator) return response(ephemeral('Somente administradores do servidor podem publicar o painel.'));
   // Acknowledge before any Redis/provider access. Next.js after() keeps this bounded work alive.
   schedule(async () => {
     let content = 'Transmissão indisponível. Peça ao responsável para configurar ou renovar o link.';
@@ -59,16 +69,25 @@ export async function discordHandler(request: Request, schedule: (work: () => Pr
       const runtime = deps.getConfig();
       await deps.rateLimit(runtime, 'discord-command', `${interaction.guild_id}:${interaction.member.user.id}`);
       if (!await deps.claim(runtime, interaction.id)) return;
-      const links = await deps.streamService(runtime).configuredLinks();
-      if (links && runtime.APP_ORIGIN.startsWith('https://')) {
-        content = 'No Windows, tentaremos abrir o aplicativo. Você também pode continuar no navegador. O link é privado; a captura só começa após selecionar e confirmar a tela.';
-        components = [{ type: 1, components: [{ type: 2, style: 5, label: 'Transmitir', url: invitationUrl(runtime.APP_ORIGIN, links.share, 'share') }, { type: 2, style: 5, label: 'Assistir', url: invitationUrl(runtime.APP_ORIGIN, links.watch, 'watch') }] }];
+      if (publishingPanel) {
+        // A public panel never resolves or stores an invitation. Each click reads the current pair privately.
+        content = 'Blueprint — compartilhe sua tela com a galera\nClique abaixo para transmitir ou assistir.';
+        components = [{ type: 1, components: [{ type: 2, style: 1, label: '🎥 Abrir Blueprint', custom_id: panelOpenId }] }];
+      } else {
+        const links = await deps.streamService(runtime).configuredLinks();
+        if (links && runtime.APP_ORIGIN.startsWith('https://')) {
+          content = 'No Windows, tentaremos abrir o aplicativo. Você também pode continuar no navegador. O link é privado; a captura só começa após selecionar e confirmar a tela.';
+          components = [{ type: 1, components: [{ type: 2, style: 5, label: 'Transmitir', url: invitationUrl(runtime.APP_ORIGIN, links.share, 'share') }, { type: 2, style: 5, label: 'Assistir', url: invitationUrl(runtime.APP_ORIGIN, links.watch, 'watch') }] }];
+        }
+        if (interaction.type === 2 && administrator) components.push({ type: 1, components: [{ type: 2, style: 2, label: 'Publicar painel', custom_id: panelPublishId }] });
       }
-    } catch { content = 'Transmissão indisponível ou limite temporário atingido. Tente novamente em instantes.'; }
+    } catch { content = publishingPanel ? 'Não foi possível publicar o painel ou o limite temporário foi atingido. Tente novamente em instantes.' : 'Transmissão indisponível ou limite temporário atingido. Tente novamente em instantes.'; }
     try {
       const result = await deps.fetch(`https://discord.com/api/v10/webhooks/${config.application}/${interaction.token}/messages/@original`, { method: 'PATCH', redirect: 'error', signal: AbortSignal.timeout(5000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, components, allowed_mentions: { parse: [] } }) });
       if (!result.ok) console.warn('discord_interaction_response_failed');
     } catch { console.warn('discord_interaction_response_failed'); }
   });
-  return response({ type: 5, data: { flags: 64 } });
+  // Component opens create a new private response, never update the public source message.
+  // Only an explicit authorized publish action creates a public interaction response.
+  return response(publishingPanel ? { type: 5 } : { type: 5, data: { flags: 64 } });
 }
