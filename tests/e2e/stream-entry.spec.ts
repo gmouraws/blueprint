@@ -33,3 +33,17 @@ test('idle guest discovery and cancelled capture consume no admission, and 30/60
   expect(JSON.stringify(constraints)).toContain('1920');
   expect(JSON.stringify(constraints[0])).toContain('30'); expect(JSON.stringify(constraints[1])).toContain('60');
 });
+
+test('authorization loss removes capture controls while idle without a media admission',async({page})=>{
+  await page.clock.install(); let revoked=false, joins=0;
+  await page.route('**/api/stream',route=>{
+    const {action}=route.request().postDataJSON(); if(action==='join')joins++;
+    if(revoked && action==='status')return route.fulfill({status:401,json:{error:'Convite revogado.'}});
+    return route.fulfill({json:{role:'share',expires:Date.now()+60000,streams:[]}});
+  });
+  await page.goto('/stream?intent=share#invite='+'x'.repeat(43));
+  await expect(page.getByRole('button',{name:'Selecionar tela'})).toBeEnabled();
+  revoked=true;await page.clock.fastForward(16000);
+  await expect(page.getByRole('status')).toContainText('Convite revogado');
+  await expect(page.getByRole('button',{name:'Selecionar tela'})).toHaveCount(0);expect(joins).toBe(0);
+});
