@@ -13,7 +13,7 @@ import type {} from '@/lib/desktop';
 import { StreamMetrics } from './stream-metrics';
 import { streamRequest as post, StreamRequestError } from '@/lib/client/stream-request';
 import { WindowsDownload } from './windows-download';
-import { streamDesktopScheme, streamDesktopUrl } from '@/lib/client/stream-desktop';
+import { streamDesktopCaptureState, streamDesktopScheme, streamDesktopUrl } from '@/lib/client/stream-desktop';
 
 export default function StreamSpace() {
   const [connection, setConnection] = useState<{ room: Room; share: boolean; intent: string; desktop: boolean; expires: number } | null>(null);
@@ -250,7 +250,7 @@ function StreamContent({ room, share, intent, desktop, expires, onNotice }: { ro
     if (!nativeStream) return;
     let active = true;
     // Capture may be selected while idle. Authorization, explicit gesture and the native picker remain required.
-    const sync = () => { void window.blueprintStreamDesktop!.configure({ available: share, expires }).then(() => { if (active) setNativeReady(true); }).catch(() => { if (active) { setNativeReady(false); onNotice('Integração Windows indisponível. Reabra o convite.'); void room.disconnect(true); } }); };
+    const sync = () => { void window.blueprintStreamDesktop!.configure(streamDesktopCaptureState(share, expires)).then(() => { if (active) setNativeReady(true); }).catch(() => { if (active) { setNativeReady(false); onNotice('Integração Windows indisponível. Reabra o convite.'); void room.disconnect(true); } }); };
     sync(); const timer = setInterval(sync, 5000);
     return () => { active = false; clearInterval(timer); void window.blueprintStreamDesktop!.configure({ available: false, expires: 0 }).catch(() => undefined); };
   }, [nativeStream, share, expires, room, onNotice]);
