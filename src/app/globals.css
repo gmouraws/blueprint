@@ -107,11 +107,12 @@ label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 7px
 .viewing-status { color: var(--color-muted); font-size: 11px; }
 .stage-heading h1 { font-size: 15px; font-weight: 500; }
 .stage-heading button { font-size: 12px; padding: 6px 10px; }
-.screen-viewer { position: relative; background: #090d12; border: 1px solid var(--line); border-radius: 8px; flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; }
-.screen-viewer:fullscreen { width: 100%; height: 100%; border-radius: 0; }
+.screen-viewer { position: relative; background: #090d12; border: 1px solid var(--line); border-radius: 8px; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.viewer-stage { position: relative; flex: 1; min-height: 0; min-width: 0; }
 .shared-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: scale-down; object-position: center; background: #090d12; }
 .viewer-fit .shared-video { object-fit: contain; }
-.viewer-toolbar { position: absolute; top: 8px; right: 8px; max-width: calc(100% - 16px); display: flex; justify-content: flex-end; align-items: center; gap: 2px; padding: 2px 4px; border: 1px solid var(--line); border-radius: 6px; background: #181f28f5; }
+.viewer-toolbar { position: relative; flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 2px; padding: 2px 8px; border-top: 1px solid var(--line); background: #181f28f5; }
+.viewer-error { flex: none; padding: 8px; font-size: .8rem; color: var(--color-ink); background: var(--color-surface); }
 .screen-selector { flex: 1; min-width: 44px; max-width: 150px; padding: 6px 8px; font-size: 12px; background: transparent; border-color: transparent; }
 .screen-selector span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .screen-selector svg { flex: none; width: 14px; }
@@ -136,7 +137,7 @@ label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 7px
 .chat-layout > .chat-view { grid-row: 1; grid-column: 1; }
 .chat-layout > .stream-mini { grid-row: 1; grid-column: 2; padding: 8px; min-width: 0; align-self: start; }
 .stream-mini .screen-viewer { aspect-ratio: 16/10; }
-.stream-mini .viewer-toolbar { top: 2px; left: 2px; right: 2px; max-width: none; padding: 0; gap: 0; }
+.stream-mini .viewer-toolbar { padding: 0; gap: 0; }
 .stream-mini .screen-selector { max-width: 80px; min-width: 32px; padding: 4px; font-size: 11px; }
 .stream-mini .viewer-toolbar .icon-button { width: 32px; min-width: 32px; padding: 6px; }
 .stream-mini .stream-volume input { width: 48px; }
@@ -358,11 +359,16 @@ button.listening-muted { border-color: #d9ba78; color: #f3d9a5; background: #302
 .stream-list > button { min-width: 0; max-width: 100%; }
 .stream-list-title { min-width: 0; overflow-wrap: anywhere; text-align: left; }
 .stream-viewer-total { flex: none; font-size: .75rem; white-space: nowrap; }
-.stream-viewer-count { position: absolute; bottom: 8px; left: 8px; padding: 3px 6px; border-radius: 4px; background: #181f28f5; font-size: .75rem; pointer-events: none; }
+.stream-viewer-count { margin-right: auto; padding: 3px 6px; font-size: .75rem; white-space: nowrap; }
 .stream-header > button { margin-left: auto; }
 .stream-actions h1 { margin: 0 auto 0 0; font-size: 1.4rem; }
 .stream-actions label { display: flex; align-items: center; gap: 8px; }
 .stream-space .screen-viewer { flex: 1; min-height: 280px; height: min(68vh, 800px); }
+.screen-viewer:fullscreen, .stream-space .screen-viewer:fullscreen { width: 100%; height: 100%; min-height: 0; max-height: none; border: 0; border-radius: 0; }
+.screen-viewer:fullscreen .viewer-toolbar { position: absolute; bottom: 12px; left: 12px; right: 12px; border: 1px solid var(--line); border-radius: 6px; }
+.screen-viewer:fullscreen.viewer-idle { cursor: none; }
+.screen-viewer:fullscreen.viewer-idle .viewer-toolbar:not(:focus-within):not(:has(:popover-open)), .screen-viewer:fullscreen.viewer-idle .fullscreen-audio:not(:focus-within) { opacity: 0; pointer-events: none; }
+.screen-viewer:fullscreen .viewer-error { position: absolute; top: 12px; left: 12px; right: 12px; }
 .stream-empty { min-height: 240px; display: grid; place-content: center; border: 1px solid var(--line, #303b48); padding: 24px; text-align: center; }
 .stream-disclosure { color: var(--muted, #a6b2c1); font-size: .82rem; }
 .stream-invitations input { width: 100%; min-width: 0; }

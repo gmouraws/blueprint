@@ -31,7 +31,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $version = (Get-Content desktop/package.json | ConvertFrom-Json).version
-          if ($version -ne '0.1.7') { throw 'This workflow authorizes only 0.1.7. Review a new release decision first.' }
+          # New installers use private distribution; this historical grant is not transferable.
+          if ($version -ne '0.1.7') { 'publish=false' >> $env:GITHUB_OUTPUT; Write-Output 'No public release authorized for this version.'; exit 0 }
           gh release view windows-v0.1.7 --repo gmouraws/blueprint --json tagName 2>$null
           if ($LASTEXITCODE -eq 0) { 'publish=false' >> $env:GITHUB_OUTPUT } else { 'publish=true' >> $env:GITHUB_OUTPUT }
           exit 0

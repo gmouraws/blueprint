@@ -60,6 +60,21 @@ test('replacement cancels previous capture and stale window events cannot stop t
  h.api.destroy();
 });
 
+test('fullscreen is allowed only in the trusted guest window; automatic fullscreen and media stay denied',async()=>{
+ const h=harness();await h.api.open({credential,intent:'watch'});const win=h.windows[0];
+ assert.equal(h.permissions.check(win.webContents,'fullscreen',origin),true);
+ assert.equal(h.permissions.check(win.webContents,'fullscreen','https://foreign.test'),false);
+ assert.equal(h.permissions.check({},'fullscreen',origin),false);
+ for (const [permission,details,expected] of [
+  ['fullscreen',{requestingUrl:origin+'/stream',isMainFrame:true},true],
+  ['fullscreen',{requestingUrl:origin+'/stream',isMainFrame:false},false],
+  ['fullscreen',{requestingUrl:origin+'/admin',isMainFrame:true},false],
+  ['automatic-fullscreen',{requestingUrl:origin+'/stream',isMainFrame:true},false],
+  ['media',{requestingUrl:origin+'/stream',isMainFrame:true},false],
+ ]) { let actual;h.permissions.request(win.webContents,permission,value=>actual=value,details);assert.equal(actual,expected); }
+ h.api.dispose();
+});
+
 test('disposal is idempotent, removes IPC and rejects delayed opens and diagnostics',async()=>{
  const h=harness();await h.api.open({credential,intent:'watch'});
  const win=h.windows[0];h.api.dispose();h.api.dispose();

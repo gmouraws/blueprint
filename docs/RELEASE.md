@@ -1,5 +1,15 @@
 # Blueprint Room production release
 
+## Stream viewing corrections — release preparation
+
+Owner authorized direct Production after focused checks. Recovery baseline: main `5c61751bfb245eb498df4de2ea00cf96b651977c`, its current READY Production deployment recorded in the provider dashboard, and the retained private 0.1.7 installer. No data, configuration, invitation, Discord or publication-quality change is required.
+
+The viewer toolbar moves below the image. Fullscreen overrides the later normal-view height cap, handles permission/API errors, supports Escape and hides idle controls without hiding focused controls/open menus. Original/fit preserve one video element and incoming audio state. The sandboxed guest window explicitly permits ordinary fullscreen; automatic fullscreen and media permissions remain denied. The LoL follow limitation is documented in STREAM.md; no automatic source-follow implementation or real-game acceptance is claimed.
+
+Production-targeted unsigned Windows 0.1.8: `Blueprint-Room-production-0.1.8-x64-setup.exe`, 112191525 bytes, SHA-256 `792846f697bf58ba8b13be22fe07e0f24dc9db8c4c05f9de1a5f55ae91dc4757`. Build completed on Windows; packaged profile/version/sandbox/fullscreen policy were inspected. Packaging is not proof of physical Windows fullscreen/capture acceptance. The owner uploaded it to the existing private Production Blob store; the provider's storage delta matches its size and the owner-reported multipart ETag exactly matches the original's computed ETag. Download metadata now pins those verified values. Preview has no new installer copy. The historical 0.1.7 public-release workflow skips this unapproved public version, without disabling quality/build checks. Do not restore public executable assets. Preserve 0.1.7 for recovery. Roll back the web through the existing Vercel deployment and reinstall the retained private installer if necessary; keep all account/session/history data.
+
+Focused local verification covers viewing modes, fullscreen/Escape/errors, idle/menu/focus behavior, preserved video/audio state, explicit stop and a second synthetic capture ending at the source. The transport fixture uses a five-minute test session so expiry cannot mask media cleanup; its timeout includes three discovery ticks and bounded request latency. Real Windows fullscreen, physical audio and the LoL client/game lifecycle remain manual/unverified. Required CI must pass before merge; record actual deployment outcome in the PR.
+
 ## Public introduction and private installer — release pending
 
 PR preparation starts from Production main `0491c7c0b0ff996082da86b7bd0c0302dddda494`. Restore that commit's existing successful deployment in Vercel if a later release needs recovery; retain all account/history/private objects. Do not restore public executable distribution as a rollback.
