@@ -123,10 +123,13 @@ test('transmission-only guests publish/watch one screen transport without microp
     const people = await service.listParticipants(name); expect(people).toHaveLength(2);
     expect(people.flatMap(p => p.tracks).every(t => [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO].includes(t.source))).toBe(true);
     expect(announced).toBe(1);
+    const stoppedAt = Date.now();
     await publisher.getByRole('button', { name: 'Parar transmissão' }).click();
     await expect.poll(() => liveTracks(publisher)).toBe(0); await expect(viewer.locator('video')).toHaveCount(0);
     await expect.poll(async () => (await service.listParticipants(name)).length).toBe(1);
-    await expect.poll(async () => (await service.listParticipants(name)).length, {timeout:40000}).toBe(0);
+    // Three discovery ticks plus bounded request latency; do not confuse expiry with cleanup.
+    await expect.poll(async () => (await service.listParticipants(name)).length, {timeout:65000}).toBe(0);
+    expect(Date.now()-stoppedAt).toBeGreaterThanOrEqual(20000);
     // A subsequent conventional capture ending at its source also releases audio/admission.
     await publisher.getByRole('button',{name:'Selecionar tela',exact:true}).click();
     await expect(publisher.getByRole('button',{name:'Parar transmissão',exact:true})).toBeEnabled();
