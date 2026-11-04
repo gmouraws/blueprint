@@ -95,8 +95,8 @@ export function createStreamWindow({ profile, here, helper, version, usageFile, 
         const currentAudio = audio;
         picker = createScreenPicker(win, { guest: true, applicationAudio: currentAudio.supported, startApplicationAudio: id => currentAudio.start(id), cancelAudio: () => currentAudio.stop() });
         const currentPicker = picker;
-        ses.setPermissionCheckHandler((contents, permission, origin) => win === current && contents === current.webContents && trusted(origin, profile.origin) && ['display-capture', 'speaker-selection'].includes(permission));
-        ses.setPermissionRequestHandler((contents, permission, callback, details) => callback(win === current && contents === current.webContents && details.isMainFrame !== false && streamPage(details.requestingUrl, profile.origin) && ['display-capture', 'speaker-selection'].includes(permission)));
+        ses.setPermissionCheckHandler((contents, permission, origin) => win === current && contents === current.webContents && trusted(origin, profile.origin) && ['display-capture', 'speaker-selection', 'fullscreen'].includes(permission));
+        ses.setPermissionRequestHandler((contents, permission, callback, details) => callback(win === current && contents === current.webContents && details.isMainFrame !== false && streamPage(details.requestingUrl, profile.origin) && ['display-capture', 'speaker-selection', 'fullscreen'].includes(permission)));
         ses.setDisplayMediaRequestHandler(async (request, callback) => {
           if (win !== current || choosing || !canCapture() || !request.userGesture || request.frame !== win?.webContents.mainFrame || !trusted(request.securityOrigin, profile.origin)) { callback({}); return; }
           choosing = true; selected = false; currentAudio.stop();

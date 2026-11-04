@@ -4,7 +4,7 @@ import { instrument, captures, liveTracks, service, energy } from './fixtures';
 import { STREAM_VIEW_ATTRIBUTE } from '../../src/lib/stream-labels';
 
 test('transmission-only guests publish/watch one screen transport without microphone capture; mute and cleanup work', async ({ browser }) => {
-  test.setTimeout(120000);
+  test.setTimeout(150000);
   const name = `guest-fixture-${Date.now()}`;
   const publisher = await browser.newPage(); const viewer = await browser.newPage();
   publisher.on('console', message => { if (message.text().startsWith('stream_publish_failed ')) console.log(message.text()); });
@@ -52,6 +52,39 @@ test('transmission-only guests publish/watch one screen transport without microp
     }
     await viewer.getByRole('slider', { name: 'Volume da tela de Visitante 1' }).fill('35');
     await expect.poll(() => viewer.locator('audio').evaluate(el => (el as HTMLAudioElement).volume)).toBeCloseTo(.35);
+    // Viewing modes retain the decoded track, audio level and single connection.
+    await viewer.setViewportSize({width:1440,height:900});
+    await viewer.locator('video').evaluate(el => { (window as unknown as {sameVideo:Element}).sameVideo=el; });
+    const video = viewer.locator('video');
+    const options = viewer.getByRole('button',{name:'Opções de visualização',exact:true});
+    await expect(video).toHaveCSS('object-fit','scale-down');
+    const image = await video.boundingBox(), bar = await viewer.locator('.viewer-toolbar').boundingBox();
+    expect(bar!.y).toBeGreaterThanOrEqual(image!.y+image!.height);
+    await options.click();await viewer.getByRole('button',{name:'Ajustar à área',exact:true}).click();
+    await expect(video).toHaveCSS('object-fit','contain');
+    await options.click();await viewer.getByRole('button',{name:'Tamanho original',exact:true}).click();
+    await expect(video).toHaveCSS('object-fit','scale-down');
+    await options.click();await viewer.getByRole('button',{name:'Alternar tela cheia'}).click();
+    await expect.poll(()=>viewer.evaluate(()=>document.fullscreenElement?.classList.contains('screen-viewer'))).toBe(true);
+    await expect.poll(()=>viewer.locator('.screen-viewer').evaluate(el=>Math.abs(el.getBoundingClientRect().height-innerHeight))).toBeLessThan(2);
+    await expect(options).toHaveAttribute('aria-expanded','false');
+    await video.click({position:{x:20,y:20}});
+    await expect(viewer.locator('.viewer-toolbar')).toHaveCSS('opacity','0',{timeout:5000});
+    await viewer.mouse.move(100,100);
+    await expect(viewer.locator('.viewer-toolbar')).toHaveCSS('opacity','1');
+    await options.click();await viewer.waitForTimeout(2600);
+    await expect(viewer.locator('.viewer-toolbar')).toHaveCSS('opacity','1');
+    await viewer.getByRole('button',{name:'Fechar',exact:true}).click();
+    await viewer.keyboard.press('Escape');
+    await expect.poll(()=>viewer.evaluate(()=>document.fullscreenElement===null)).toBe(true);
+    expect(await video.evaluate(el=>(window as unknown as {sameVideo:Element}).sameVideo===el)).toBe(true);
+    await expect.poll(()=>viewer.locator('audio').evaluate(el=>(el as HTMLAudioElement).volume)).toBeCloseTo(.35);
+    expect(await service.listParticipants(name)).toHaveLength(2);expect(announced).toBe(1);
+    // A denied request must be visible instead of leaving a silent no-op control.
+    await viewer.locator('.screen-viewer').evaluate(el=>{el.requestFullscreen=async()=>{throw new DOMException('Denied','NotAllowedError');};});
+    await options.click();await viewer.getByRole('button',{name:'Alternar tela cheia'}).click();
+    await expect(viewer.locator('.viewer-error')).toContainText('Não foi possível alternar');
+    await viewer.getByRole('button',{name:'Fechar',exact:true}).click();
     await viewer.getByRole('button', { name: 'Silenciar áudio da tela de Visitante 1' }).click();
     await expect(viewer.locator('audio')).toHaveCount(0);
     expect(await captures(viewer)).toBe(0); expect(await captures(publisher)).toBe(0);
@@ -94,6 +127,16 @@ test('transmission-only guests publish/watch one screen transport without microp
     await expect.poll(() => liveTracks(publisher)).toBe(0); await expect(viewer.locator('video')).toHaveCount(0);
     await expect.poll(async () => (await service.listParticipants(name)).length).toBe(1);
     await expect.poll(async () => (await service.listParticipants(name)).length, {timeout:40000}).toBe(0);
+    // A subsequent conventional capture ending at its source also releases audio/admission.
+    await publisher.getByRole('button',{name:'Selecionar tela',exact:true}).click();
+    await expect(publisher.getByRole('button',{name:'Parar transmissão',exact:true})).toBeEnabled();
+    await expect.poll(()=>announced).toBe(2);
+    await publisher.evaluate(()=>{
+      const streams=(window as unknown as {mediaProbe:{streams:MediaStream[]}}).mediaProbe.streams;
+      const track=streams.at(-1)!.getVideoTracks()[0];track.stop();track.dispatchEvent(new Event('ended'));
+    });
+    await expect.poll(()=>liveTracks(publisher)).toBe(0);
+    await expect.poll(async()=>(await service.listParticipants(name)).length).toBe(0);
     await publisher.getByRole('button', { name: 'Sair', exact: true }).click(); await viewer.getByRole('button', { name: 'Sair', exact: true }).click();
     await expect.poll(async () => (await service.listParticipants(name)).length).toBe(0);
   } finally { await publisher.close(); await viewer.close(); await service.deleteRoom(name).catch(() => undefined); }
