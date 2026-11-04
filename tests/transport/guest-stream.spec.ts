@@ -14,15 +14,15 @@ test('transmission-only guests publish/watch one screen transport without microp
     await page.route('**/api/stream', async route => {
       const { action, trackSid } = route.request().postDataJSON();
       if (action === 'join') {
-        const token = new AccessToken('blueprint-test', 'local-test-secret-not-a-production-credential', { identity: id, name: `Visitante ${share ? 1 : 2}`, ttl: 120 });
+        const token = new AccessToken('blueprint-test', 'local-test-secret-not-a-production-credential', { identity: id, name: `Visitante ${share ? 1 : 2}`, ttl: 300 });
         token.addGrant({ roomJoin: true, room: name, canSubscribe: true, canPublish: share, canPublishSources: share ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : [], canPublishData: false });
         token.roomConfig = new RoomConfiguration({ name, maxParticipants: 8 });
-        return route.fulfill({ json: { token: await token.toJwt(), serverUrl: 'ws://127.0.0.1:7880', role: share ? 'share' : 'watch', expires: Date.now() + 60000, connectionId: crypto.randomUUID() } });
+        return route.fulfill({ json: { token: await token.toJwt(), serverUrl: 'ws://127.0.0.1:7880', role: share ? 'share' : 'watch', expires: Date.now() + 300000, connectionId: crypto.randomUUID() } });
       }
       if (action === 'viewing') { await service.updateParticipant(name,id,{attributes:{[STREAM_VIEW_ATTRIBUTE]:trackSid??''}}); return route.fulfill({json:{ok:true}}); }
       if (action === 'discover') { const people = (await service.listRooms([name])).length ? await service.listParticipants(name) : []; return route.fulfill({json:{streams:people.flatMap(p=>p.tracks.filter(t=>t.source===TrackSource.SCREEN_SHARE).map(t=>({identity:p.identity,sid:t.sid,label:1,viewers:people.filter(v=>v.identity!==p.identity&&v.attributes[STREAM_VIEW_ATTRIBUTE]===t.sid).length})))}}); }
       if (action === 'announce') announced++;
-      return route.fulfill({ json: { ok: true, role: share ? 'share' : 'watch', expires: Date.now() + 60000 } });
+      return route.fulfill({ json: { ok: true, role: share ? 'share' : 'watch', expires: Date.now() + 300000 } });
     });
     await page.goto(`/stream?intent=${share ? 'share' : 'watch'}#invite=${'x'.repeat(43)}`);
   }
