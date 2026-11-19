@@ -1,8 +1,6 @@
 name: Quality
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -10,6 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   quality:
+    if: ${{ false }} # Owner-authorized operational shutdown; restore before reactivation.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

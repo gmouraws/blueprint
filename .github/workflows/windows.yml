@@ -1,12 +1,11 @@
 name: Windows test installer
 on:
-  pull_request:
-    paths: ['desktop/**', 'src/lib/shared/**', '.github/workflows/windows.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   windows:
+    if: ${{ false }} # Owner-authorized operational shutdown; restore before reactivation.
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
